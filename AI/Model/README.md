@@ -41,4 +41,12 @@ Execute the monitor.py script using the following command:
 ```bash
 python monitor.py
 ```
+## 4. Testing Without Local Streaming
 
+If you want to test the setup without using local streaming, you can change the streaming mode to use local pictures instead.
+
+Open the configuration or the script where the `use_streaming` variable is set and modify it:
+
+```python
+use_streaming=False
+```
