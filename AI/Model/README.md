@@ -17,6 +17,20 @@ OctoPi is the Raspberry Pi version of OctoPrint. It provides an easy way to run 
 For a more detailed guide, you can refer to the [official OctoPi setup guide](https://github.com/guysoft/OctoPi).
 
 ## 2. Install the Required Packages
+Before installing the packages, you'll need to SSH into your OctoPi.
+
+### SSH into OctoPi:
+1. **Enable SSH on OctoPi**: By default, SSH is disabled for security reasons. To enable it, place a file named `ssh` (without any extension) onto the boot partition of the SD card.
+
+2. **Connect to OctoPi via SSH**: Use a terminal or an SSH client like [PuTTY](https://www.putty.org/) for Windows. The default credentials are:
+   - **Username**: pi
+   - **Password**: raspberry
+
+   Use the following command to SSH:
+   ```bash
+   ssh pi@octopi.local
+   ```
+
 To install the necessary packages, navigate to the directory containing the `.whl` files and run the following command:
 ```bash
 pip install packages/*.whl
