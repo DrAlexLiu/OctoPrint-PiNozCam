@@ -45,7 +45,7 @@ python monitor.py
 
 If you want to test the setup without using local streaming, you can change the streaming mode to use local pictures instead.
 
-Open the configuration or the script where the `use_streaming` variable is set and modify it:
+Open the script monitor.py where the `use_streaming` variable is set and modify it:
 
 ```python
 use_streaming=False
