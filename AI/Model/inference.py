@@ -3,6 +3,8 @@ import onnxruntime
 from torchvision import transforms
 import torch
 import time
+import multiprocessing
+import math
 
 def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
     """Generate anchor coordinates based on scales and ratios.
@@ -40,7 +42,7 @@ def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
     return torch.cat([xy1, xy2], dim=1)
 
 
-def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
+def _nms_bak(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
     """Apply Non-Maximum Suppression (NMS) on prediction boxes.
 
     This function suppresses boxes that have a high overlap with other boxes 
@@ -111,6 +113,55 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
 
     return out_scores, out_boxes, out_classes
 
+def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_decimal=1):
+    device = all_scores.device
+    batch_size = all_scores.size()[0]
+    out_scores = torch.zeros((batch_size, ndetections), device=device)
+    out_boxes = torch.zeros((batch_size, ndetections, 4), device=device)
+    out_classes = torch.zeros((batch_size, ndetections), device=device)
+
+    for batch in range(batch_size):
+        keep = all_scores[batch, :].nonzero(as_tuple=True)[0]
+        scores, boxes, classes = all_scores[batch, keep], all_boxes[batch, keep], all_classes[batch, keep]
+
+        if scores.nelement() == 0:
+            continue
+
+        # Round the class scores to the specified number of decimal places
+        classes_rounded = torch.round(classes * 10**rounding_decimal) / 10**rounding_decimal
+
+        scores, indices = torch.sort(scores, descending=True, dim=0)
+        boxes, classes = boxes[indices], classes[indices]
+
+        areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
+        keep = torch.ones(scores.nelement(), device=device, dtype=torch.uint8)
+
+        for i in range(ndetections):
+            if i >= keep.nonzero().nelement() or i >= scores.nelement():
+                i -= 1
+                break
+
+            xy1 = torch.max(boxes[:, :2], boxes[i, :2])
+            xy2 = torch.min(boxes[:, 2:], boxes[i, 2:])
+            inter = torch.prod((xy2 - xy1 + 1).clamp(0), 1)
+            criterion = ((scores > scores[i]) |
+                         (inter / (areas + areas[i] - inter) <= nms) |
+                         (classes_rounded != classes_rounded[i]))
+            criterion[i] = 1
+
+            keep &= criterion
+
+        keep_indices = keep.nonzero(as_tuple=True)[0]
+        scores, boxes, classes = scores[keep_indices], boxes[keep_indices], classes[keep_indices]
+
+        num_valid = len(scores)
+        # Ensure that the slices match in size by selecting the first `ndetections` or `num_valid`, whichever is smaller.
+        final_count = min(ndetections, num_valid)
+        out_scores[batch, :final_count] = scores[:final_count]
+        out_boxes[batch, :final_count, :] = boxes[:final_count, :]
+        out_classes[batch, :final_count] = classes[:final_count]
+
+    return out_scores, out_boxes, out_classes
 
 def _delta2box(deltas, anchors, size, stride):
     """Convert deltas from anchors to boxes.
@@ -284,6 +335,11 @@ def _detection_postprocess(image, cls_heads, box_heads):
     
     return scores, boxes, labels
 
+def largest_power_of_two(n):
+    # Find the exponent of the largest power of 2 less than or equal to n
+    exponent = math.floor(math.log2(n))
+    # Return the largest power of 2
+    return 2 ** exponent
 
 def image_inference(input_image, scores_threshold, img_sensitivity):
     """
@@ -306,8 +362,16 @@ def image_inference(input_image, scores_threshold, img_sensitivity):
     # model internal parameters
     _proc_img_width =480
     _proc_img_height=288
-    num_threads=2
+    #num_threads=2
+    speed_control=0.5
     bin_file="nozcam_test_q.bin"
+
+    # Get the total number of CPU cores
+    total_cpu_cores = multiprocessing.cpu_count()
+
+    # Use half of the total CPU cores, or 1 if there's only 1 core
+    num_threads_candidate = max(1, math.ceil(total_cpu_cores * speed_control))
+    num_threads = largest_power_of_two(num_threads_candidate)
 
     # Get the width and height of the image
     img_width, img_height = input_image.size
