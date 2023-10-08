@@ -3,8 +3,7 @@ import onnxruntime
 from torchvision import transforms
 import torch
 import time
-import multiprocessing
-import math
+
 
 def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
     """Generate anchor coordinates based on scales and ratios.
@@ -278,24 +277,14 @@ def _detection_postprocess(image, cls_heads, box_heads):
     
     return scores, boxes, labels
 
-def largest_power_of_two(n):
-    # Find the exponent of the largest power of 2 less than or equal to n
-    exponent = math.floor(math.log2(n))
-    # Return the largest power of 2
-    return 2 ** exponent
-
-def image_inference(input_image, scores_threshold, img_sensitivity,cpu_speed_control=0.5):
+def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2):
     """
     Performs inference on the given image using a pre-trained ONNX model.
 
     Inputs:
     - input_image (PIL.Image.Image): The input image on which inference is to be performed.
     - scores_threshold (float): Threshold for filtering boxes based on scores.
-    - img_sensitivity (float): Sensitivity value used for calculating severity.
-    - cpu_speed_control (float): Control parameter for adjusting CPU usage. 
-                                 A lower value results in lower CPU usage while a higher value 
-                                 may increase the CPU usage for potentially faster inference. 
-                                 The value should be between 0 and 1, where 0.5 is the default.    
+    - img_sensitivity (float): Sensitivity value used for calculating severity.   
 
     Outputs:
     - scores (numpy.ndarray): Confidence scores for each detected box.
@@ -311,13 +300,6 @@ def image_inference(input_image, scores_threshold, img_sensitivity,cpu_speed_con
     _proc_img_height=288
     
     bin_file="nozcam_test_q.bin"
-
-    # Get the total number of CPU cores
-    total_cpu_cores = multiprocessing.cpu_count()
-
-    # Use half of the total CPU cores, or 1 if there's only 1 core
-    num_threads_candidate = max(1, math.ceil(total_cpu_cores * cpu_speed_control))
-    num_threads = largest_power_of_two(num_threads_candidate)
 
     # Get the width and height of the image
     img_width, img_height = input_image.size
