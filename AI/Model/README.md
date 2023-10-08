@@ -38,7 +38,7 @@ sudo apt-get install libopenblas-dev
 pip install gunicorn numpy flask
 ```
 ## 3. Run the Monitoring Script
-Execute the monitor.py script using the following command:
+Execute the python script using the following command:
 
 ```bash
 gunicorn -w 4 -b 0.0.0.0:50000 flaskAI:app
