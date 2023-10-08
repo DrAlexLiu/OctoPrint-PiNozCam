@@ -41,8 +41,7 @@ def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
     
     return torch.cat([xy1, xy2], dim=1)
 
-
-def _nms_bak(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
+def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_decimal=1):
     """Apply Non-Maximum Suppression (NMS) on prediction boxes.
 
     This function suppresses boxes that have a high overlap with other boxes 
@@ -59,66 +58,11 @@ def _nms_bak(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
         tuple: Three tensors containing the scores, boxes, and classes after applying NMS.
 
     """
-    
-    device = all_scores.device
+
     batch_size = all_scores.size()[0]
-    out_scores = torch.zeros((batch_size, ndetections), device=device)
-    out_boxes = torch.zeros((batch_size, ndetections, 4), device=device)
-    out_classes = torch.zeros((batch_size, ndetections), device=device)
-
-    # Process each item in the batch
-    for batch in range(batch_size):
-        # Filter out boxes with null scores
-        keep = (all_scores[batch, :].view(-1) > 0).nonzero()
-        scores = all_scores[batch, keep].view(-1)
-        boxes = all_boxes[batch, keep, :].view(-1, 4)
-        classes = all_classes[batch, keep].view(-1)
-
-        if scores.nelement() == 0:
-            continue
-
-        # Sort boxes based on scores in descending order
-        scores, indices = torch.sort(scores, descending=True)
-        boxes, classes = boxes[indices], classes[indices]
-        
-        # Compute areas of the boxes
-        areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1).view(-1)
-        keep = torch.ones(scores.nelement(), device=device, dtype=torch.uint8).view(-1)
-
-        for i in range(ndetections):
-            if i >= keep.nonzero().nelement() or i >= scores.nelement():
-                i -= 1
-                break
-
-            # Identify boxes that overlap too much with the current box
-            xy1 = torch.max(boxes[:, :2], boxes[i, :2])
-            xy2 = torch.min(boxes[:, 2:], boxes[i, 2:])
-            inter = torch.prod((xy2 - xy1 + 1).clamp(0), 1)
-            criterion = ((scores > scores[i]) |
-                         (inter / (areas + areas[i] - inter) <= nms) |
-                         (classes != classes[i]))
-            criterion[i] = 1
-
-            # Keep boxes based on the criterion
-            scores = scores[criterion.nonzero()].view(-1)
-            boxes = boxes[criterion.nonzero(), :].view(-1, 4)
-            classes = classes[criterion.nonzero()].view(-1)
-            areas = areas[criterion.nonzero()].view(-1)
-            keep[(~criterion).nonzero()] = 0
-
-        # Store the post-NMS scores, boxes, and classes
-        out_scores[batch, :i + 1] = scores[:i + 1]
-        out_boxes[batch, :i + 1, :] = boxes[:i + 1, :]
-        out_classes[batch, :i + 1] = classes[:i + 1]
-
-    return out_scores, out_boxes, out_classes
-
-def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_decimal=1):
-    device = all_scores.device
-    batch_size = all_scores.size()[0]
-    out_scores = torch.zeros((batch_size, ndetections), device=device)
-    out_boxes = torch.zeros((batch_size, ndetections, 4), device=device)
-    out_classes = torch.zeros((batch_size, ndetections), device=device)
+    out_scores = torch.zeros((batch_size, ndetections))
+    out_boxes = torch.zeros((batch_size, ndetections, 4))
+    out_classes = torch.zeros((batch_size, ndetections))
 
     for batch in range(batch_size):
         keep = all_scores[batch, :].nonzero(as_tuple=True)[0]
@@ -128,13 +72,13 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_
             continue
 
         # Round the class scores to the specified number of decimal places
-        classes_rounded = torch.round(classes * 10**rounding_decimal) / 10**rounding_decimal
+        classes = torch.round(classes)
 
         scores, indices = torch.sort(scores, descending=True, dim=0)
         boxes, classes = boxes[indices], classes[indices]
 
         areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
-        keep = torch.ones(scores.nelement(), device=device, dtype=torch.uint8)
+        keep = torch.ones(scores.nelement(), dtype=torch.uint8)
 
         for i in range(ndetections):
             if i >= keep.nonzero().nelement() or i >= scores.nelement():
@@ -146,7 +90,7 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_
             inter = torch.prod((xy2 - xy1 + 1).clamp(0), 1)
             criterion = ((scores > scores[i]) |
                          (inter / (areas + areas[i] - inter) <= nms) |
-                         (classes_rounded != classes_rounded[i]))
+                         (classes != classes[i]))
             criterion[i] = 1
 
             keep &= criterion
@@ -160,7 +104,7 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100, rounding_
         out_scores[batch, :final_count] = scores[:final_count]
         out_boxes[batch, :final_count, :] = boxes[:final_count, :]
         out_classes[batch, :final_count] = classes[:final_count]
-
+        
     return out_scores, out_boxes, out_classes
 
 def _delta2box(deltas, anchors, size, stride):
@@ -192,8 +136,8 @@ def _delta2box(deltas, anchors, size, stride):
     pred_wh = torch.exp(deltas_float32[:, 2:]) * anchors_wh
 
     # Define the minimum and maximum values for clamping
-    m = torch.zeros([2], device=deltas.device, dtype=deltas.dtype)
-    M = (torch.tensor([size], device=deltas.device, dtype=deltas.dtype) * stride - 1)
+    m = torch.zeros([2], dtype=deltas.dtype)
+    M = (torch.tensor([size], dtype=deltas.dtype) * stride - 1)
     # Define a clamping function to ensure the bounding boxes are within the image boundaries
     clamp = lambda t: torch.max(m, torch.min(t, M))
     
@@ -232,18 +176,17 @@ def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, an
         anchors = anchors[0]
     num_boxes = 4 if not rotated else 6
 
-    # Set device, anchor type, and get dimensions
-    device = all_cls_head.device
-    anchors = anchors.to(device).type(all_cls_head.type())
+    # Set anchor type, and get dimensions
+    anchors = anchors.type(all_cls_head.type())
     num_anchors = anchors.size()[0] if anchors is not None else 1
     num_classes = all_cls_head.size()[1] // num_anchors
     height, width = all_cls_head.size()[-2:]
 
     # Initialize output tensors
     batch_size = all_cls_head.size()[0]
-    out_scores = torch.zeros((batch_size, top_n), device=device)
-    out_boxes = torch.zeros((batch_size, top_n, num_boxes), device=device)
-    out_classes = torch.zeros((batch_size, top_n), device=device)
+    out_scores = torch.zeros((batch_size, top_n))
+    out_boxes = torch.zeros((batch_size, top_n, num_boxes))
+    out_classes = torch.zeros((batch_size, top_n))
 
     # Decode boxes for each item in the batch
     for batch in range(batch_size):
@@ -341,7 +284,7 @@ def largest_power_of_two(n):
     # Return the largest power of 2
     return 2 ** exponent
 
-def image_inference(input_image, scores_threshold, img_sensitivity):
+def image_inference(input_image, scores_threshold, img_sensitivity,cpu_speed_control=0.5):
     """
     Performs inference on the given image using a pre-trained ONNX model.
 
@@ -349,6 +292,10 @@ def image_inference(input_image, scores_threshold, img_sensitivity):
     - input_image (PIL.Image.Image): The input image on which inference is to be performed.
     - scores_threshold (float): Threshold for filtering boxes based on scores.
     - img_sensitivity (float): Sensitivity value used for calculating severity.
+    - cpu_speed_control (float): Control parameter for adjusting CPU usage. 
+                                 A lower value results in lower CPU usage while a higher value 
+                                 may increase the CPU usage for potentially faster inference. 
+                                 The value should be between 0 and 1, where 0.5 is the default.    
 
     Outputs:
     - scores (numpy.ndarray): Confidence scores for each detected box.
@@ -362,15 +309,14 @@ def image_inference(input_image, scores_threshold, img_sensitivity):
     # model internal parameters
     _proc_img_width =480
     _proc_img_height=288
-    #num_threads=2
-    speed_control=0.5
+    
     bin_file="nozcam_test_q.bin"
 
     # Get the total number of CPU cores
     total_cpu_cores = multiprocessing.cpu_count()
 
     # Use half of the total CPU cores, or 1 if there's only 1 core
-    num_threads_candidate = max(1, math.ceil(total_cpu_cores * speed_control))
+    num_threads_candidate = max(1, math.ceil(total_cpu_cores * cpu_speed_control))
     num_threads = largest_power_of_two(num_threads_candidate)
 
     # Get the width and height of the image

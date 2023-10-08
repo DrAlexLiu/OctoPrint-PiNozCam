@@ -17,10 +17,11 @@ def infer():
     # Get the thresholds and parameters from the request
     scores_threshold = float(request.form['scores_threshold'])
     img_sensitivity = float(request.form['img_sensitivity'])
+    cpu_speed_control = float(request.form['cpu_speed_control'])
 
     # Call the image_inference function
     scores, boxes, labels, severity, elapsed_time = image_inference(
-        input_image, scores_threshold, img_sensitivity)
+        input_image, scores_threshold, img_sensitivity,cpu_speed_control)
 
     # Convert ndarray to list
     if isinstance(scores, np.ndarray):

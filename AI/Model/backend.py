@@ -13,6 +13,7 @@ area_threshold = 0.04
 img_sensitivity = 0.04
 scores_threshold = 0.65
 max_count=10
+cpu_speed_control=0.5
 count_time=5*60
 inference_interval=10
 
@@ -47,7 +48,8 @@ while True:
     response = requests.post('http://127.0.0.1:50000/infer', 
                              data={'image': encoded_string, 
                                    'scores_threshold': scores_threshold, 
-                                   'img_sensitivity': img_sensitivity})
+                                   'img_sensitivity': img_sensitivity,
+                                   'cpu_speed_control':cpu_speed_control})
 
     # Check the response
     if response.ok:
@@ -107,10 +109,20 @@ while True:
 
 # Draw boxes
 draw = ImageDraw.Draw(input_image)
-for box in boxes[0]:  # Assuming you have a single image and boxes is a list of bounding boxes
-    # Extract corners
-    x1, y1, x2, y2 = box
-    draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=2)
+
+# Iterate through all boxes, scores, and labels in the first image
+for box, score, label in zip(boxes[0], scores[0], labels[0]):
+    # Check if label is 1 and score is greater than or equal to printlayout_threshold
+    if label == 1 and score >= printlayout_threshold:
+        # Extract corners
+        x1, y1, x2, y2 = box
+        draw.rectangle([(x1, y1), (x2, y2)], outline=color, width=2)
+
+        # Format score as a string and draw it
+        score_text = f"{score:.2f}"
+        text_size = draw.textsize(score_text)
+        text_position = (x2 - text_size[0], y1)
+        draw.text(text_position, score_text, fill=color)
 
 # Save the image with boxes
 input_image.save("result.jpg")
