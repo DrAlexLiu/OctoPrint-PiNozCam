@@ -113,7 +113,7 @@ draw = ImageDraw.Draw(input_image)
 # Iterate through all boxes, scores, and labels in the first image
 for box, score, label in zip(boxes[0], scores[0], labels[0]):
     # Check if label is 1 and score is greater than or equal to printlayout_threshold
-    if label == 1 and score >= drawbox_threshold:
+    if score >= drawbox_threshold:
         # Extract corners
         x1, y1, x2, y2 = box
         draw.rectangle([(x1, y1), (x2, y2)], outline=color, width=2)
