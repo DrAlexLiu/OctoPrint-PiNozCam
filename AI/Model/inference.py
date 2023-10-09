@@ -338,21 +338,21 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     labels = labels.numpy()
 
     # Create a 2D array (bitmap) representing the image
-    bitmap = [[False for _ in range(_proc_img_height)] for _ in range(_proc_img_width)]
+    bitmap = [[False for _ in range(_proc_img_width)] for _ in range(_proc_img_height)]
     
     # Filter boxes based on scores_threshold and label constraints
-    filtered_boxes = [box for score, box, label in zip(scores[0], boxes[0], labels[0]) 
-                    if score > scores_threshold and 0.5 < label < 1.5]
+    filtered_boxes = [box for score, box in zip(scores[0], boxes[0]) 
+                    if score > scores_threshold]
     
 
     for box in filtered_boxes:
         x1, y1, x2, y2 = map(int, box)
         # Clip the coordinates to stay within the image boundaries
-        x1 = max(0, min(x1, _proc_img_height - 1))
-        y1 = max(0, min(y1, _proc_img_width - 1))
-        x2 = max(0, min(x2, _proc_img_height))
-        y2 = max(0, min(y2, _proc_img_width))
-        
+        x1 = max(0, min(x1, _proc_img_width - 1))
+        y1 = max(0, min(y1, _proc_img_height - 1))
+        x2 = max(0, min(x2, _proc_img_width))
+        y2 = max(0, min(y2, _proc_img_height))
+
         for i in range(y1, y2):
             for j in range(x1, x2):
                 bitmap[i][j] = True
@@ -375,4 +375,3 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     scaled_boxes = [[[x1 * width_scale, y1 * height_scale, x2 * width_scale, y2 * height_scale] for x1, y1, x2, y2 in box] for box in boxes]
 
     return scores, scaled_boxes, labels, severity, elapsed_time
-
