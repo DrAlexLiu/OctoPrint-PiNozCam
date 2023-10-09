@@ -350,8 +350,8 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
         # Clip the coordinates to stay within the image boundaries
         x1 = max(0, min(x1, _proc_img_width - 1))
         y1 = max(0, min(y1, _proc_img_height - 1))
-        x2 = max(0, min(x2, _proc_img_width))
-        y2 = max(0, min(y2, _proc_img_height))
+        x2 = max(0, min(x2, _proc_img_width - 1))
+        y2 = max(0, min(y2, _proc_img_height - 1))
 
         for i in range(y1, y2):
             for j in range(x1, x2):
