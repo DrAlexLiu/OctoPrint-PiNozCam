@@ -17,7 +17,7 @@ drawbox_threshold = 0.5
 area_threshold = 0.04
 img_sensitivity = 0.04
 scores_threshold = 0.65
-max_count = 10
+max_count = 100
 cpu_speed_control = 0.5
 count_time = 5 * 60
 inference_interval = 5
@@ -27,6 +27,7 @@ url = f"http://{ip_address}:{port}/?action=snapshot"
 timestamps = []
 count = 0
 use_streaming = False
+
 
 status_ready = True
 unique_uuid = None
@@ -100,32 +101,34 @@ def process_response_data(scores, boxes, labels, severity, elapsed_time, count, 
     # At the end of the function, return False to indicate that the loop should continue
     return False,count, timestamps
 
-def handle_network_request(url, data=None):
+def handle_network_request(url,data,status_ready=False):
     try:
-        if data:
-            response = requests.post(url, data=data, timeout=10)
-        else:
-            response = requests.get(url, stream=True, timeout=10)
-        #response.raise_for_status()
-        # Check the status code and log an error message for certain status codes
+        print("handle_network_request")
+        response = requests.post(url, data=data, timeout=10)
         if response.status_code in (503, 404):
             logging.error(f"Error: {response.status_code} - {response.text}")
-        elif response.status_code != 200 and response.status_code != 202:
-            logging.error(f"Unexpected error: {response.status_code} - {response.text}")
-
+            if status_ready:
+                print("wait for 6s")
+                time.sleep(6)
+            print(f"return 503 response{response.text}")
+            return response
+        response.raise_for_status()
         return response  # Return the response regardless of the status code
     except requests.RequestException as e:
+        # Check the status code and log an error message for certain status codes
         logging.error(f"Network error: {e}")
+        print("wait for 30s")
+        time.sleep(30)
         return None  # Or handle this accordingly
 
 while True:
     time.sleep(1)  # Loop every second
-
+    print("start a new loop")
     if status_ready:
         #print("in ready mode")
 
         if use_streaming:
-            response = handle_network_request(url)
+            response = requests.get(url, stream=True, timeout=10)
             if not response:
                 continue
             input_image = Image.open(BytesIO(response.content))
@@ -150,25 +153,21 @@ while True:
             'cpu_speed_control': cpu_speed_control
         }
         
-        response = handle_network_request('http://127.0.0.1:50000/submit_request', data=data)
-        if not response:
-            continue
-        response_message = response.json().get('message', '')
-        if response_message == 'Request received, processing started':
-            status_ready = False  # Switch status to waiting
-            logging.info('Request received, processing started')
-        elif response_message == 'Server is busy':
-            print("wait for 10s")
-            time.sleep(10)  # Wait 10 seconds
+        response = handle_network_request('http://127.0.0.1:50000/submit_request',data,status_ready)
+        if response:
+            response_message = response.json().get('message', '')
+            if response_message == 'Request received, processing started':
+                status_ready = False  # Switch status to waiting
+                logging.info('Request received, processing started')
         else:
-            print("wait for 30s")
-            time.sleep(30)  # Wait 30 seconds
+            
+            print("Network error")
 
     else:  # If status is false (waiting)
         #print("in waiting mode")
         data = {'uuid': unique_uuid}
         #print(f"sending{unique_uuid}")
-        response = handle_network_request('http://127.0.0.1:50000/request_result', data=data)
+        response = handle_network_request('http://127.0.0.1:50000/request_result',data,status_ready)
         if not response:
             status_ready = True  # Ready to send new request
             continue
