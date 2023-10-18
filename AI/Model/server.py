@@ -17,55 +17,73 @@ logging.basicConfig(level=logging.INFO)
 
 class ProcessingManager:
     def __init__(self):
-        self.is_busy = False
-        self.result_dict = {}
+        self.server_busy = False
+        self.client_results_dict = {}
         self.lock = threading.Lock()
-        self.stop_event = threading.Event() 
+        self.stop_event = threading.Event()
 
-    def submit_result(self, uuid, result=None):
+    def submit_result(self, client_uuid, picture_uuid, result=None):
         with self.lock:
+            if client_uuid not in self.client_results_dict:
+                self.client_results_dict[client_uuid] = {}
             if result is None:
-                self.result_dict[uuid] = {'result': "", 'timestamp': time.time()}
+                self.client_results_dict[client_uuid][picture_uuid] = {'result': "", 'timestamp': time.time()}
             else:
-                self.result_dict[uuid] = {'result': result, 'timestamp': time.time()}
+                self.client_results_dict[client_uuid][picture_uuid] = {'result': result, 'timestamp': time.time()}
 
-    def get_result(self, uuid):
+    def get_result(self, client_uuid, picture_uuid):
         with self.lock:
-            #print(len(self.result_dict))
-            entry = self.result_dict.get(uuid, None)
+            client_dict = self.client_results_dict.get(client_uuid, None)
+            if client_dict is None:
+                return None
+            entry = client_dict.get(picture_uuid, None)
             if entry is None:
-                # If the entry is None, simply return None
                 return None
             elif entry['result'] == "":
-                # If the result is an empty string, return an empty string
                 return ""
             else:
-                # If there's an actual result, pop the entry and return the result
-                #print("pop a result")
-                return self.result_dict.pop(uuid)['result']
+                return self.client_results_dict[client_uuid].pop(picture_uuid)['result']
 
-    # def picture_in_queue(self):
-    #     with self.lock:
-    #         print("No. Picture:"+str(len(self.result_dict)))
+    def get_result_len(self):
+        with self.lock:
+            #print("No. Picture:"+str(len(self.client_results_dict)))
+
+            return len(self.client_results_dict)
 
     def set_busy(self, status):
         with self.lock:
-            print("set busy to "+str(status))
-            self.is_busy = status
+            #print("set busy to "+str(status))
+            self.server_busy = status
 
     def get_busy(self):
         with self.lock:
-            print("get busy status "+str(self.is_busy))
-            return self.is_busy
+            #("get busy status "+str(self.server_busy))
+            return self.server_busy
 
     def cleanup_results(self):
         # This method could be called periodically to clean up old results
         while not self.stop_event.is_set():
             current_time = time.time()
-            keys_to_delete = [key for key, value in self.result_dict.items() if current_time - value['timestamp'] > 5 * 60]
+            print("clean process start")
+            logging.info("clean process start")
+            # First, clean up old results
+            keys_to_delete = []
+            for client_uuid, picture_dict in self.client_results_dict.items():
+                picture_keys_to_delete = [key for key, value in picture_dict.items() if current_time - value['timestamp'] > 1 * 30]
+                for key in picture_keys_to_delete:
+                    picture_dict.pop(key)
+                # If the picture dictionary is now empty, mark the client_uuid for deletion
+                if not picture_dict:
+                    keys_to_delete.append(client_uuid)
+            
+            # Now, delete empty client_uuid entries from client_results_dict
             for key in keys_to_delete:
-                self.result_dict.pop(key)
-            time.sleep(60)
+                del self.client_results_dict[key]
+            
+            #print("Cleaned, No. Picture is:"+str(len(self.client_results_dict)))
+            logging.info("Cleaned, No. Picture is:"+str(len(self.client_results_dict)))
+
+            time.sleep(30)
 
     def stop_cleanup(self):
         self.stop_event.set()     
@@ -76,8 +94,8 @@ def largest_power_of_two(n):
     exponent = math.floor(math.log2(n))
     return 2 ** exponent
 
-def process_image(uuid, image_data, scores_threshold, img_sensitivity, cpu_speed_control):
-    processing_manager.submit_result(uuid, None)
+def process_image(client_uuid, picture_uuid, image_data, scores_threshold, img_sensitivity, cpu_speed_control):
+    processing_manager.submit_result(client_uuid, picture_uuid, None)
     #processing_manager.picture_in_queue()
     #print(f"processing {uuid}")
     
@@ -107,7 +125,7 @@ def process_image(uuid, image_data, scores_threshold, img_sensitivity, cpu_speed
         'timestamp': time.time()
     }
 
-    processing_manager.submit_result(uuid, response_dict)
+    processing_manager.submit_result(client_uuid, picture_uuid, response_dict)
     processing_manager.set_busy(False)
 
 @app.route('/submit_request', methods=['POST'])
@@ -118,28 +136,36 @@ def submit_request():
     image_data = request.form.get('image', None)
     if not image_data:
         return jsonify({'message': 'Image data is required'}), 400
+    
+    client_uuid = request.form.get('client_uuid', None)
+    if not client_uuid:
+        return jsonify({'message': 'Client UUID is required'}), 400
 
     image_data = base64.b64decode(image_data)
     scores_threshold = float(request.form.get('scores_threshold', 0.5))
     img_sensitivity = float(request.form.get('img_sensitivity', 0.04))
     cpu_speed_control = float(request.form.get('cpu_speed_control', 0.5))
-    uuid = request.form.get('uuid', None)
-    if not uuid:
-        return jsonify({'message': 'UUID is required'}), 400
+    picture_uuid = request.form.get('picture_uuid', None)
+    if not picture_uuid:
+        return jsonify({'message': 'Picture UUID is required'}), 400
 
     processing_manager.set_busy(True)
     #print(f"start to process {uuid}")
-    threading.Thread(target=process_image, args=(uuid, image_data, scores_threshold, img_sensitivity, cpu_speed_control)).start()
+    threading.Thread(target=process_image, args=(client_uuid, picture_uuid, image_data, scores_threshold, img_sensitivity, cpu_speed_control)).start()
 
     return jsonify({'message': 'Request received, processing started'})
 
 @app.route('/request_result', methods=['POST'])
 def request_result():
-    uuid = request.form.get('uuid', None)
-    if not uuid:
-        return jsonify({'message': 'UUID is required'}), 400
+    client_uuid = request.form.get('client_uuid', None)
+    if not client_uuid:
+        return jsonify({'message': 'Client UUID is required'}), 400
+    
+    picture_uuid = request.form.get('picture_uuid', None)
+    if not picture_uuid:
+        return jsonify({'message': 'Picture UUID is required'}), 400
     #print(f"requesting {uuid}")
-    result = processing_manager.get_result(uuid)
+    result = processing_manager.get_result(client_uuid, picture_uuid)
     if result is None:
         #print('UUID not found')
         return jsonify({'message': 'UUID not found'}), 404
@@ -147,7 +173,33 @@ def request_result():
         #print('Result not ready')
         return jsonify({'message': 'Result not ready'}), 202
 
-    return jsonify(result)
+    return jsonify({'result': result, 'client_uuid': client_uuid, 'picture_uuid': picture_uuid})
+
+@app.route('/check_available', methods=['GET'])
+def check_available():
+    client_uuid = request.args.get('client_uuid', None)
+    if not client_uuid:
+        return jsonify({'message': 'Client UUID is required'}), 400
+    
+    results_dict_len = processing_manager.get_result_len()
+    server_busy = processing_manager.get_busy()
+    
+    # Check if results_dict is not empty
+    if results_dict_len > 0:
+        # Check if client_uuid exists in the results_dict
+        with processing_manager.lock:
+            if client_uuid in processing_manager.client_results_dict:
+                # If client_uuid exists and server is not busy, return true
+                is_available = not server_busy
+            else:
+                # If client_uuid does not exist, return false regardless of server_busy status
+                is_available = False
+    else:
+        # If results_dict is empty, check server_busy status
+        is_available = not server_busy
+
+    return jsonify({'message': is_available}), 200
+
 
 if __name__ == '__main__':
     cleanup_thread = threading.Thread(target=processing_manager.cleanup_results)

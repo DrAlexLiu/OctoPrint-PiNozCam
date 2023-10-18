@@ -17,7 +17,7 @@ drawbox_threshold = 0.5
 area_threshold = 0.04
 img_sensitivity = 0.04
 scores_threshold = 0.65
-max_count = 100
+max_count = 10
 cpu_speed_control = 0.5
 count_time = 5 * 60
 inference_interval = 5
@@ -29,8 +29,10 @@ count = 0
 use_streaming = False
 
 
-status_ready = True
-unique_uuid = None
+client_ready = True
+unique_client_uuid = str(uuid.uuid4())  # Generate a unique client UUID once
+unique_picture_uuid = None
+second_request = False
 
 def process_response_data(scores, boxes, labels, severity, elapsed_time, count, timestamps,input_image):
     # Check if severity is a list and extract the first element if so
@@ -93,40 +95,72 @@ def process_response_data(scores, boxes, labels, severity, elapsed_time, count, 
 
     # Save the image with boxes
     #input_image.save("result.jpg")
-    print("Result saved as result.jpg")
+    #print("Result saved as result.jpg")
 
     # Optional: Sleep for a short duration before the next iteration to avoid overloading the server
-    print("sleep for ", max(0, inference_interval - elapsed_time))
+    #print("sleep for ", max(0, inference_interval - elapsed_time))
     time.sleep(max(0, inference_interval - elapsed_time))
     # At the end of the function, return False to indicate that the loop should continue
     return False,count, timestamps
 
-def handle_network_request(url,data,status_ready=False):
+def handle_network_request(url, data, client_ready=False):
     try:
-        print("handle_network_request")
+        #print("handle_network_request")
         response = requests.post(url, data=data, timeout=10)
         if response.status_code in (503, 404):
             logging.error(f"Error: {response.status_code} - {response.text}")
-            if status_ready:
-                print("wait for 6s")
+            if client_ready:
+                #print("wait for 6s")
                 time.sleep(6)
-            print(f"return 503 response{response.text}")
+            #print(f"return 503 response{response.text}")
             return response
         response.raise_for_status()
         return response  # Return the response regardless of the status code
     except requests.RequestException as e:
         # Check the status code and log an error message for certain status codes
         logging.error(f"Network error: {e}")
-        print("wait for 30s")
+        #print("wait for 30s")
         time.sleep(30)
         return None  # Or handle this accordingly
 
+def check_server_availability(unique_client_uuid):
+    try:
+        response = requests.get(
+            'http://127.0.0.1:50000/check_available', 
+            params={'client_uuid': unique_client_uuid}
+        )
+        if response.status_code == 200:
+            return response.json().get('message', False)
+        else:
+            logging.error(f"Error: {response.status_code} - {response.text}")
+            return False
+    except requests.RequestException as e:
+        logging.error(f"Network error: {e}")
+        return False
+    
 while True:
     time.sleep(1)  # Loop every second
-    print("start a new loop")
-    if status_ready:
+    #print("start a new loop")
+
+    if client_ready:
         #print("in ready mode")
 
+        # Check server availability before proceeding
+        if not check_server_availability(unique_client_uuid):
+            #print("Server is busy, waiting for the next loop")
+            logging.info('Server is busy, waiting for the next loop')
+            time.sleep(10)
+            if second_request:
+                #break
+                pass
+            second_request=True
+            continue  # If server is busy, skip to the next loop iteration
+        else:
+            if second_request:
+                second_request=False
+                #print("Last time failed, try again")
+                continue
+            
         if use_streaming:
             response = requests.get(url, stream=True, timeout=10)
             if not response:
@@ -144,51 +178,62 @@ while True:
         input_image.save(buffered, format="JPEG")
         encoded_string = base64.b64encode(buffered.getvalue()).decode('utf-8')
         
-        unique_uuid = str(uuid.uuid4())
+        unique_picture_uuid = str(uuid.uuid4())
         data = {
             'image': encoded_string,
-            'uuid': unique_uuid,
+            'client_uuid': unique_client_uuid,  # Now using client_uuid
+            'picture_uuid': unique_picture_uuid,  # Now using picture_uuid
             'scores_threshold': scores_threshold,
             'img_sensitivity': img_sensitivity,
             'cpu_speed_control': cpu_speed_control
         }
         
-        response = handle_network_request('http://127.0.0.1:50000/submit_request',data,status_ready)
+        response = handle_network_request('http://127.0.0.1:50000/submit_request',data,client_ready)
         if response:
             response_message = response.json().get('message', '')
             if response_message == 'Request received, processing started':
-                status_ready = False  # Switch status to waiting
+                client_ready = False  # Switch status to waiting
                 logging.info('Request received, processing started')
         else:
-            
-            print("Network error")
+            logging.error('Network error')
+            #print("Network error")
 
     else:  # If status is false (waiting)
         #print("in waiting mode")
-        data = {'uuid': unique_uuid}
+
+        data = {
+            'client_uuid': unique_client_uuid,  # Now using client_uuid
+            'picture_uuid': unique_picture_uuid  # Now using picture_uuid
+        }
         #print(f"sending{unique_uuid}")
-        response = handle_network_request('http://127.0.0.1:50000/request_result',data,status_ready)
+        response = handle_network_request('http://127.0.0.1:50000/request_result',data,client_ready)
         if not response:
-            status_ready = True  # Ready to send new request
+            client_ready = True  # Ready to send new request
             continue
         response_data = response.json()
         message = response_data.get('message', '')
         if message == 'UUID not found':
             logging.error('UUID not found, fetching a new image.')
-            status_ready = True  # Ready to send new request
+            client_ready = True  # Ready to send new request
         elif message == 'Result not ready':
             logging.info('Result not ready, waiting for processing.')
-        elif all(key in response_data for key in ['scores', 'boxes', 'labels', 'severity', 'elapsed_time']):
-            response_data = response.json()
-            scores = response_data.get('scores', [])
-            boxes = response_data.get('boxes', [])
-            labels = response_data.get('labels', [])
-            severity = response_data.get('severity', 0)
-            elapsed_time = response_data.get('elapsed_time', 0)
-            termination_process,count, timestamps = process_response_data(scores, boxes, labels, severity, elapsed_time, count, timestamps, input_image)
-            if termination_process:
-                break # Exit the loop if process_response_data returned True
-            status_ready = True  # Ready to send new request
+        elif 'result' in response_data:
+            response_client_uuid = response_data.get('client_uuid', '')
+            response_picture_uuid = response_data.get('picture_uuid', '')
+            if response_client_uuid != unique_client_uuid or response_picture_uuid != unique_picture_uuid:
+                logging.error('Mismatched client_uuid or picture_uuid in response')
+                continue
+            result_data = response_data['result']
+            if all(key in result_data for key in ['scores', 'boxes', 'labels', 'severity', 'elapsed_time']):
+                scores = result_data.get('scores', [])
+                boxes = result_data.get('boxes', [])
+                labels = result_data.get('labels', [])
+                severity = result_data.get('severity', 0)
+                elapsed_time = result_data.get('elapsed_time', 0)
+                termination_process,count, timestamps = process_response_data(scores, boxes, labels, severity, elapsed_time, count, timestamps, input_image)
+                if termination_process:
+                    break # Exit the loop if process_response_data returned True
+                client_ready = True  # Ready to send new request
         else:
             logging.error('Unexpected response format')
 
