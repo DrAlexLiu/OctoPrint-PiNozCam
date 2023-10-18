@@ -41,7 +41,7 @@ pip install gunicorn numpy flask
 Execute the python script using the following command:
 
 ```bash
-gunicorn -w 4 -b 0.0.0.0:50000 flaskAI:app
+gunicorn -w 1 -b 127.0.0.1:50000 server:app
 python backend.py
 ```
 ## 4. Testing Without Local Streaming
