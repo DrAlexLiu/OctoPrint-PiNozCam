@@ -33,15 +33,15 @@ Before installing the packages, you'll need to SSH into your OctoPi.
 
 To install the necessary packages, navigate to the directory containing the `.whl` files and run the following command:
 ```bash
-pip install packages/*.whl
+pip3 install packages/*.whl
 sudo apt-get install libopenblas-dev
-pip install gunicorn numpy flask
+pip3 install gunicorn numpy flask/sudo apt install gunicorn
 ```
 ## 3. Run the Monitoring Script
 Execute the python script using the following command:
 
 ```bash
-gunicorn -w 1 -b 127.0.0.1:50000 server:app
+gunicorn -w 4 -b 0.0.0.0:50000 flaskAI:app
 python backend.py
 ```
 ## 4. Testing Without Local Streaming
