@@ -238,7 +238,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     if result['severity'] > 0.66:
                         self.count -= 1
                         self._logger.info(f"Reduced failure count: {self.count}")
-
+            self._logger.info("Begin to process one image.")
             try:
                 response = requests.get(self.snapshot, timeout=10)
                 response.raise_for_status()
@@ -254,7 +254,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             except Exception as e:
                 self._logger.error(f"AI inference error: {e}")
                 continue
-            
+            self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
             #draw the result image
             ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
             
