@@ -303,7 +303,7 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     
     bin_file="nozcam.bin"
     
-    bin_file_path = os.path.join(os.path.dirname(__file__), bin_file)
+    bin_file_path = os.path.join(os.path.dirname(__file__),'static', bin_file)
 
     # Get the width and height of the image
     img_width, img_height = input_image.size
