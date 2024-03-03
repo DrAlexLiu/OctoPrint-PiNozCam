@@ -288,9 +288,9 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     - img_sensitivity (float): Sensitivity value used for calculating severity.   
 
     Outputs:
-    - scores (numpy.ndarray): Confidence scores for each detected box.
-    - scaled_boxes (numpy.ndarray): Detected bounding boxes scaled to the original image dimensions.
-    - labels (numpy.ndarray): Class labels for each detected box.
+    - scores (list): Confidence scores for each detected box.
+    - scaled_boxes (list): Detected bounding boxes scaled to the original image dimensions.
+    - labels (list): Class labels for each detected box.
     - severity (float): Calculated severity value based on the percentage of area covered by boxes.
     - percentage_area (float): Percentage of the total area covered by the boxes.
     - elapsed_time (float): Time taken for the inference in seconds.
@@ -378,4 +378,4 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     # Scale the boxes to the original size of picture
     scaled_boxes = [[[x1 * width_scale, y1 * height_scale, x2 * width_scale, y2 * height_scale] for x1, y1, x2, y2 in box] for box in boxes]
 
-    return scores, scaled_boxes, labels, severity, percentage_area, elapsed_time
+    return scores.tolist(), scaled_boxes, labels.tolist(), severity, percentage_area, elapsed_time
