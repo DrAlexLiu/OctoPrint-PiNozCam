@@ -7,7 +7,6 @@ import threading
 import time
 from collections import deque
 from io import BytesIO
-import numpy as np
 import requests
 from PIL import Image, ImageDraw
 from flask import Response
@@ -262,11 +261,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             if severity > 0.33:
                 result = {
                     'time': time.time(),
-                    'scores': scores.tolist() if isinstance(scores, np.ndarray) else scores,
-                    'boxes': boxes.tolist() if isinstance(boxes, np.ndarray) else boxes,
-                    'labels': labels.tolist() if isinstance(labels, np.ndarray) else labels,
-                    'severity': severity if isinstance(severity, np.ndarray) else severity,
-                    'percentage_area': percentage_area if isinstance(percentage_area, np.ndarray) else percentage_area,
+                    'scores': scores,
+                    'boxes': boxes,
+                    'labels': labels,
+                    'severity': severity,
+                    'percentage_area': percentage_area,
                     'elapsed_time': elapsed_time,
                     'ai_input_image': self.encode_image_to_base64(ai_input_image),
                     'ai_result_image': self.encode_image_to_base64(ai_result_image)
