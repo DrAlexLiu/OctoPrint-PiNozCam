@@ -14,7 +14,7 @@ from flask import Response
 import octoprint.plugin
 from octoprint.events import Events
 
-from Model import image_inference
+from .inference import image_inference
 
 
 class PinozcamPlugin(octoprint.plugin.StartupPlugin,
