@@ -417,7 +417,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             encoded_image = self.encode_image_to_base64(input_image)
             return self.check_response(encoded_image)
         except requests.RequestException as e:
-            self._logger.error(f"Error fetching camera snapshot: {e}")
+            self._logger.info(f"Error fetching camera snapshot: {e}")
             # Return no camera image response if fetching snapshot fails
             return self.check_response(self._encode_no_camera_image())
 
