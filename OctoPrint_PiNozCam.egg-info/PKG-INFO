@@ -1,0 +1,11 @@
+Metadata-Version: 1.2
+Name: OctoPrint-PiNozCam
+Version: 1.0.0
+Summary: An AI-driven Failure Detection
+Home-page: https://github.com/DrAlexLiu/OctoPrint-PiNozCam
+Author: DrAlexLiu
+Author-email: xc.liu@mail.utoronto.ca
+License: AGPLv3
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3,<4

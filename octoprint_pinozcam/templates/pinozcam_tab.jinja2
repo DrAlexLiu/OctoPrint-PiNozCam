@@ -1,0 +1,107 @@
+<!-- pinozcam_tab.jinja2 -->
+<form class="form-horizontal">
+    <style>
+        /* Apply general styles to input elements within the form */
+        form.form-horizontal .custom-input,
+        form.form-horizontal .input-block-level {
+            width: 25%; /* Set a shorter width for general inputs */
+        }
+
+        /* Specific style for Snapshot URL input to make it longer */
+        form.form-horizontal .controls .snapshot-url-input {
+            width: 100%; /* Set a longer width specifically for Snapshot URL */
+        }
+
+        .save-button-container {
+            text-align: right;
+            margin-top: 20px;
+        }
+    </style>
+    <div id="printout-threads-container">
+        <!-- ID is ai-image -->
+        <img id="ai-image" src="" alt="AI Image" style="max-width: 100%; height: auto;">
+        <!-- Placeholder for Printing Status -->
+        <div id="printing-status" style="margin-top: 10px;">Printing Status: OFF</div>
+        <div id="cpu-temperature" style="margin-top: 10px;">CPU Temperature: --°C</div>
+        <!-- Placeholder for Failure Count -->
+        <div id="failure-count" style="margin-top: 10px;">Failure Count: 0</div>
+        <!-- Line -->
+        <hr style="margin-top: 20px; margin-bottom: 20px;">
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Action after Detection') }}</label>
+        <div class="controls">
+            <label class="radio-inline">
+                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Notification
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="action" value="1" data-bind="checked: newAction"> Pause
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="action" value="2" data-bind="checked: newAction"> Stop
+            </label>
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Boxes Display Threshold') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newPrintLayoutThreshold, attr: {min: '0', max: '1', step: '0.001'}">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Image Sensitivity') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newImgSensitivity, attr: {min: '0', max: '1', step: '0.001'}">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Failure Scores Threshold') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newScoresThreshold, attr: {min: '0', max: '1', step: '0.001'}">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Max Failure Count') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" />
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Failure Consider Time (s)') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newCountTime, attr: {min: 0, max: 60000}" />
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('CPU Speed Control') }}</label>
+        <div class="controls" style="padding-top: 5px;">
+            <label class="radio-inline">
+                <input type="radio" name="cpuSpeedControl" value="0.5" data-bind="checked: newCpuSpeedControl"> Half
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="cpuSpeedControl" value="1" data-bind="checked: newCpuSpeedControl"> Full
+            </label>
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Snapshot URL') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newSnapshotUrl">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Telegram Bot Token') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramBotToken">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Telegram Chat ID') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramChatId">
+        </div>
+    </div>
+    <div class="save-button-container">
+        <button type="button" class="btn btn-primary" data-bind="click: saveSettings">Save</button>
+    </div>
+</form>

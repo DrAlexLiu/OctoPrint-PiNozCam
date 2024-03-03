@@ -1,0 +1,4 @@
+include README.md
+recursive-include octoprint_pinozcam/templates *
+recursive-include octoprint_pinozcam/translations *
+recursive-include octoprint_pinozcam/static *
