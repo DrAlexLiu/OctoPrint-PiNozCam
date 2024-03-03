@@ -107,16 +107,16 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     
     def get_settings_defaults(self):
         return dict(
-            printLayoutThreshold=10,
+            action=0,
+            printLayoutThreshold=0.5,
             imgSensitivity=0.08,
             scoresThreshold=0.7,
             maxCount=2,
             countTime=300,
             cpuSpeedControl=1,
             snapshot="http://127.0.0.1:8080/?action=snapshot",
-            action=0,
-            telegram_bot_token="",
-            telegram_chat_id="",
+            telegramBotToken="",
+            telegramChatID="",
         )
     
     def perform_action(self):
@@ -240,7 +240,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         self._logger.info(f"Reduced failure count: {self.count}")
             self._logger.info("Begin to process one image.")
             try:
-                response = requests.get(self.snapshot, timeout=10)
+                response = requests.get(self.snapshot, timeout=1)
                 response.raise_for_status()
             except requests.RequestException as e:
                 self._logger.error(f"Failed to fetch image for AI processing: {e}")
@@ -411,7 +411,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         try:
             if not self.snapshot:
                 return self.check_response(self._encode_no_camera_image())
-            response = requests.get(self.snapshot, timeout=10)
+            response = requests.get(self.snapshot, timeout=1)
             response.raise_for_status()
             input_image = Image.open(BytesIO(response.content))
             encoded_image = self.encode_image_to_base64(input_image)
