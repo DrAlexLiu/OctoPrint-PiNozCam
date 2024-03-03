@@ -9,7 +9,7 @@ $(function () {
         self.newPrintLayoutThreshold.subscribe(function(newPrintLayoutThreshold) {
             var newFloatPrintLayoutThreshold = parseFloat(newPrintLayoutThreshold); 
             if (isNaN(newFloatPrintLayoutThreshold) || newFloatPrintLayoutThreshold < 0 || newFloatPrintLayoutThreshold > 1.0) {
-                alert("Max Failure Scores Threshold must be between 0 and 1.");
+                alert("Boxes Display Threshold must be between 0 and 1.");
                 self.newPrintLayoutThreshold(undefined); 
             }
         });
@@ -20,7 +20,7 @@ $(function () {
         self.newImgSensitivity.subscribe(function(newImgSensitivity) {
             var newFloatImgSensitivity = parseFloat(newImgSensitivity); 
             if (isNaN(newFloatImgSensitivity) || newFloatImgSensitivity < 0 || newFloatImgSensitivity > 1.0) {
-                alert("Max Failure Scores Threshold must be between 0 and 1.");
+                alert("Image Sensitivity must be between 0 and 1.");
                 self.newImgSensitivity(undefined); 
             }
         });
@@ -30,7 +30,7 @@ $(function () {
         self.newScoresThreshold.subscribe(function(newScoresThreshold) {
             var newFloatScoresThreshold = parseFloat(newScoresThreshold); 
             if (isNaN(newFloatScoresThreshold) || newFloatScoresThreshold < 0 || newFloatScoresThreshold > 1.0) {
-                alert("Max Failure Scores Threshold must be between 0 and 1.");
+                alert("Failure Scores Threshold must be between 0 and 1.");
                 self.newScoresThreshold(undefined); 
             }
         });
@@ -55,13 +55,13 @@ $(function () {
         });
 
         self.currentCpuSpeedControl = ko.observable();
-        self.newCpuSpeedControl = ko.observable("0.5");
+        self.newCpuSpeedControl = ko.observable("");
 
         self.currentSnapshotUrl = ko.observable();
         self.newSnapshotUrl = ko.observable();
 
         self.currentAction = ko.observable();
-        self.newAction = ko.observable("0");
+        self.newAction = ko.observable("");
 
         self.currentTelegramBotToken = ko.observable();
         self.newTelegramBotToken = ko.observable();

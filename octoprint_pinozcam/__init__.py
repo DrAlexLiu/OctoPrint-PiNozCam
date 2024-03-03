@@ -107,16 +107,16 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     
     def get_settings_defaults(self):
         return dict(
-            printLayoutThreshold=10,
+            action=0,
+            printLayoutThreshold=0.5,
             imgSensitivity=0.08,
             scoresThreshold=0.7,
             maxCount=2,
             countTime=300,
             cpuSpeedControl=1,
             snapshot="http://127.0.0.1:8080/?action=snapshot",
-            action=0,
-            telegram_bot_token="",
-            telegram_chat_id="",
+            telegramBotToken="",
+            telegramChatID="",
         )
     
     def perform_action(self):
@@ -238,9 +238,9 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     if result['severity'] > 0.66:
                         self.count -= 1
                         self._logger.info(f"Reduced failure count: {self.count}")
-
+            self._logger.info("Begin to process one image.")
             try:
-                response = requests.get(self.snapshot, timeout=10)
+                response = requests.get(self.snapshot, timeout=1)
                 response.raise_for_status()
             except requests.RequestException as e:
                 self._logger.error(f"Failed to fetch image for AI processing: {e}")
@@ -254,7 +254,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             except Exception as e:
                 self._logger.error(f"AI inference error: {e}")
                 continue
-            
+            self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
             #draw the result image
             ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
             
@@ -411,13 +411,13 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         try:
             if not self.snapshot:
                 return self.check_response(self._encode_no_camera_image())
-            response = requests.get(self.snapshot, timeout=10)
+            response = requests.get(self.snapshot, timeout=1)
             response.raise_for_status()
             input_image = Image.open(BytesIO(response.content))
             encoded_image = self.encode_image_to_base64(input_image)
             return self.check_response(encoded_image)
         except requests.RequestException as e:
-            self._logger.error(f"Error fetching camera snapshot: {e}")
+            self._logger.info(f"Error fetching camera snapshot: {e}")
             # Return no camera image response if fetching snapshot fails
             return self.check_response(self._encode_no_camera_image())
 
