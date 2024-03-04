@@ -16,19 +16,20 @@ Elevate your 3D printing experience with PiNozCam, a **FREE** and **No Subscript
 
 Whether you're running a print farm or a single printer in your workshop, PiNozCam offers peace of mind and a new level of interaction with your 3D printing process.
 
-**Tested Boards and Inference Time:**
-- Raspberry Pi 3: (16s/image)
-- Raspberry Pi 4: (6.7s/image)
-- Raspberry Pi 5(x64): (1.7s/image)
-- Octoprint Docker on PC (x64): (0.4s/image)
-
-We recommand the RPi4 or RPi5 for fast analysis and quick response. Althought the inference would takes several seconds, it is still can provide reliable survilliance for the 3D printing progress.
-
 ## Setup
 
 ### Hardware
  
 To use the PiNozCam plugin, you'll need a Raspberry Pi, a compatible endoscope camera with a 3D-printed mounting bracket, and a 3D printer. The plugin is compatible with most endoscope cameras on the market; however, ensure your camera has built-in lighting, supports a resolution of 480P or higher, and operates at a frequency of 30Hz for optimal performance.
+
+Compute Boards:
+
+- Raspberry Pi 5(x64, 4GB): (1.7s/image)
+- Raspberry Pi 4(x32, 4GB) : (6.7s/image)
+- Raspberry Pi 3: (16s/image)
+- PC with i5-10600K (x64, Octoprint Docker): (0.4s/image)
+
+We recommand the RPi5 or at least RPi4 for fast analysis and quick response. Althought the inference would takes several seconds on Pi, it is still can provide reliable survilliance for the 3D printing progress. Other boards or even Desktop CPU may work, because this AI can be adapted to any CPU.
 
 ### Installation
 
