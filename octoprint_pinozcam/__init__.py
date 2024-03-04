@@ -28,7 +28,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     Attributes:
         lock (threading.Lock): A lock to ensure thread-safe operations.
         stop_event (threading.Event): An event to signal stopping of threads.
-        current_encoded_image (str): Base64 encoded string of the current image being processed.
         count (int): A counter to track detected failures.
         action (int): Determines the action to take upon detection (0: notify, 1: pause, 2: stop).
         ai_input_image (PIL.Image.Image): The current image being analyzed by AI.
@@ -37,12 +36,12 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         telegram_chat_id (str): Chat ID for Telegram notifications.
         ai_running (bool): Indicates if AI processing is active.
         num_threads (int): Num of threads to use for AI inference.
+        snapshot (str): URL for the camera snapshot.
     """
 
     def __init__(self):
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
-        self.current_encoded_image = None
         self.count = 0
         self.action = 0
         self.ai_input_image = None
