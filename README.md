@@ -22,7 +22,7 @@ Whether you're running a print farm or a single printer in your workshop, PiNozC
  
 To use the PiNozCam plugin, you'll need a Raspberry Pi, a compatible endoscope camera with a 3D-printed mounting bracket, and a 3D printer. The plugin is compatible with most endoscope cameras on the market; however, ensure your camera has built-in lighting, supports a resolution of 480P or higher, and operates at a frequency of 30Hz for optimal performance.
 
-Compute Boards:
+Compute Boards with inference time:
 
 - Raspberry Pi 5(x64, 4GB): (1.7s/image)
 - Raspberry Pi 4(x32, 4GB) : (6.7s/image)
