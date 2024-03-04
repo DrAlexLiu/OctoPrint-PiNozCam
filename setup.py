@@ -28,7 +28,7 @@ plugin_author = "DrAlexLiu"
 plugin_author_email = "xc.liu@mail.utoronto.ca"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "https://github.com/DrAlexLiu/PiNozCAM"
+plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCAM"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"
