@@ -430,8 +430,32 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         return dict(js=["js/pinozcam.js"],
                     css=["css/pinozcam.css"],
                 )
+        
+    def get_update_information(self, *args, **kwargs):
+        return dict(
+            updateplugindemo=dict(
+                displayName="PiNozCam",
+                displayVersion=self._plugin_version,
 
+                type="github_release",
+                current=self._plugin_version,
+                user="DrAlexLiu",
+                repo="OctoPrint-PiNozCam",
+                # update method: pip
+                pip="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/{target}.zip"
+            )
+        )
 
 __plugin_name__ = "PiNozCam"
 __plugin_pythoncompat__ = ">=3.7,<4"
-__plugin_implementation__ = PinozcamPlugin()
+#__plugin_implementation__ = PinozcamPlugin()
+
+def __plugin_load__():
+	global __plugin_implementation__
+	plugin = PinozcamPlugin()
+	__plugin_implementation__ = plugin
+
+	global __plugin_hooks__
+	__plugin_hooks__ = {
+		"octoprint.plugin.softwareupdate.check_config": plugin.get_update_information,
+	}
