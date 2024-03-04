@@ -35,8 +35,8 @@ plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
 plugin_requires = [
-    "numpy==1.24.3",
-    "pillow==8.1.1",
+    "numpy>=1.24.3,<1.26",
+    "pillow",
     "onnxruntime @ https://github.com/nknytk/built-onnxruntime-for-raspberrypi-linux/raw/master/wheels/bullseye/onnxruntime-1.15.0-cp39-cp39-linux_armv7l.whl",
     "torch @ https://github.com/KumaTea/pytorch-arm/releases/download/v1.8.1/torch-1.8.1-cp39-cp39-linux_armv7l.whl",
     "torchvision @ https://github.com/KumaTea/pytorch-arm/releases/download/v1.8.1/torchvision-0.9.1-cp39-cp39-linux_armv7l.whl"
@@ -45,11 +45,11 @@ plugin_requires = [
 machine = platform.machine()
 if machine.endswith('64'):
     plugin_requires = [
-        "numpy==1.24.3",
-        "pillow==8.1.1",
-        "onnxruntime==1.15.0",
-        "torch==1.8.1",
-        "torchvision==0.9.1"
+        "numpy>=1.24.3",
+        "pillow",
+        "onnxruntime>=1.15.0,<1.17",  
+        "torch>=1.8.1,<1.13",         
+        "torchvision>=0.9.1,<0.14"
     ]
 
 
