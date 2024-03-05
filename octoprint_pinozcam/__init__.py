@@ -432,7 +432,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
     def get_update_information(self, *args, **kwargs):
         return dict(
-            updateplugindemo=dict(
+            pinozcam=dict(
                 displayName="PiNozCam",
                 displayVersion=self._plugin_version,
 
@@ -444,6 +444,9 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 pip="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/{target}.zip"
             )
         )
+    
+    def is_blueprint_csrf_protected(self):
+        return True
 
 __plugin_name__ = "PiNozCam"
 __plugin_pythoncompat__ = ">=3.7,<4"
