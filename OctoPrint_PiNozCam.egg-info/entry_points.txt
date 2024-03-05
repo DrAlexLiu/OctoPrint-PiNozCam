@@ -1,3 +1,0 @@
-[octoprint.plugin]
-pinozcam = octoprint_pinozcam
-

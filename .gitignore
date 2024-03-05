@@ -1,1 +1,8 @@
-pi_nozzle_cam_plugin.zip
+# Ignore the OctoPrint_PiNozCam.egg-info directory
+OctoPrint_PiNozCam.egg-info/
+
+# Ignore all __pycache__ directories
+__pycache__/
+
+# Ignore all .pyc files
+*.pyc
