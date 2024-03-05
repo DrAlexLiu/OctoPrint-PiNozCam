@@ -39,8 +39,8 @@ $(function () {
         self.newMaxCount = ko.observable();
         self.newMaxCount.subscribe(function(newMaxCount) {
             var newIntMaxCount = parseInt(newMaxCount, 10); 
-            if (isNaN(newIntMaxCount) || newIntMaxCount < 0 || newIntMaxCount > 100) {
-                alert("Max Failure Count must be between 0 and 100.");
+            if (isNaN(newIntMaxCount) || newIntMaxCount < 1 || newIntMaxCount > 100) {
+                alert("Max Failure Count must be between 1 and 100.");
                 self.newMaxCount(undefined); 
             }
         });
@@ -48,8 +48,8 @@ $(function () {
         self.newCountTime = ko.observable();
         self.newCountTime.subscribe(function(newCountTime) {
             var newIntCountTime = parseInt(newCountTime, 10); 
-            if (isNaN(newIntCountTime) || newIntCountTime < 0 || newIntCountTime > 60000) {
-                alert("Failure Consider Time must be between 0 and 60000 seconds.");
+            if (isNaN(newIntCountTime) || newIntCountTime < 1 || newIntCountTime > 60000) {
+                alert("Failure Consider Time must be between 1 and 60000 seconds.");
                 self.newCountTime(undefined); 
             }
         });

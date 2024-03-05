@@ -2,34 +2,53 @@
 ![Failure_Detection](/assets/images/failure_detection1.jpg)
 ## Introduction
 
-Failure Detection Performed on Pi CPU
+Failure Detection Performed on your Pi CPU
 
-Elevate your 3D printing experience with PiNozCam, a **FREE** and **No Subscription** plugin that brings **AI-powered monitoring** directly to your Raspberry Pi. Process your print jobs **locally** with advanced AI algorithms that detect potential failures, ensuring **privacy** and no leak on **3D model copyright**. Stay informed with instant **notifications** sent directly to your **Telegram** on **cellphone**, keeping you connected to your prints anytime, anywhere. PiNozCam is the ultimate, FREE solution for optimizing your 3D printing process with the power of AI, right at your fingertips.
+Elevate your 3D printing experience with PiNozCam, a **FREE** and **No Subscription/Email Registration** plugin that brings **AI-powered monitoring** directly to your Raspberry Pi. **Local AI Processing** will protect your privacy and 3D model copyright. Stay informed with instant Failure **notifications** directly to your **Telegram** on **cellphone**. Download it and PiNozCam will offers peace of mind forever for free. 
 
 **Features include:**
 
 - **Local AI-Powered Monitoring**
 - **Configurable Actions for Pause/Stop**
-- **Telegram Remote Notification**
+- **Telegram Remote Spaghetti Error Notification**
 - **Performance Optimization On Pi Arm CPU**
 - **User-Friendly Interface**
-
-Whether you're running a print farm or a single printer in your workshop, PiNozCam offers peace of mind and a new level of interaction with your 3D printing process.
 
 ## Setup
 
 ### Hardware
- 
-To use the PiNozCam plugin, you'll need a Raspberry Pi, a compatible endoscope camera with a 3D-printed mounting bracket, and a 3D printer. The plugin is compatible with most endoscope cameras on the market; however, ensure your camera has built-in lighting, supports a resolution of 480P or higher, and operates at a frequency of 30Hz for optimal performance.
 
-Compute Boards with inference time:
+**A Raspberry Pi with Fan**
 
-- Raspberry Pi 5(x64, 4GB): (1.7s/image)
-- Raspberry Pi 4(x32, 4GB) : (6.7s/image)
-- Raspberry Pi 3: (16s/image)
-- PC with i5-10600K (x64, Octoprint Docker): (0.4s/image)
+We recommand a **RPi5** with Fan cooling. You can use Octoprint_deploy to install the octoprint and then install PiNozCam. If Linux is impossilbe for you, a RPi4 with octopi created by RPi Image creator also work. An old PC with octoprint installtion will do the trick as well. 
 
-We recommand the RPi5 or at least RPi4 for fast analysis and quick response. Althought the inference would takes several seconds on Pi, it is still can provide reliable survilliance for the 3D printing progress. Other boards or even Desktop CPU may work, because this AI can be adapted to any CPU.
+Performance:
+
+- Raspberry Pi 5(x64, >=4GB): 1.7s/image
+- Raspberry Pi 4(x32, >=4GB) : 6.7s/image
+- PC with i5-10600K (x64): 0.4s/image
+
+Fan cooling is strongly recommanded.
+
+The AI can run most CPUs, including Arm. PiNozCam can even run on RPi3 and PiZero W 2, but consider their long inference time, we don't recommand you use these boards.
+
+**An endoscope camera**
+
+The plugin is compatible with most endoscope cameras on the market; however, ensure your camera operates at a frequency of 30Hz for optimal performance, supports a resolution of 480P or higher, and has built-in lighting. The distance between camera and nozzle are around 7 cm. 
+
+Make sure your camera is clear, because some dust will make the camera dirty and impact the AI. 
+
+### Software
+
+Before jumping each parameter, let me introduct the workflow:
+
+Detect Failure by AI
+Confirm the size of failure on the image
+Confirm the frequency of failure Detection
+Action to perform
+
+
+
 
 ### Installation
 
