@@ -447,7 +447,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     def is_blueprint_csrf_protected(self):
         return True
 
-
 __plugin_name__ = "PiNozCam"
 __plugin_pythoncompat__ = ">=3.7,<4"
 #__plugin_implementation__ = PinozcamPlugin()
