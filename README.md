@@ -26,26 +26,29 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 - Raspberry Pi 5(x64, >=4GB): 35.29 images / minute (Highly Recommand)
   
-  Use Octoprint_deploy to install the octoprint and then install PiNozCam
+  Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the octoprint and then install PiNozCam
 - Raspberry Pi 4B(x32, >=4GB) : 8.96 images / minute (Recommand)
   
-  Use RPi Imager to flash OctoPi and install the PiNozCam
+  Example: Use (RPi Imager to flash OctoPi)[https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/] and install the PiNozCam
 - Old PC like i5-10600K (x64): 150 images / minute
   
-  Use Octoprint docker and install the PiNozCam, if you use old PC to control printer
+  Example: Use [Octoprint docker](https://github.com/OctoPrint/octoprint-docker) and install the PiNozCam, if you use old PC to control printer
 
 We strongly recommend **fan cooling** to maintain optimal performance. The system is compatible with most CPUs, including ARM architecture. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options. 
 
 #### **Endoscope Camera**
 
 Most market-available endoscope cameras are compatible with this setup. Ensure your camera:
-- Operates at a 30Hz frequency to minimize motion blur.
+- Operates at a [16:9 30Hz](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203) frequency to minimize motion blur and better experience.
 - Supports a minimum resolution of 480P.
 - Features built-in lighting for enhanced detection quality.
-- Is positioned approximately 7 cm from the nozzle. 
+- Is positioned approximately 10 cm from the nozzle. 
 
-Cleaning the camera before each print is crucial as dust can accumulate and affect detection accuracy.
+**Cleaning the camera lens** before each print is crucial as dust can accumulate and affect detection accuracy.
 
+The setup would be like this:
+
+<img src="/assets/images/nozzle_cam_setup.jpg" width="600" height="503">
 
 ### **Software Configuration**
 
@@ -63,11 +66,10 @@ Screenshot:
 - **Failure Consider Time (s):** Implement a time buffer to focus on recent failures, ignoring older detections that may no longer be relevant. This dynamic consideration helps in adapting to the current state of the print.
 - **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended in warmer conditions without adequate cooling to prevent overheating. Full speed is optimal with enforced cooling.
 
-For notifications, enter your Telegram bot token and chat ID.
+For notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
+.
 
 Initially, stick with the default settings and adjust them gradually to fine-tune performance.
-
-
 
 
 ## Final Step: Start Printing
