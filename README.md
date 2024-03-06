@@ -4,67 +4,74 @@
 
 Failure Detection Performed on your Pi CPU
 
-Elevate your 3D printing experience with PiNozCam, a **FREE** and **No Subscription/Email Registration** plugin that brings **AI-powered monitoring** directly to your Raspberry Pi. **Local AI Processing** will protect your privacy and 3D model copyright. Stay informed with instant Failure **notifications** directly to your **Telegram** on **cellphone**. Download it and PiNozCam will offers peace of mind forever for free. 
+Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without a subscription or email registration**. Designed to enhance your printing process, PiNozCam introduces cutting-edge **edge computing** right on your Raspberry Pi. This ensures your **privacy** and the protection of your 3D model **copyrights**, while enabling you to receive instant failure alerts directly on your mobile via **Telegram**. Best of all, PiNozCam is entirely free, offering you peace of mind at no extra cost. 
 
 **Features include:**
 
-- **Local AI-Powered Monitoring**
+- **AI-Powered Edge Computing for Monitoring**
 - **Configurable Actions for Pause/Stop**
-- **Telegram Remote Spaghetti Error Notification**
+- **Instant Telegram Error Notifications**
 - **Performance Optimization On Pi Arm CPU**
 - **User-Friendly Interface**
+- **Privacy First, No email register/sign up/subscription**
+
+Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 ## Setup
 
-### Hardware
+### Hardware Setup
 
-**A Raspberry Pi with Fan**
+#### **Raspberry Pi with Cooling Fan**
 
-We recommand a **RPi5** with Fan cooling. You can use Octoprint_deploy to install the octoprint and then install PiNozCam. If Linux is impossilbe for you, a RPi4 with octopi created by RPi Image creator also work. An old PC with octoprint installtion will do the trick as well. 
+- Raspberry Pi 5(x64, >=4GB): 35.29 images / minute (Highly Recommand)
+  
+  Use Octoprint_deploy to install the octoprint and then install PiNozCam
+- Raspberry Pi 4B(x32, >=4GB) : 8.96 images / minute (Recommand)
+  
+  Use RPi Imager to flash OctoPi and install the PiNozCam
+- Old PC like i5-10600K (x64): 150 images / minute
+  
+  Use Octoprint docker and install the PiNozCam, if you use old PC to control printer
 
-Performance:
+We strongly recommend **fan cooling** to maintain optimal performance. The system is compatible with most CPUs, including ARM architecture. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options. 
 
-- Raspberry Pi 5(x64, >=4GB): 1.7s/image
-- Raspberry Pi 4(x32, >=4GB) : 6.7s/image
-- PC with i5-10600K (x64): 0.4s/image
+#### **Endoscope Camera**
 
-Fan cooling is strongly recommanded.
+Most market-available endoscope cameras are compatible with this setup. Ensure your camera:
+- Operates at a 30Hz frequency to minimize motion blur.
+- Supports a minimum resolution of 480P.
+- Features built-in lighting for enhanced detection quality.
+- Is positioned approximately 7 cm from the nozzle. 
 
-The AI can run most CPUs, including Arm. PiNozCam can even run on RPi3 and PiZero W 2, but consider their long inference time, we don't recommand you use these boards.
-
-**An endoscope camera**
-
-The plugin is compatible with most endoscope cameras on the market; however, ensure your camera operates at a frequency of 30Hz for optimal performance, supports a resolution of 480P or higher, and has built-in lighting. The distance between camera and nozzle are around 7 cm. 
-
-Make sure your camera is clear, because some dust will make the camera dirty and impact the AI. 
-
-### Software
-
-Before jumping each parameter, let me introduct the workflow:
-
-Detect Failure by AI
-Confirm the size of failure on the image
-Confirm the frequency of failure Detection
-Action to perform
+Cleaning the camera before each print is crucial as dust can accumulate and affect detection accuracy.
 
 
+### **Software Configuration**
+
+Screenshot:
+
+![screenShot](/assets/images/screenshot.png)
+
+<img src="/assets/images/screenshot.png" width="400" height="400">
 
 
-### Installation
+**Key Parameters:**
 
-You can install the PiNozCam plugin directly through OctoPrint's Plugin Manager by searching for "PiNozCam" in the repository. 
+- **Action:** Specifies the action PiNozCam should take when a print failure is detected (e.g., notify only, pause print, stop print). Detected failures are displayed in the video stream for 5 seconds, allowing for immediate visual verification.
+- **Image Sensitivity:** Adjust the sensitivity to ensure accurate detection of print failures. Set the threshold to balance between premature stopping for minor issues and delaying action for significant errors. A starting value of 0.08 or 8% is recommended for optimal balance.
+- **Failure Scores Threshold:** Define the confidence level at which an anomaly is considered a print failure. This setting helps in reducing false alarms by setting a minimum probability threshold for errors, ensuring that only genuine failures prompt action.
+- **Max Failure Count:** Specify the number of detections required in **Failure Consider Time** before PiNozCam takes the configured action. A value above 1 is recommended to avoid false positives.
+- **Failure Consider Time (s):** Implement a time buffer to focus on recent failures, ignoring older detections that may no longer be relevant. This dynamic consideration helps in adapting to the current state of the print.
+- **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended in warmer conditions without adequate cooling to prevent overheating. Full speed is optimal with enforced cooling.
 
-After installation, you can configure PiNozCam via the plugin settings in OctoPrint. Key configuration options include:
+For notifications, enter your Telegram bot token and chat ID.
 
-- **Action**: Choose the action PiNozCam should take upon detecting a print failure (e.g., notify, pause print, stop print).
-- **AI Sensitivity**: Adjust the sensitivity of the AI detection algorithms to suit your printing environment and preferences.
-- **CPU Speed Control**: Control the plugin's CPU usage, especially useful for Raspberry Pi users to balance performance and resource utilization.
-- **Telegram Bot Token & Chat ID**: Enter your Telegram bot token and chat ID to enable instant notifications.
+Initially, stick with the default settings and adjust them gradually to fine-tune performance.
 
-## Getting Started
 
-Once installed and configured, PiNozCam will automatically start monitoring your prints using your printer's camera feed. You'll receive notifications based on your configured actions and can adjust settings anytime to fine-tune the monitoring performance.
 
-Enjoy a new level of confidence in your 3D printing with OctoPrint-PiNozCam, your AI-powered watchful eye.
 
+## Final Step: Start Printing
+
+Once everything is set up, you can relax and rely on Telegram notifications to alert you of any issues during printing.
 
