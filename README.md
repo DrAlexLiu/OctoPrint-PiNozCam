@@ -1,5 +1,6 @@
 # OctoPrint-PiNozCam
 <img src="/assets/images/failure_detection1.jpg" width="500" height="337">
+
 ## Introduction
 
 Failure Detection Performed on your Pi CPU
