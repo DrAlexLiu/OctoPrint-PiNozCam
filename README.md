@@ -1,5 +1,5 @@
 # OctoPrint-PiNozCam
-![Failure_Detection](/assets/images/failure_detection1.jpg)
+<img src="/assets/images/failure_detection1.jpg" width="500" height="500">
 ## Introduction
 
 Failure Detection Performed on your Pi CPU
@@ -50,9 +50,7 @@ Cleaning the camera before each print is crucial as dust can accumulate and affe
 
 Screenshot:
 
-![screenShot](/assets/images/screenshot.png)
-
-<img src="/assets/images/screenshot.png" width="400" height="400">
+<img src="/assets/images/screenshot.png" width="600" height="600">
 
 
 **Key Parameters:**
