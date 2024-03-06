@@ -1,5 +1,5 @@
 # OctoPrint-PiNozCam
-<img src="/assets/images/failure_detection1.jpg" width="500" height="337">
+<img src="/assets/images/failure_detection1.jpg" width="500" height="330">
 
 ## Introduction
 
