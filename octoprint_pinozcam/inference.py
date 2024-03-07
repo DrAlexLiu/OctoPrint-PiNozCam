@@ -185,8 +185,7 @@ def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, an
 
 def _detection_postprocess(image, cls_heads, box_heads):
     """
-    Post-process detection outputs using Numpy for decoding and processing,
-    then convert results back to PyTorch tensors.
+    Post-process detection outputs using Numpy for decoding and processing
 
     This function decodes class and box predictions into human-readable formats,
     concatenates results from all heads, and prepares them for further processing
@@ -243,7 +242,7 @@ def _detection_postprocess(image, cls_heads, box_heads):
 
 def preprocess_image(image):
     """
-    Preprocesses the input image for inference using Numpy, replacing the need for PyTorch transforms.
+    Preprocesses the input image for inference.
 
     Args:
         image (PIL.Image.Image): The input image to preprocess.
