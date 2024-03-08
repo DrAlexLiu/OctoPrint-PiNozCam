@@ -107,7 +107,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         return dict(
             action=0,
             printLayoutThreshold=0.5,
-            imgSensitivity=0.08,
+            imgSensitivity=0.04,
             scoresThreshold=0.7,
             maxCount=2,
             countTime=300,
