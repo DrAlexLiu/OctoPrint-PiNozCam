@@ -33,7 +33,7 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options.
 
-Also, the **PC with Interl i5 10600** (x64, Ubuntu) : 150 images / minute (Recommand)
+Also, the **PC with Interl i5 10600** (x64, Ubuntu) : 150 images / minute
   
   Example: Use [Octoprint docker](https://hub.docker.com/r/octoprint/octoprint) and install the PiNozCam
 
