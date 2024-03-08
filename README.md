@@ -3,9 +3,9 @@
 
 ## Introduction
 
-Failure Detection Performed on your Pi CPU
+Failure Detection Performed on your Pi CPU & Desktop
 
-Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without a subscription or email registration**. Designed to enhance your printing process, PiNozCam introduces cutting-edge **edge computing** right on your Raspberry Pi. This ensures your **privacy** and the protection of your 3D model **copyrights**, while enabling you to receive instant failure alerts directly on your mobile via **Telegram**. Best of all, PiNozCam is entirely free, offering you peace of mind at no extra cost. 
+Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without a subscription or email registration**. Designed to enhance your printing process, PiNozCam introduces cutting-edge **edge computing** right on your **Raspberry Pi**, or your other devices like an old PC. This ensures your **privacy** and the protection of your 3D model **copyrights**, while enabling you to receive instant failure alerts directly on your mobile via **Telegram**. Best of all, PiNozCam is entirely free, offering you peace of mind at no extra cost. 
 
 **Features include:**
 
@@ -29,9 +29,13 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
   Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the octoprint and then install PiNozCam
 - Raspberry Pi 4B(x32, >=4GB) : 9 images / minute (Recommand)
   
-  Example: Use (RPi Imager to flash OctoPi)[https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/] and install the PiNozCam
+  Example: Use [RPi Imager to flash OctoPi](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) and install the PiNozCam
 
-We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options. 
+We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options.
+
+Also, the **PC with Interl i5 10600** (x64, Ubuntu) : 150 images / minute (Recommand)
+  
+  Example: Use [Octoprint docker](https://hub.docker.com/r/octoprint/octoprint) and install the PiNozCam
 
 #### **Endoscope Camera**
 
