@@ -217,8 +217,13 @@ def _detection_postprocess(image, cls_heads, box_heads):
 
         # Decode the class and box heads into human-readable format using Numpy
         scores, boxes, classes = _decode(cls_head, box_head, stride, 0.05, 1000, anchors[stride])
-        decoded.append((scores, boxes, classes))
+        if scores.size > 0:  # Only add non-empty detections
+            decoded.append((scores, boxes, classes))
     
+    # Handle cases where no detections meet the threshold
+    if not decoded:
+        return np.zeros((1, 6)), np.zeros((1, 6, 4)), np.zeros((1, 6))
+
     # Process decoded results
     scores_list, boxes_list, classes_list = [], [], []
     batch_size = image.shape[0]
