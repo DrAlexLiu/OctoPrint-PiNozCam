@@ -55,7 +55,11 @@ The setup would be like this:
 
 ### **Software Configuration**
 
-Screenshot:
+Go to PiNozCam:
+
+<img src="/assets/images/tab.png" width="600" height="71">
+
+You will see:
 
 <img src="/assets/images/screenshot.png" width="600" height="665">
 
