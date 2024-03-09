@@ -153,7 +153,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
     
-    def telegram_send(self, image, severity, percentage_area):
+    def telegram_send(self, image, severity, percentage_area, custom_message=""):
         """
         Sends an alert message with an image to a Telegram chat.
         The message includes details such as printer name, severity, failure area, failure count, and max failure count.
@@ -172,9 +172,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 f"Severity: {severity_percentage:.2f}%\n"
                 f"Failure Area: {percentage_area:.2f}\n"
                 f"Failure Count: {failure_count}\n"
-                f"Max Failure Count: {self.max_count}")
+                f"Max Failure Count: {self.max_count}\n"
+                f"{custom_message}")
 
         image_stream = BytesIO()
+        image = image.convert("RGB")
         image.save(image_stream, format='JPEG')
         image_stream.seek(0)
 
@@ -364,6 +366,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 
         self._logger.info("Plugin settings saved.")
         self._thread_calculation()
+        #send a welcome test message to the telegram chat
+        if self.telegram_bot_token and self.telegram_chat_id:
+            zero_image = Image.new('RGBA', (1, 1), (255, 255, 255, 0))
+            self.telegram_send(zero_image, 0, 0, "Welcome to PiNozCam!")
     
     def check_response(self, base64EncodedImage):
         """
