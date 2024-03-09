@@ -70,7 +70,7 @@ Screenshot:
 To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
 . Following a successful configuration, a welcome message will be sent to your Telegram. An example notification will be like this:
 
-<img src="/assets/images/telegram_notification.jpg" width="600" height="1337.5">
+<img src="/assets/images/telegram_notification.jpg" width="400" height="891">
 
 Initially, stick with the default settings and adjust them gradually to fine-tune performance.
 
