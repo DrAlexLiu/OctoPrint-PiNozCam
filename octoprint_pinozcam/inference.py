@@ -29,9 +29,6 @@ def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
     
     return np.concatenate([xy1, xy2], axis=1)
 
-import numpy as np
-
-
 def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
     """
     Apply Non-Maximum Suppression (NMS) to prediction boxes to eliminate redundant overlapping boxes.
