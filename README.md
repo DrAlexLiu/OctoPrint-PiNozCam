@@ -70,9 +70,9 @@ Screenshot:
 - **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended in warmer conditions without adequate cooling to prevent overheating. Full speed is optimal with enforced cooling.
 
 To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
-. Following a successful configuration, a welcome message will be sent to your Telegram. An example notification will be like this:
+. Following a successful configuration, a welcome message will be sent to your Telegram after you click "Save". An example notification will be sent like this:
 
-<img src="/assets/images/telegram_notification.jpg" width="600" height="1337.5">
+<img src="/assets/images/telegram_notification.jpg" width="400" height="891">
 
 Initially, stick with the default settings and adjust them gradually to fine-tune performance.
 
