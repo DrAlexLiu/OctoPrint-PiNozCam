@@ -305,7 +305,7 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     # Run the ONNX model inference
     sess_opt = onnxruntime.SessionOptions()
     sess_opt.intra_op_num_threads = num_threads
-    ort_session = onnxruntime.InferenceSession(bin_file_path, sess_opt)
+    ort_session = onnxruntime.InferenceSession(bin_file_path, sess_opt, providers=['CPUExecutionProvider'])
 
     ort_inputs = {ort_session.get_inputs()[0].name: input_batch}
     ort_outs = ort_session.run(None, ort_inputs)
