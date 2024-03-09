@@ -26,7 +26,7 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 #### **Raspberry Pi with Cooling Fan**
 
-- Raspberry Pi 5(x64, >=4GB): 30 images / minute (Highly Recommend)
+- Raspberry Pi 5(x64, >=4GB): 37 images / minute (Highly Recommend)
   
   Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the Octoprint and then install PiNozCam
 - Raspberry Pi 4B(x32, >=4GB) : 9 images / minute (Recommend)
