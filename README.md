@@ -24,20 +24,30 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 ### Hardware Setup
 
-#### **Raspberry Pi with Cooling Fan**
+#### **Pi with Cooling Fan**
 
 - Raspberry Pi 5(x64, >=4GB): 37 images / minute (Highly Recommend)
   
   Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the Octoprint and then install PiNozCam
-- Raspberry Pi 4B(x32, >=4GB) : 9 images / minute (Recommend)
+- Raspberry Pi 4B(x32, >=2GB) : 9 images / minute (Recommend)
   
   Example: Use [RPi Imager to flash OctoPi](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) and install the PiNozCam
 
-We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on Raspberry Pi 3 and PiZero W 2, their longer inference times make them less recommended options.
+- Raspberry Pi 3B(x32, >=2GB) : 5 images / minute (Acceptable)
 
-Also, the **PC with Intel i5 10600** (x64, Ubuntu) : 150 images / minute
+  Recommand to set Max Failure Count to 1 at this inference speed.
+
+We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on PiZero W 2, their longer inference times make them less recommended options.
+
+However,PiNozCam can run other CPUs. If you want to use other methods:
+
+- **PC with Intel i5 10600** (x64, Ubuntu) : 150 images / minute
   
   Example: Use [Octoprint docker](https://hub.docker.com/r/octoprint/octoprint) and install the PiNozCam
+
+- **OrangePi Zero 3** (x64, Ubuntu) : 7 images / minute
+  
+  PiNozCam supports Allwinner (>=H616) and Rockchip series. Make sure the memory is at least 1GB. Recommanded >=2GB. 
 
 #### **Endoscope Camera**
 
