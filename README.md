@@ -1,6 +1,8 @@
 # OctoPrint-PiNozCam
 <img src="/assets/images/failure_detection1.jpg" width="500" height="330">
 
+[![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/W2zQNrpu)
+
 ## Introduction
 
 Failure Detection Performed on your Pi CPU & Desktop
