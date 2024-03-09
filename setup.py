@@ -1,5 +1,5 @@
 # coding=utf-8
-import platform
+import struct
 
 ########################################################################################################################
 ### Do not forget to adjust the following variables to your own plugin.
@@ -37,11 +37,10 @@ plugin_license = "AGPLv3"
 plugin_requires = [
     "numpy>=1.24.3,<1.26",
     "pillow",
-    "onnxruntime @ https://github.com/nknytk/built-onnxruntime-for-raspberrypi-linux/raw/master/wheels/bullseye/onnxruntime-1.15.0-cp39-cp39-linux_armv7l.whl"
+    "onnxruntime @ https://github.com/nknytk/built-onnxruntime-for-raspberrypi-linux/raw/master/wheels/bullseye/onnxruntime-1.16.0-cp39-cp39-linux_armv7l.whl"
 ]
 
-machine = platform.machine()
-if machine.endswith('64'):
+if struct.calcsize("P") * 8 == 64:
     plugin_requires = [
         "numpy>=1.24.3",
         "pillow",
