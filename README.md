@@ -26,20 +26,22 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 #### **Pi with Cooling Fan**
 
-- Raspberry Pi 5(x64, >=4GB): 37 images / minute (Highly Recommend)
+- Raspberry Pi 5(>=2GB): 37 images / minute (Highly Recommend)
   
   Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the Octoprint and then install PiNozCam
-- Raspberry Pi 4B(x32, >=2GB) : 9 images / minute (Recommend)
+- Raspberry Pi 4B(>=2GB) : 9 images / minute (Recommend)
   
   Example: Use [RPi Imager to flash OctoPi](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) and install the PiNozCam
 
-- Raspberry Pi 3B(x32, >=2GB) : 5 images / minute (Acceptable)
+- Raspberry Pi 3B(>=2GB) : 5 images / minute (Acceptable)
 
-  Recommand to set Max Failure Count to 1 at this inference speed.
+  It is advised to adjust the **Max Failure Count to 1** when operating at this rate of inference.
 
 We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on PiZero W 2, their longer inference times make them less recommended options.
 
-However,PiNozCam can run other CPUs. If you want to use other methods:
+**Limitation**: Please note, PiNozCam is optimized for **stable OctoPi images** (Bullseye in 32-bit OS system) and all **64-bit OS systems**. For those utilizing other 32-bit Debian platforms, such as OctoPi Nightly (Bookworm armhf platforms) or older OctoPi images (Buster armhf platforms), it's essential to select arm64 builds for compatibility. This ensures a seamless experience and maintains the high performance of PiNozCam in diverse environments.
+
+However, PiNozCam can run other CPUs. If you want to use other methods:
 
 - **PC with Intel i5 10600** (x64, Ubuntu) : 150 images / minute
   
@@ -47,15 +49,15 @@ However,PiNozCam can run other CPUs. If you want to use other methods:
 
 - **OrangePi Zero 2/3** (x64, Ubuntu) : 7 images / minute
   
-  PiNozCam supports Allwinner (>=H616) and Rockchip series. Make sure the memory is at least 1GB. Recommanded >=2GB. 
+  PiNozCam supports Allwinner (>=H616) and Rockchip (>=RK3566) series. Make sure the memory is at least 1GB. Recommanded >=2GB. 
 
 #### **Endoscope Camera**
 
 Most market-available endoscope cameras are compatible with this setup. Ensure your camera:
 - Operates at a [16:9 30Hz](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203) frequency to minimize motion blur and better experience.
-- Supports a minimum resolution of 480P.
+- Supports a minimum resolution of **480P**.
 - Features built-in lighting for enhanced detection quality.
-- Is positioned approximately 10 cm from the nozzle. 
+- Is positioned **approximately 10 cm** from the nozzle. 
 
 **Cleaning the camera lens** before each print is crucial as dust can accumulate and affect detection accuracy.
 
@@ -65,7 +67,7 @@ The setup would be like this:
 
 ### **Software Configuration**
 
-Go to PiNozCam:
+Go to PiNozCam Tab:
 
 <img src="/assets/images/tab.png" width="600" height="71">
 
