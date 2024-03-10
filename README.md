@@ -45,7 +45,7 @@ However,PiNozCam can run other CPUs. If you want to use other methods:
   
   Example: Use [Octoprint docker](https://hub.docker.com/r/octoprint/octoprint) and install the PiNozCam
 
-- **OrangePi Zero 3** (x64, Ubuntu) : 7 images / minute
+- **OrangePi Zero 2/3** (x64, Ubuntu) : 7 images / minute
   
   PiNozCam supports Allwinner (>=H616) and Rockchip series. Make sure the memory is at least 1GB. Recommanded >=2GB. 
 
