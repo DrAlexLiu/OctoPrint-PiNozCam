@@ -39,7 +39,7 @@ Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
 
 We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on PiZero W 2, their longer inference times make them less recommended options.
 
-**Limitation**: Please note, PiNozCam is optimized for **stable OctoPi images** (Bullseye in 32-bit OS system) and all **64-bit OS systems**. For those utilizing other 32-bit Debian platforms, such as OctoPi Nightly (Bookworm armhf platforms) or older OctoPi images (Buster armhf platforms), it's essential to select arm64 builds for compatibility. This ensures a seamless experience and maintains the high performance of PiNozCam in diverse environments.
+⚠️ **Limitation**: Please note, PiNozCam is optimized for **stable OctoPi images** (Bullseye in 32-bit OS system) and all **64-bit OS systems**. For those utilizing other 32-bit Debian platforms, such as OctoPi Nightly (Bookworm armhf platforms) or older OctoPi images (Buster armhf platforms), it's essential to select arm64 builds for compatibility. This ensures a seamless experience and maintains the high performance of PiNozCam in diverse environments.
 
 However, PiNozCam can run other CPUs. If you want to use other methods:
 
@@ -59,7 +59,7 @@ Most market-available endoscope cameras are compatible with this setup. Ensure y
 - Features built-in lighting for enhanced detection quality.
 - Is positioned **approximately 10 cm** from the nozzle. 
 
-**Cleaning the camera lens** before each print is crucial as dust can accumulate and affect detection accuracy.
+⚠️ **Cleaning the camera lens** before each print is crucial as dust can accumulate and affect detection accuracy.
 
 The setup would be like this:
 
