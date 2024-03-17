@@ -8,7 +8,7 @@ import time
 from collections import deque
 from io import BytesIO
 import requests
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from flask import Response
 import octoprint.plugin
 from octoprint.events import Events
@@ -42,6 +42,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     def __init__(self):
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
+
+        #Parameters:
         self.count = 0
         self.action = 0
         self.ai_input_image = None
@@ -50,7 +52,50 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.telegram_chat_id = ""
         self.ai_running = False
         self.num_threads = 1
-        self.snapshot = ""
+        self.custom_snapshot_url = ""
+        self.welcome_text = "Welcome to PiNozCam!"
+        self.no_camera_text = "No Camera"
+        self.discord_webhook_url= ""
+        self.proc_img_width=640
+        self.proc_img_height=384
+        self.font = None
+
+        #files:
+        self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
+        self.no_camera_path = os.path.join(os.path.dirname(__file__), 'static', 'no_camera.jpg')
+        self.bin_file_path = os.path.join(os.path.dirname(__file__),'static', 'nozcam.bin')
+
+        #camera
+        self.cameras = []
+        self.snap_new_method = False
+
+    def initialize_cameras(self):
+        self._logger.info("Initialize the camera")
+        if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
+            self.cameras = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
+            self.snap_new_method = True
+        else:
+            self.cameras = []
+            self.snap_new_method = False
+
+    def initialize_font(self, font_size=28):
+        """
+        Initializes the font for the plugin and caches it for later use.
+
+        Parameters:
+        - font_size: The size of the font.
+        """
+        #check file exist
+        if not os.path.exists(self.font_path):
+            self._logger.error(f"Font file does not exist: {self.font_path}")
+            self.font_path = None 
+
+        try:
+            self.font = ImageFont.truetype(self.font_path, font_size)
+            self._logger.info("Customized font loaded successfully.")
+        except IOError as e:
+            self.font = ImageFont.load_default()
+            self._logger.info(f"Failed to load custom font, using default font. Error: {e}")
 
     def _encode_no_camera_image(self):
         """
@@ -65,17 +110,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 return f"data:image/jpeg;base64,{base64.b64encode(image_file.read()).decode('utf-8')}"
         except FileNotFoundError:
             self._logger.error(f"No camera image not found at {no_camera_path}")
-            return ""
-
-    def get_printer_status(self):
-        """
-        Retrieves the current printing status from the printer.
-
-        Returns:
-            bool: True if the printer is currently printing, False otherwise.
-        """
-        printer_status = self._printer.get_current_data()
-        return printer_status["state"]["flags"]["printing"]
+            return self.create_image_with_text(self.no_camera_text)
     
     def cpu_is_raspberry_pi(self):
         """
@@ -112,9 +147,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             maxCount=2,
             countTime=300,
             cpuSpeedControl=1,
-            snapshot="http://127.0.0.1:8080/?action=snapshot",
+            customSnapshotURL="",
             telegramBotToken="",
             telegramChatID="",
+            discordWebhookURL="",
         )
     
     def perform_action(self):
@@ -147,11 +183,24 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.max_count = self._settings.get_int(["maxCount"])
         self.count_time = self._settings.get_int(["countTime"])
         self.cpu_speed_control = self._settings.get_float(["cpuSpeedControl"])
-        self.snapshot = self._settings.get(["snapshot"])
+        self.custom_snapshot_url = self._settings.get(["customSnapshotURL"])
         self.telegram_bot_token = self._settings.get(["telegramBotToken"])
         self.telegram_chat_id = self._settings.get(["telegramChatID"])
+        self.discord_webhook_url = self._settings.get(["discordWebhookURL"])
+
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
+        #
+        self.initialize_cameras()
+
+        self.initialize_font()
+
+        if not os.path.exists(self.no_camera_path):
+            self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
+            self.no_camera_path = None 
+        if not os.path.exists(self.bin_file_path):
+            self._logger.error(f"No bin file does not exist: {self.bin_file_path}")
+            self.bin_file_path = None 
     
     def telegram_send(self, image, severity, percentage_area, custom_message=""):
         """
@@ -176,7 +225,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 f"{custom_message}")
 
         image_stream = BytesIO()
-        image = image.convert("RGB")
         image.save(image_stream, format='JPEG')
         image_stream.seek(0)
 
@@ -188,6 +236,29 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info("Telegram message sent successfully.")
         else:
             self._logger.error(f"Failed to send message to Telegram: {response.text}")
+
+    def discord_send(self, image, severity_percentage, percentage_area, custom_message=""):
+        """
+        
+        """
+        
+        title = self._settings.global_get(["appearance", "name"])
+        caption = (f"Printer {title}\n"
+                f"Severity: {severity_percentage:.2f}%\n"
+                f"Failure Area: {percentage_area:.2f}\n"
+                f"Custom Message: {custom_message}")
+
+        image_stream = BytesIO()
+        image.save(image_stream, format='JPEG')
+        image_stream.seek(0)
+        files = {'file': ('image.jpeg', image_stream, 'image/jpeg')}
+        data = {"content": caption}
+        response = requests.post(self.discord_webhook_url, files=files, data=data)
+        
+        if response.status_code in [200, 204]:
+            self._logger.info("Message sent to Discord successfully.")
+        else:
+            self._logger.error(f"Failed to send message to Discord. Status Code: {response.status_code}, Response: {response.json()}")
 
     def on_event(self, event, payload):
         """
@@ -227,10 +298,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         """
         self.ai_running = True
         while self.ai_running:
-            if not self.get_printer_status():
-                self._logger.info("Printer is not currently printing. Pausing AI processing.")
-                time.sleep(10)
-                continue
 
             with self.lock:
                 while self.ai_results and time.time() - self.ai_results[0]['time'] > self.count_time:
@@ -238,19 +305,24 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     if result['severity'] > 0.66:
                         self.count -= 1
                         self._logger.info(f"Reduced failure count: {self.count}")
+            
             self._logger.info("Begin to process one image.")
-            try:
-                response = requests.get(self.snapshot, timeout=1)
-                response.raise_for_status()
-            except requests.RequestException as e:
+            
+            ai_input_image = self.get_snapshot()
+            if ai_input_image is None:
                 self._logger.error(f"Failed to fetch image for AI processing: {e}")
                 continue
 
-            ai_input_image = Image.open(BytesIO(response.content))
-            
             try:
                 scores, boxes, labels, severity, percentage_area, elapsed_time = image_inference(
-                    ai_input_image, self.scores_threshold, self.img_sensitivity, self.num_threads)
+                    input_image=ai_input_image, 
+                    scores_threshold=self.scores_threshold, 
+                    img_sensitivity=self.img_sensitivity, 
+                    num_threads=self.num_threads, 
+                    _bin_file_path=self.bin_file_path, 
+                    _proc_img_width=self.proc_img_width, 
+                    _proc_img_height=self.proc_img_height
+                )
             except Exception as e:
                 self._logger.error(f"AI inference error: {e}")
                 continue
@@ -279,8 +351,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         self.count += 1
                     self._logger.info(f"self.count increased by 1 self.count={self.count}")
                     # If count exceeds  within the last count_time minutes, perform action
-                    if self.telegram_bot_token and self.telegram_chat_id and self.get_printer_status():
+                    if self.telegram_bot_token and self.telegram_chat_id:
                         self.telegram_send(ai_result_image,severity,percentage_area)
+                    
+                    if self.discord_webhook_url.startswith("http"):
+                        self.discord_send(ai_result_image,severity,percentage_area)
                     
                     with self.lock:
                         failure_count = self.count
@@ -332,16 +407,45 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             spaghetti_text = "Spaghetti"
             score_text = f"{score:.2f}"  # Format the score to two decimal places
             
-            # Calculate text positions without specifying a font
-            spaghetti_text_position = (x1, y1 - 10)  
-            score_text_position = (x2-15, y1 - 10) 
+            # Calculate the size of the spaghetti text
+            spaghetti_text_size = draw.textsize(spaghetti_text, font=self.font)
+            score_text_size = draw.textsize(score_text, font=self.font)
+
+            # Adjust text position so it does not overlap with the bounding box
+            spaghetti_text_position = (x1, y1 - spaghetti_text_size[1])
+            score_text_position = (x2 - score_text_size[0], y1 - score_text_size[1])
             
-            # Draw text using the default font
-            draw.text(spaghetti_text_position, spaghetti_text, fill=color)
-            draw.text(score_text_position, score_text, fill=color)
+            # Ensure the text stays within the image boundaries
+            if spaghetti_text_position[1] < 0:
+                spaghetti_text_position = (x1, y2 + 5)
+            if score_text_position[1] < 0:
+                score_text_position = (x2 - score_text_size[0] - 5, y2 + 5)
+
+            # Draw text
+            draw.text(spaghetti_text_position, spaghetti_text, fill=color, font=self.font)
+            draw.text(score_text_position, score_text, fill=color, font=self.font)
 
         return image
     
+    def create_image_with_text(self, text, image_size=None, text_color="black"):
+        # Determine the image size
+        if image_size is None:
+            image_size = (self.proc_img_width, self.proc_img_height)
+        
+        # Create a blank image
+        image = Image.new('RGB', image_size, (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+
+        # Calculate text position for center alignment
+        text_width, text_height = draw.textsize(text, font=self.font)
+        x = (image.width - text_width) / 2
+        y = (image.height - text_height) / 2
+
+        # Draw the text
+        draw.text((x, y), text, fill=text_color, font=self.font)
+        
+        return image
+
     def on_settings_save(self, data):
         """
         Handles saving of plugin settings. Updates the plugin's configuration
@@ -360,16 +464,120 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.max_count = int(data.get("maxCount", self.max_count))
         self.count_time = int(data.get("countTime", self.count_time))
         self.cpu_speed_control = float(data.get("cpuSpeedControl", self.cpu_speed_control))
-        self.snapshot = data.get("snapshot", self.snapshot)
+        self.custom_snapshot_url = data.get("customSnapshotURL", self.custom_snapshot_url)
         self.telegram_bot_token = data.get("telegramBotToken", self.telegram_bot_token)
         self.telegram_chat_id = data.get("telegramChatID", self.telegram_chat_id)
+        self.discord_webhook_url = data.get("discordWebhookURL", self.discord_webhook_url)
                 
         self._logger.info("Plugin settings saved.")
         self._thread_calculation()
+        
+        self.initialize_cameras()
+
+        self.initialize_font()
+
         #send a welcome test message to the telegram chat
+        welcome_image = self.create_image_with_text(self.welcome_text)
         if self.telegram_bot_token and self.telegram_chat_id:
-            zero_image = Image.new('RGBA', (1, 1), (255, 255, 255, 0))
-            self.telegram_send(zero_image, 0, 0, "Welcome to PiNozCam!")
+            self.telegram_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
+        if self.discord_webhook_url.startswith("http"):
+            self.discord_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
+
+        self._logger.info(f"discord_webhook_url={self.discord_webhook_url}")
+
+
+    def transform_image(self, img, must_flip_h, must_flip_v, must_rotate):
+        # Only call Pillow if we need to transpose anything
+        if must_flip_h or must_flip_v or must_rotate:
+            self._logger.info(
+                "Transformations : FlipH={}, FlipV={} Rotate={}".format(must_flip_h, must_flip_v, must_rotate))
+
+            if must_flip_h:
+                img = img.transpose(Image.FLIP_LEFT_RIGHT)
+            if must_flip_v:
+                img = img.transpose(Image.FLIP_TOP_BOTTOM)
+            if must_rotate:
+                img = img.rotate(90, expand=True)
+        return img
+
+    def get_snapshot(self):
+        if self.custom_snapshot_url:
+            self._logger.info("Using custom URL")
+            try:
+                if self.custom_snapshot_url.startswith("file://"):
+                    # Handle local file paths
+                    file_path = self.custom_snapshot_url.partition('file://')[2]
+                    with open(file_path, "rb") as file:
+                        img = Image.open(file)
+                        return img.copy()
+                    
+                else:
+                    # Handle HTTP URLs
+                    response = requests.get(self.custom_snapshot_url)
+                    response.raise_for_status()  # This will throw an error for bad responses
+                    img = Image.open(BytesIO(response.content))
+                    return img
+            except requests.RequestException as e:
+                self._logger.error(f"Failed to fetch custom snapshot URL: {e}")
+                return None
+            except IOError as e:
+                self._logger.error(f"Failed to open local file from custom snapshot URL: {e}")
+                return None
+
+        if self.snap_new_method:
+            for camera in self.cameras:
+                configs = camera.get_webcam_configurations()
+                for config in configs:
+                    try:
+                        snapshot_iter = camera.take_webcam_snapshot(config)
+                        snapshot = b''
+                        for b in snapshot_iter:
+                            snapshot += b
+
+                        must_flip_h = config.flipH
+                        must_flip_v = config.flipV
+                        must_rotate = config.rotate90
+
+                        # Create an Image object from the snapshot bytes
+                        img = Image.open(BytesIO(snapshot))
+                        img = self.transform_image(img, must_flip_h, must_flip_v, must_rotate)
+                        #self._logger.info(config)
+                        return img
+                    except Exception as e:
+                        self._logger.error(f"Error processing camera snapshot: {e}")
+                        pass
+        
+        self._logger.info("Falling back to default snapshot method")
+        snapshot = None
+        snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+        if not snapshot_url:
+            self._logger.error("No snapshot URL configured")
+            return None
+
+        try:
+            if snapshot_url.startswith("file://"):
+                # Handling local file paths
+                file_path = snapshot_url.partition('file://')[2]
+                with open(file_path, "rb") as file:
+                    img = Image.open(file)
+            else:
+                # Handling URLs
+                response = requests.get(snapshot_url)
+                response.raise_for_status()
+                img = Image.open(BytesIO(response.content))
+            
+            # Apply transformations if needed
+            must_flip_h = self._settings.global_get_boolean(["webcam", "flipH"])
+            must_flip_v = self._settings.global_get_boolean(["webcam", "flipV"])
+            must_rotate = self._settings.global_get_boolean(["webcam", "rotate90"])
+            img = self.transform_image(img, must_flip_h, must_flip_v, must_rotate)  # Note: This line might need adjustment
+            return img
+        except requests.RequestException as e:
+            self._logger.error(f"Failed to fetch default snapshot: {e}")
+            return None
+        except IOError as e:
+            self._logger.error(f"Failed to open local snapshot file: {e}")
+            return None
     
     def check_response(self, base64EncodedImage):
         """
@@ -387,7 +595,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         response_data  = {
                 "image": base64EncodedImage,  
                 "failureCount": failure_count,  
-                "printingStatus": "ON" if self.get_printer_status() else "OFF",
+                "aiStatus": "ON" if self.ai_running else "OFF",
                 "cpuTemperature": int(self.get_cpu_temperature())
             }
         return Response(json.dumps(response_data), mimetype="application/json")
@@ -403,6 +611,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         """
         
         with self.lock:
+            #within 5 seconds, show the failure image.
             if self.ai_results and (time.time() - self.ai_results[-1]['time']) <= 5:
                 ai_result_image = self.ai_results[-1]['ai_result_image']  
             else:
@@ -410,20 +619,15 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
 
         if ai_result_image:
             return self.check_response(ai_result_image)
-        
-        # Otherwise, fetch the latest snapshot from the camera
-        try:
-            if not self.snapshot:
-                return self.check_response(self._encode_no_camera_image())
-            response = requests.get(self.snapshot, timeout=1)
-            response.raise_for_status()
-            input_image = Image.open(BytesIO(response.content))
-            encoded_image = self.encode_image_to_base64(input_image)
-            return self.check_response(encoded_image)
-        except requests.RequestException as e:
-            self._logger.info(f"Error fetching camera snapshot: {e}")
-            # Return no camera image response if fetching snapshot fails
+
+        # Use the get_snapshot method to get the processed image
+        input_image = self.get_snapshot()
+        if input_image is None:
             return self.check_response(self._encode_no_camera_image())
+
+        # Since get_snapshot returns the image data as bytes, we can directly use it
+        encoded_image = self.encode_image_to_base64(input_image)
+        return self.check_response(encoded_image)
 
 
     def get_template_configs(self):

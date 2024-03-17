@@ -242,7 +242,7 @@ def _detection_postprocess(image, cls_heads, box_heads):
 
     return scores, boxes, labels
 
-def preprocess_image(image):
+def _preprocess_image(image):
     """
     Preprocesses the input image for inference.
 
@@ -262,7 +262,9 @@ def preprocess_image(image):
     img_arr = (img_arr - mean) / std
     return img_arr
 
-def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2):
+def image_inference(input_image, scores_threshold, img_sensitivity, 
+                    _bin_file_path=os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin'),
+                    num_threads=2, _proc_img_width=640, _proc_img_height=384):
     """
     Performs inference on the given image using a pre-trained ONNX model.
 
@@ -281,13 +283,8 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     """
 
     # model internal parameters
-    _proc_img_width =640
-    _proc_img_height=384
-    
-    bin_file="nozcam.bin"
-    
-    bin_file_path = os.path.join(os.path.dirname(__file__),'static', bin_file)
-
+    #_proc_img_width =640
+    #_proc_img_height=384
 
     # Get the width and height of the image
     img_width, img_height = input_image.size
@@ -295,7 +292,7 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     # Resize the image
     input_image = input_image.resize((_proc_img_width, _proc_img_height))
     
-    input_array = preprocess_image(input_image)
+    input_array = _preprocess_image(input_image)
     input_array = input_array.astype(np.float32)
     # create the batch
     input_batch = np.expand_dims(input_array, axis=0)
@@ -305,7 +302,7 @@ def image_inference(input_image, scores_threshold, img_sensitivity,num_threads=2
     # Run the ONNX model inference
     sess_opt = onnxruntime.SessionOptions()
     sess_opt.intra_op_num_threads = num_threads
-    ort_session = onnxruntime.InferenceSession(bin_file_path, sess_opt, providers=['CPUExecutionProvider'])
+    ort_session = onnxruntime.InferenceSession(_bin_file_path, sess_opt, providers=['CPUExecutionProvider'])
 
     ort_inputs = {ort_session.get_inputs()[0].name: input_batch}
     ort_outs = ort_session.run(None, ort_inputs)

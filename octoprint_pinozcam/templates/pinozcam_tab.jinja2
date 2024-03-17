@@ -21,7 +21,7 @@
         <!-- ID is ai-image -->
         <img id="ai-image" src="" alt="AI Image" style="max-width: 100%; height: auto;">
         <!-- Placeholder for Printing Status -->
-        <div id="printing-status" style="margin-top: 10px;">Printing Status: OFF</div>
+        <div id="ai-status" style="margin-top: 10px;">AI Status: OFF</div>
         <div id="cpu-temperature" style="margin-top: 10px;">CPU Temperature: --°C</div>
         <!-- Placeholder for Failure Count -->
         <div id="failure-count" style="margin-top: 10px;">Failure Count: 0</div>
@@ -84,9 +84,9 @@
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Snapshot URL') }}</label>
+        <label class="control-label">{{ _('Custom Snapshot URL') }}</label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newSnapshotUrl">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL">
         </div>
     </div>
     <div class="control-group">
@@ -99,6 +99,12 @@
         <label class="control-label">{{ _('Telegram Chat ID') }}</label>
         <div class="controls">
             <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramChatId">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Discord Webhook URL') }}</label>
+        <div class="controls">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newDiscordWebhookURL">
         </div>
     </div>
     <div class="save-button-container">

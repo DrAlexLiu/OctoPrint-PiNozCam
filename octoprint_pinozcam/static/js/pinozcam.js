@@ -57,8 +57,8 @@ $(function () {
         self.currentCpuSpeedControl = ko.observable();
         self.newCpuSpeedControl = ko.observable("");
 
-        self.currentSnapshotUrl = ko.observable();
-        self.newSnapshotUrl = ko.observable();
+        self.currentCustomSnapshotURL = ko.observable();
+        self.newCustomSnapshotURL = ko.observable();
 
         self.currentAction = ko.observable();
         self.newAction = ko.observable("");
@@ -68,6 +68,9 @@ $(function () {
 
         self.currentTelegramChatId = ko.observable();
         self.newTelegramChatId = ko.observable();
+
+        self.currentDiscordWebhookURL = ko.observable();
+        self.newDiscordWebhookURL = ko.observable();
 
         self.onBeforeBinding = function () {
             var pluginSettings =
@@ -94,8 +97,8 @@ $(function () {
             self.newCpuSpeedControl(pluginSettings.cpuSpeedControl().toString());
             self.currentCpuSpeedControl(self.newCpuSpeedControl());
 
-            self.newSnapshotUrl(pluginSettings.snapshot());
-            self.currentSnapshotUrl(self.newSnapshotUrl());
+            self.newCustomSnapshotURL(pluginSettings.customSnapshotURL());
+            self.currentCustomSnapshotURL(self.newCustomSnapshotURL());
 
             self.newTelegramBotToken(pluginSettings.telegramBotToken());
             self.currentTelegramBotToken(self.newTelegramBotToken());
@@ -103,20 +106,23 @@ $(function () {
             self.newTelegramChatId(pluginSettings.telegramChatID());
             self.currentTelegramChatId(self.newTelegramChatId());
             
+            self.newDiscordWebhookURL(pluginSettings.discordWebhookURL());
+            self.currentDiscordWebhookURL(self.newDiscordWebhookURL());
         };
 
         self.saveSettings = function () {
             var newSettings = {
+                action: parseInt(self.newAction(), 0),
                 printLayoutThreshold: parseFloat(self.newPrintLayoutThreshold()),
                 imgSensitivity: parseFloat(self.newImgSensitivity()),
                 scoresThreshold: parseFloat(self.newScoresThreshold()),
                 maxCount: parseInt(self.newMaxCount(), 10), 
                 countTime: parseInt(self.newCountTime(), 10), 
                 cpuSpeedControl: parseFloat(self.newCpuSpeedControl()),
-                snapshot: self.newSnapshotUrl(),
-                action: parseInt(self.newAction(), 0),
+                customSnapshotURL: self.newCustomSnapshotURL(),
                 telegramBotToken: self.newTelegramBotToken(),
                 telegramChatID: self.newTelegramChatId(),
+                discordWebhookURL: self.newDiscordWebhookURL(),
             };
             OctoPrint.settings
                 .savePluginSettings("pinozcam", newSettings)
@@ -133,9 +139,10 @@ $(function () {
                     self.currentMaxCount(self.newMaxCount());
                     self.currentCountTime(self.newCountTime());
                     self.currentCpuSpeedControl(self.newCpuSpeedControl());
-                    self.currentSnapshotUrl(self.newSnapshotUrl());
+                    self.currentCustomSnapshotURL(self.newCustomSnapshotURL());
                     self.currentTelegramBotToken(self.newTelegramBotToken());
                     self.currentTelegramChatId(self.newTelegramChatId());
+                    self.currentDiscordWebhookURL(self.newDiscordWebhookURL())
                 })
                 .fail(function () {
                     new PNotify({
@@ -165,7 +172,7 @@ setInterval(function () {
             //var data = JSON.parse(response);  // Parse the JSON response
             $("#ai-image").attr("src", response.image);  // Update the image source
             $("#failure-count").text("Failure Count: " + response.failureCount);  // Update the failure count display
-            $("#printing-status").text("Printing Status: " + response.printingStatus);  // Update the printing status display
+            $("#ai-status").text("AI Status: " + response.aiStatus);  // Update the AI status display
             $("#cpu-temperature").text("CPU Temperature: " + response.cpuTemperature + "°C");  // Update the CPU temperature display
         },
         error: function (error) {
@@ -173,4 +180,3 @@ setInterval(function () {
         },
     });
 }, 500); // Request every 0.5 seconds
-
