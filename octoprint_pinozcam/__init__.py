@@ -15,7 +15,6 @@ from octoprint.events import Events
 
 from .inference import image_inference
 
-
 class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                      octoprint.plugin.TemplatePlugin,
                      octoprint.plugin.SettingsPlugin,
@@ -406,14 +405,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             # Text to be drawn
             spaghetti_text = "Spaghetti"
             score_text = f"{score:.2f}"  # Format the score to two decimal places
-            
-            # Calculate the size of the spaghetti text
-            spaghetti_text_size = self.font.getsize(spaghetti_text)
-            score_text_size = self.font.getsize(score_text)
 
             # Adjust text position so it does not overlap with the bounding box
-            spaghetti_text_position = (x1, y1 - spaghetti_text_size[1])
-            score_text_position = (x2 - score_text_size[0], y1 - score_text_size[1])
+            spaghetti_text_position = (x1, y1 - 32)
+            score_text_position = (x2 - 56, y1 - 26)
             
             # Ensure the text stays within the image boundaries
             if spaghetti_text_position[1] < 0:
@@ -437,7 +432,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         draw = ImageDraw.Draw(image)
 
         # Calculate text position for center alignment
-        text_width, text_height = self.font.getsize(text)
+        self._logger.info(f"self.font.getmask(text).getbbox()={self.font.getmask(text).getbbox()}")
+        text_bbox=self.font.getmask(text).getbbox()
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
         x = (image.width - text_width) / 2
         y = (image.height - text_height) / 2
 
