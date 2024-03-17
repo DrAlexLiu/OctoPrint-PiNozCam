@@ -408,8 +408,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             score_text = f"{score:.2f}"  # Format the score to two decimal places
             
             # Calculate the size of the spaghetti text
-            spaghetti_text_size = draw.textsize(spaghetti_text, font=self.font)
-            score_text_size = draw.textsize(score_text, font=self.font)
+            spaghetti_text_size = self.font.getsize(spaghetti_text)
+            score_text_size = self.font.getsize(score_text)
 
             # Adjust text position so it does not overlap with the bounding box
             spaghetti_text_position = (x1, y1 - spaghetti_text_size[1])
@@ -437,7 +437,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         draw = ImageDraw.Draw(image)
 
         # Calculate text position for center alignment
-        text_width, text_height = draw.textsize(text, font=self.font)
+        text_width, text_height = self.font.getsize(text)
         x = (image.width - text_width) / 2
         y = (image.height - text_height) / 2
 
