@@ -62,7 +62,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #files:
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
         self.no_camera_path = os.path.join(os.path.dirname(__file__), 'static', 'no_camera.jpg')
-        self.bin_file_path = os.path.join(os.path.dirname(__file__),'static', 'nozcam.bin')
+        self.model_data = None
 
         #camera
         self.cameras = []
@@ -170,6 +170,19 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         else:
             self._logger.info("No interference with the printing process.")
     
+    def load_model_to_memory(self):
+        """Load AI Model into memory with error handling."""
+        model_path = os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin')
+        try:
+            with open(model_path, 'rb') as model_file:
+                model_data = model_file.read()
+            return BytesIO(model_data)
+        except Exception as e:
+            #
+            self._logger.info(f"Failed to load model from {model_path}. Error: {e}")
+            #
+            return None
+
     def on_after_startup(self):
         """
         Initializes plugin settings after startup by loading values from the configuration.
@@ -190,16 +203,18 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
         #
+
+        self.model_data = self.load_model_to_memory()
+
         self.initialize_cameras()
 
         self.initialize_font()
-
+        
+        
         if not os.path.exists(self.no_camera_path):
             self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
             self.no_camera_path = None 
-        if not os.path.exists(self.bin_file_path):
-            self._logger.error(f"No bin file does not exist: {self.bin_file_path}")
-            self.bin_file_path = None 
+
     
     def telegram_send(self, image, severity, percentage_area, custom_message=""):
         """
@@ -318,7 +333,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     scores_threshold=self.scores_threshold, 
                     img_sensitivity=self.img_sensitivity, 
                     num_threads=self.num_threads, 
-                    _bin_file_path=self.bin_file_path, 
+                    model_data=self.model_data, 
                     _proc_img_width=self.proc_img_width, 
                     _proc_img_height=self.proc_img_height
                 )
