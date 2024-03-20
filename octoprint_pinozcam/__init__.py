@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from flask import Response
 import octoprint.plugin
 from octoprint.events import Events
+import onnxruntime
 
 from .inference import image_inference
 
@@ -63,6 +64,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
         self.no_camera_path = os.path.join(os.path.dirname(__file__), 'static', 'no_camera.jpg')
         self.bin_file_path = os.path.join(os.path.dirname(__file__),'static', 'nozcam.bin')
+        
 
         #camera
         self.cameras = []
@@ -145,7 +147,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             scoresThreshold=0.7,
             maxCount=2,
             countTime=300,
-            cpuSpeedControl=1,
+            cpuSpeedControl=0.5,
             customSnapshotURL="",
             telegramBotToken="",
             telegramChatID="",
@@ -170,6 +172,19 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         else:
             self._logger.info("No interference with the printing process.")
     
+    # def load_model_to_memory(self):
+    #     """Load AI Model into memory with error handling."""
+    #     model_path = os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin')
+    #     try:
+    #         with open(model_path, 'rb') as model_file:
+    #             model_data = model_file.read()
+    #         return BytesIO(model_data)
+    #     except Exception as e:
+    #         #
+    #         self._logger.info(f"Failed to load model from {model_path}. Error: {e}")
+    #         #
+    #         return None
+
     def on_after_startup(self):
         """
         Initializes plugin settings after startup by loading values from the configuration.
@@ -190,16 +205,19 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
         #
+
         self.initialize_cameras()
 
         self.initialize_font()
-
-        if not os.path.exists(self.no_camera_path):
-            self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
-            self.no_camera_path = None 
+        
         if not os.path.exists(self.bin_file_path):
             self._logger.error(f"No bin file does not exist: {self.bin_file_path}")
             self.bin_file_path = None 
+        
+        if not os.path.exists(self.no_camera_path):
+            self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
+            self.no_camera_path = None 
+
     
     def telegram_send(self, image, severity, percentage_area, custom_message=""):
         """
@@ -296,8 +314,26 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         This function runs in a dedicated thread to not block the main plugin operations.
         """
         self.ai_running = True
-        while self.ai_running:
 
+        # Load model_data into memory
+        self._logger.info("begin loading AI Model into memory.")
+        try:
+            with open(self.bin_file_path, 'rb') as model_file:
+                model_data = model_file.read()
+            self._logger.info("Successfully loaded AI Model into memory.")
+
+            # Initialize SessionOptions and InferenceSession here
+            sess_opt = onnxruntime.SessionOptions()
+            sess_opt.intra_op_num_threads = self.num_threads
+            ort_session = onnxruntime.InferenceSession(model_data, sess_opt, providers=['CPUExecutionProvider'])
+            self._logger.info("InferenceSession initialized.")
+        except Exception as e:
+            self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
+            self.ai_running = False
+
+        while self.ai_running:
+            
+            #get rid of results longer than count_time
             with self.lock:
                 while self.ai_results and time.time() - self.ai_results[0]['time'] > self.count_time:
                     result = self.ai_results.popleft()
@@ -318,7 +354,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     scores_threshold=self.scores_threshold, 
                     img_sensitivity=self.img_sensitivity, 
                     num_threads=self.num_threads, 
-                    _bin_file_path=self.bin_file_path, 
+                    ort_session=ort_session, 
                     _proc_img_width=self.proc_img_width, 
                     _proc_img_height=self.proc_img_height
                 )
@@ -360,6 +396,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         failure_count = self.count
                     if failure_count >= self.max_count:
                         self.perform_action()
+        sess_opt = None
     
     @staticmethod
     def _largest_power_of_two(n):

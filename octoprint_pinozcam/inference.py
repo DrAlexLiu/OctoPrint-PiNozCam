@@ -1,5 +1,5 @@
 import numpy as np
-import onnxruntime
+
 import time
 import os
 
@@ -263,7 +263,7 @@ def _preprocess_image(image):
     return img_arr
 
 def image_inference(input_image, scores_threshold, img_sensitivity, 
-                    _bin_file_path=os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin'),
+                    ort_session,
                     num_threads=2, _proc_img_width=640, _proc_img_height=384):
     """
     Performs inference on the given image using a pre-trained ONNX model.
@@ -300,9 +300,9 @@ def image_inference(input_image, scores_threshold, img_sensitivity,
     # Start the timer
     start_time = time.time()
     # Run the ONNX model inference
-    sess_opt = onnxruntime.SessionOptions()
-    sess_opt.intra_op_num_threads = num_threads
-    ort_session = onnxruntime.InferenceSession(_bin_file_path, sess_opt, providers=['CPUExecutionProvider'])
+    # sess_opt = onnxruntime.SessionOptions()
+    # sess_opt.intra_op_num_threads = num_threads
+    # ort_session = onnxruntime.InferenceSession(model_data, sess_opt, providers=['CPUExecutionProvider'])
 
     ort_inputs = {ort_session.get_inputs()[0].name: input_batch}
     ort_outs = ort_session.run(None, ort_inputs)
