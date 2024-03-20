@@ -396,6 +396,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         failure_count = self.count
                     if failure_count >= self.max_count:
                         self.perform_action()
+        sess_opt = None
     
     @staticmethod
     def _largest_power_of_two(n):
