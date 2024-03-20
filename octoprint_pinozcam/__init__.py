@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from flask import Response
 import octoprint.plugin
 from octoprint.events import Events
+import onnxruntime
 
 from .inference import image_inference
 
@@ -314,16 +315,22 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         """
         self.ai_running = True
 
-        #load model_data into memory
-        self._logger.warning("begin loaded AI Model into memory.")
-        model_data = None
+        # Load model_data into memory
+        self._logger.info("begin loading AI Model into memory.")
         try:
             with open(self.bin_file_path, 'rb') as model_file:
-                model_data = (model_file.read())
-            self._logger.warning(f"Successfully loaded AI Model into memory.type{type(model_data)}")
+                model_data = model_file.read()
+            self._logger.info("Successfully loaded AI Model into memory.")
+
+            # Initialize SessionOptions and InferenceSession here
+            sess_opt = onnxruntime.SessionOptions()
+            sess_opt.intra_op_num_threads = self.num_threads
+            ort_session = onnxruntime.InferenceSession(model_data, sess_opt, providers=['CPUExecutionProvider'])
+            self._logger.info("InferenceSession initialized.")
         except Exception as e:
             self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
-        
+            self.ai_running = False
+
         while self.ai_running:
             
             #get rid of results longer than count_time
@@ -347,7 +354,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     scores_threshold=self.scores_threshold, 
                     img_sensitivity=self.img_sensitivity, 
                     num_threads=self.num_threads, 
-                    model_data=model_data, 
+                    ort_session=ort_session, 
                     _proc_img_width=self.proc_img_width, 
                     _proc_img_height=self.proc_img_height
                 )
