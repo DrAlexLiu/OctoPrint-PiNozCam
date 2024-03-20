@@ -62,7 +62,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #files:
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
         self.no_camera_path = os.path.join(os.path.dirname(__file__), 'static', 'no_camera.jpg')
-        self.model_data = None
+        self.bin_file_path = os.path.join(os.path.dirname(__file__),'static', 'nozcam.bin')
+        
 
         #camera
         self.cameras = []
@@ -170,18 +171,18 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         else:
             self._logger.info("No interference with the printing process.")
     
-    def load_model_to_memory(self):
-        """Load AI Model into memory with error handling."""
-        model_path = os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin')
-        try:
-            with open(model_path, 'rb') as model_file:
-                model_data = model_file.read()
-            return BytesIO(model_data)
-        except Exception as e:
-            #
-            self._logger.info(f"Failed to load model from {model_path}. Error: {e}")
-            #
-            return None
+    # def load_model_to_memory(self):
+    #     """Load AI Model into memory with error handling."""
+    #     model_path = os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin')
+    #     try:
+    #         with open(model_path, 'rb') as model_file:
+    #             model_data = model_file.read()
+    #         return BytesIO(model_data)
+    #     except Exception as e:
+    #         #
+    #         self._logger.info(f"Failed to load model from {model_path}. Error: {e}")
+    #         #
+    #         return None
 
     def on_after_startup(self):
         """
@@ -204,12 +205,13 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self._thread_calculation()
         #
 
-        self.model_data = self.load_model_to_memory()
-
         self.initialize_cameras()
 
         self.initialize_font()
         
+        if not os.path.exists(self.bin_file_path):
+            self._logger.error(f"No bin file does not exist: {self.bin_file_path}")
+            self.bin_file_path = None 
         
         if not os.path.exists(self.no_camera_path):
             self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
@@ -311,8 +313,20 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         This function runs in a dedicated thread to not block the main plugin operations.
         """
         self.ai_running = True
-        while self.ai_running:
 
+        #load model_data into memory
+        self._logger.warning("begin loaded AI Model into memory.")
+        model_data = None
+        try:
+            with open(self.bin_file_path, 'rb') as model_file:
+                model_data = (model_file.read())
+            self._logger.warning(f"Successfully loaded AI Model into memory.type{type(model_data)}")
+        except Exception as e:
+            self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
+        
+        while self.ai_running:
+            
+            #get rid of results longer than count_time
             with self.lock:
                 while self.ai_results and time.time() - self.ai_results[0]['time'] > self.count_time:
                     result = self.ai_results.popleft()
@@ -333,7 +347,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     scores_threshold=self.scores_threshold, 
                     img_sensitivity=self.img_sensitivity, 
                     num_threads=self.num_threads, 
-                    model_data=self.model_data, 
+                    model_data=model_data, 
                     _proc_img_width=self.proc_img_width, 
                     _proc_img_height=self.proc_img_height
                 )
