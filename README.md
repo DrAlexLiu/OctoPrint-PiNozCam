@@ -27,10 +27,10 @@ Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **
 - **No email register/sign up/subscription/Cloud/Ads/Payment**
 - **Auto Pause/Stop Functionality**
 
-Support RPi OS platform (Don’t know❓):
+Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
 
-**Buster**|**Bullseye**|**Bookworm**
-:-----:|:-----:|:-----:
+ **OS platform**|**Buster**|**Bullseye**|**Bookworm**
+:-----:|:-----:|:-----:|:-----:
 arm64 (x64)|✅|✅|✅
 armhf (x32)|❌|✅|❌
 
@@ -58,12 +58,16 @@ Ensure your camera:
 ### Endoscope camera Bracket
 Search and print a nozzle camera bracket for your camera model. 
 
+The setup would be like this:
+
+<img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%>
+
 ### Cellphone
 
 To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
 or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
 
-<img src="/assets/images/telegram_notification.jpg" width="400" height="891">
+<img src="/assets/images/telegram_notification.jpg" width=50% height=50%>
 
 ## Plugin Setup
 
@@ -72,19 +76,15 @@ or manually using this URL:
 
     https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
 
-The setup would be like this:
-
-<img src="/assets/images/nozzle_cam_setup.jpg" width="600" height="503">
-
 ### **Software Configuration**
 
 Navigate to the PiNozCam tab:
 
-<img src="/assets/images/tab.png" width="600" height="71">
+<img src="/assets/images/tab.png" width=50% height=50%>
 
 The screenshot:
 
-<img src="/assets/images/screenshot.png" width="600" height="665">
+<img src="/assets/images/screenshot.png" width=50% height=50%>
 
 
 **Key Parameters:**
