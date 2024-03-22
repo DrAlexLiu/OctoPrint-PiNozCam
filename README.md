@@ -1,7 +1,7 @@
 # OctoPrint-PiNozCam
 <div>
   <img src="/assets/images/failure_detection1.jpg" width="40%" height="40%">
-  <img src="/assets/images/failure_detection2.jpg" width="40%" height="40%">
+  <img src="/assets/images/failure_detection2.jpg" width="50%" height="50%">
 </div>
 
 [![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/W2zQNrpu)
