@@ -1,7 +1,7 @@
 # OctoPrint-PiNozCam
 <div>
-  <img src="/assets/images/failure_detection1.jpg" width="40%" height="40%">
-  <img src="/assets/images/failure_detection2.jpg" width="40%" height="40%">
+  <img src="/assets/images/failure_detection1.jpg" width="50%" height="50%">
+  <img src="/assets/images/failure_detection2.jpg" width="50%" height="50%">
 </div>
 
 [![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/W2zQNrpu)
@@ -43,6 +43,13 @@ armhf (x32)|❌|✅|❌
 :-----:|:-----:|:-----:|:-----:|:-----:
 ✅|✅|✅|✅|>=512MB
 
+## Plugin Setup
+
+Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
+or manually using this URL:
+
+    https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
+
 ## Required Hardware Setup
 
 ### **Endoscope Camera**
@@ -71,13 +78,6 @@ To enable notifications, enter your [Telegram bot token and chat ID](https://gis
 or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
 
 <img src="/assets/images/telegram_notification.jpg" width=50% height=50%>
-
-## Plugin Setup
-
-Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
-or manually using this URL:
-
-    https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
 
 ### **Software Configuration**
 
