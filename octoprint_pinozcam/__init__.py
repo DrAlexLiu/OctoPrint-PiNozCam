@@ -253,8 +253,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         caption = (f"Printer {title}\n"
                 f"Severity: {severity_percentage:.2f}%\n"
                 f"Failure Area: {percentage_area:.2f}\n"
-                f"Failure Area: {percentage_area:.2f}\n"
                 f"Failure Count: {failure_count}\n"
+                f"Max Failure Count: {self.max_count}\n"
                 f"{custom_message}")
 
         image_stream = BytesIO()
