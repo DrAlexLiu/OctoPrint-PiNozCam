@@ -37,7 +37,7 @@ Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspb
 arm64 (x64)|✅|✅|✅
 armhf (x32)|❌|✅|❌
 
-⚠️ This plugin supports the stable OctoPi image (Bullseye). For those utilizing 32-bit OctoPi Nightly (Bookworm armhf) or older OctoPi images (Buster armhf), it's essential to select arm64 builds for compatibility.
+⚠️ This plugin supports the [stable OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) (Bullseye). For those utilizing 32-bit OctoPi Nightly (Bookworm armhf) or older OctoPi images (Buster armhf), it's essential to select arm64 builds for compatibility, or [flash the stable OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/).
 
 **RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
 :-----:|:-----:|:-----:|:-----:|:-----:
