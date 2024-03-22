@@ -172,19 +172,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         else:
             self._logger.info("No interference with the printing process.")
     
-    # def load_model_to_memory(self):
-    #     """Load AI Model into memory with error handling."""
-    #     model_path = os.path.join(os.path.dirname(__file__), 'static', 'nozcam.bin')
-    #     try:
-    #         with open(model_path, 'rb') as model_file:
-    #             model_data = model_file.read()
-    #         return BytesIO(model_data)
-    #     except Exception as e:
-    #         #
-    #         self._logger.info(f"Failed to load model from {model_path}. Error: {e}")
-    #         #
-    #         return None
-
     def on_after_startup(self):
         """
         Initializes plugin settings after startup by loading values from the configuration.
@@ -254,12 +241,13 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         else:
             self._logger.error(f"Failed to send message to Telegram: {response.text}")
 
-    def discord_send(self, image, severity_percentage, percentage_area, custom_message=""):
+    def discord_send(self, image, severity, percentage_area, custom_message=""):
         """
         
         """
         
         title = self._settings.global_get(["appearance", "name"])
+        severity_percentage = severity * 100
         caption = (f"Printer {title}\n"
                 f"Severity: {severity_percentage:.2f}%\n"
                 f"Failure Area: {percentage_area:.2f}\n"

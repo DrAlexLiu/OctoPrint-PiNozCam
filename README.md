@@ -1,65 +1,76 @@
 # OctoPrint-PiNozCam
-<img src="/assets/images/failure_detection1.jpg" width="500" height="330">
+<img src="/assets/images/failure_detection1.jpg" width=50% height=50%>
 
 [![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/W2zQNrpu)
 
 ## Introduction
 
-Failure Detection Performed on your Pi CPU & Desktop
+Welcome to the era of edge computing with free failure detection performed directly on your Pi
 
-Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without a subscription or email registration**. Designed to enhance your printing process, PiNozCam introduces cutting-edge **edge computing** right on your **Raspberry Pi**, or your other devices like an old PC. This ensures your **privacy** and the protection of your 3D model **copyrights**, while enabling you to receive instant failure alerts directly on your mobile via **Telegram**. Best of all, PiNozCam is entirely free, offering you peace of mind at no extra cost. 
+**Device (50% of All Cores for AI)**|**Inference Speed (images / minute)**
+:-----:|:-----:
+Raspberry Pi 5|47*
+Raspberry Pi 4|9
+Raspberry Pi 3|5
+PC with Intel i5 10600|260
+OrangePi Zero 2/3|9
+
+Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
+
+*The **1.28s** inference speed (RPi5) outpaces the average time taken to send a picture to, and receive it back from, a cloud service.
 
 **Features include:**
 
-- **AI-Powered Edge Computing for Monitoring**
-- **Configurable Actions for Pause/Stop**
-- **Instant Telegram Error Notifications**
-- **Performance Optimization On Pi Arm CPU**
-- **User-Friendly Interface**
-- **Privacy First, No email register/sign up/subscription**
+- **Fast Inference on Pi Arm CPU/Local Device, 24/7 AI service**
+- **Instant Telegram/Discord Error Notifications**
+- **Privacy-first approach with RAM-only data storage**
+- **No email register/sign up/subscription/Cloud/Ads/Payment**
+- **Auto Pause/Stop Functionality**
 
-Download PiNozCam today and enjoy uninterrupted, worry-free 3D printing forever.
+Support RPi OS platform (Don’t know❓):
 
-## Setup
+**Buster**|**Bullseye**|**Bookworm**
+:-----:|:-----:|:-----:
+arm64 (x64)|✅|✅|✅
+armhf (x32)|❌|✅|❌
 
-### Hardware Setup
+⚠️ This plugin supports the stable OctoPi image (Bullseye). For those utilizing 32-bit OctoPi Nightly (Bookworm armhf) or older OctoPi images (Buster armhf), it's essential to select arm64 builds for compatibility.
 
-#### **Pi with Cooling Fan**
+**RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
+:-----:|:-----:|:-----:|:-----:|:-----:
+✅|✅|✅|✅|>=512MB
 
-- Raspberry Pi 5(>=2GB): 37 images / minute (Highly Recommend)
-  
-  Example: Use [Octoprint_deploy](https://github.com/paukstelis/octoprint_deploy) to install the Octoprint and then install PiNozCam
-- Raspberry Pi 4B(>=2GB) : 9 images / minute (Recommend)
-  
-  Example: Use [RPi Imager to flash OctoPi](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) and install the PiNozCam
+## Required Hardware Setup
 
-- Raspberry Pi 3B(>=2GB) : 5 images / minute (Acceptable)
+### **Endoscope Camera**
 
-  It is advised to adjust the **Max Failure Count to 1** when operating at this rate of inference.
+Compatible with most market-available endoscope cameras. 
+- Nozzle camera kits: [StealthBurner](https://www.sliceengineering.com/products/stealthburner-nozzle-camera-kit), [3Do](https://kb-3d.com/store/electronics/779-3do-nozzle-camera-kit.html), etc.
+- [Build](https://www.instructables.com/3D-Printer-Layer-Cam-Nozzle-Cam-Prusa-Mini/) yours with cameras from [Aliexpress](https://s.click.aliexpress.com/e/_AZAMf2) or [Amazon](https://www.amazon.com/dp/B09NVYXTG5?psc=1&ref=ppx_yo2ov_dt_b_product_details) or [Temu](https://www.temu.com/search_result.html?search_key=endoscope%20camera). 
 
-We strongly recommend **fan cooling** to maintain optimal performance. Although PiNozCam can run on PiZero W 2, their longer inference times make them less recommended options.
+Ensure your camera:
+- [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
+- Built-in LED **backlighting**.
+- Positioned **~ 10 cm** from the nozzle. 
 
-⚠️ **Limitation**: Please note, PiNozCam is optimized for **stable OctoPi images** (Bullseye in 32-bit OS system) and all **64-bit OS systems**. For those utilizing other 32-bit Debian platforms, such as OctoPi Nightly (Bookworm armhf platforms) or older OctoPi images (Buster armhf platforms), it's essential to select arm64 builds for compatibility. This ensures a seamless experience and maintains the high performance of PiNozCam in diverse environments.
+⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
 
-However, PiNozCam can run other CPUs. If you want to use other methods:
+### Endoscope camera Bracket
+Search and print a nozzle camera bracket for your camera model. 
 
-- **PC with Intel i5 10600** (x64, Ubuntu) : 150 images / minute
-  
-  Example: Use [Octoprint docker](https://hub.docker.com/r/octoprint/octoprint) and install the PiNozCam
+### Cellphone
 
-- **OrangePi Zero 2/3** (x64, Ubuntu) : 7 images / minute
-  
-  PiNozCam supports Allwinner (>=H616) and Rockchip (>=RK3566) series. Make sure the memory is at least 1GB. Recommanded >=2GB. 
+To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
+or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
 
-#### **Endoscope Camera**
+<img src="/assets/images/telegram_notification.jpg" width="400" height="891">
 
-Most market-available endoscope cameras are compatible with this setup. Ensure your camera:
-- Operates at a [16:9 30Hz](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203) frequency to minimize motion blur and better experience.
-- Supports a minimum resolution of **480P**.
-- Features built-in lighting for enhanced detection quality.
-- Is positioned **approximately 10 cm** from the nozzle. 
+## Plugin Setup
 
-⚠️ **Cleaning the camera lens** before each print is crucial as dust can accumulate and affect detection accuracy.
+Install via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
+or manually using this URL:
+
+    https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
 
 The setup would be like this:
 
@@ -67,11 +78,11 @@ The setup would be like this:
 
 ### **Software Configuration**
 
-Go to PiNozCam Tab:
+Navigate to the PiNozCam tab:
 
 <img src="/assets/images/tab.png" width="600" height="71">
 
-You will see:
+The screenshot:
 
 <img src="/assets/images/screenshot.png" width="600" height="665">
 
@@ -85,15 +96,10 @@ You will see:
 - **Failure Consider Time (s):** Implement a time buffer to focus on recent failures, ignoring older detections that may no longer be relevant. This dynamic consideration helps in adapting to the current state of the print.
 - **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended in warmer conditions without adequate cooling to prevent overheating. Full speed is optimal with enforced cooling.
 
-To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
-. Following a successful configuration, a welcome message will be sent to your Telegram after you click "Save". An example notification will be sent like this:
-
-<img src="/assets/images/telegram_notification.jpg" width="400" height="891">
-
 Initially, stick with the default settings and adjust them gradually to fine-tune performance.
 
 
-## Final Step: Start Printing
+## Support
 
-Once everything is set up, you can relax and rely on Telegram notifications to alert you of any issues during printing.
+For further discussion and support, please [**join our Discord channel**](https://discord.gg/W2zQNrpu).
 
