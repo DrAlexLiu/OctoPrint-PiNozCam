@@ -12,15 +12,13 @@ Welcome to the era of edge computing with free failure detection performed direc
 
 **Device (50% of All Cores for AI)**|**Inference Speed (images / minute)**
 :-----:|:-----:
-Raspberry Pi 5|47*
+Raspberry Pi 5|47
 Raspberry Pi 4|9
 Raspberry Pi 3|5
 PC with Intel i5 10600|260
 OrangePi Zero 2/3|9
 
 Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
-
-*The **1.28s** inference speed (RPi5) outpaces the average time taken to send a picture to, and receive it back from, a cloud service.
 
 **Features include:**
 
