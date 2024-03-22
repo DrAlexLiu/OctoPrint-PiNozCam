@@ -248,10 +248,14 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
         title = self._settings.global_get(["appearance", "name"])
         severity_percentage = severity * 100
+        with self.lock:
+            failure_count = self.count
         caption = (f"Printer {title}\n"
                 f"Severity: {severity_percentage:.2f}%\n"
                 f"Failure Area: {percentage_area:.2f}\n"
-                f"Custom Message: {custom_message}")
+                f"Failure Area: {percentage_area:.2f}\n"
+                f"Failure Count: {failure_count}\n"
+                f"{custom_message}")
 
         image_stream = BytesIO()
         image.save(image_stream, format='JPEG')
