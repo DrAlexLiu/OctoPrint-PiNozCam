@@ -443,7 +443,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             if spaghetti_text_position[1] < 0:
                 spaghetti_text_position = (x1, y2 + 5)
             if score_text_position[1] < 0:
-                score_text_position = (x2 - score_text_size[0] - 5, y2 + 5)
+                score_text_position = (x2 - 5, y2 + 5)
 
             # Draw text
             draw.text(spaghetti_text_position, spaghetti_text, fill=color, font=self.font)
