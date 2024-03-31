@@ -19,6 +19,8 @@ PC with Intel i5 10600|260
 OrangePi Zero 2/3|9
 Raspberry Pi Zero 2 W|3
 
+<sub>*The inference speed tests were conducted under the circumstance that 50% of the device's cores were allocated for AI processing, while the remaining 50% of the cores were dedicated to OctoPrint and printing processes.</sub>
+
 Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
 
 **Features include:**
@@ -34,9 +36,9 @@ Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspb
  **OS platform**|**Buster**|**Bullseye**|**Bookworm**
 :-----:|:-----:|:-----:|:-----:
 arm64 (x64)|✅|✅|✅
-armhf (x32)|❌|✅|❌
+armhf (x32)|✅|✅|✅
 
-⚠️ This plugin supports the [stable OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) (Bullseye). For those utilizing 32-bit OctoPi Nightly (Bookworm armhf) or older OctoPi images (Buster armhf), it's essential to select arm64 builds for compatibility, or [flash the stable OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/).
+⚠️ This plugin supports the [OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) . However, I am still working on this plugin on [Octo4a](https://github.com/feelfreelinux/octo4a) and it may be supported in the future versions. 
 
 **RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
 :-----:|:-----:|:-----:|:-----:|:-----:
@@ -60,7 +62,7 @@ Compatible with most market-available endoscope cameras.
 Ensure your camera:
 - [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
 - Built-in LED **backlighting**.
-- Positioned **~ 10 cm** from the nozzle. 
+- Positioned **5-10 cm** from the nozzle. 
 
 ⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
 
