@@ -1,5 +1,8 @@
 # coding=utf-8
 import struct
+import sys
+import requests
+import os
 
 ########################################################################################################################
 ### Do not forget to adjust the following variables to your own plugin.
@@ -34,19 +37,55 @@ plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCAM"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = [
-    "numpy>=1.24.3,<1.26",
-    "pillow",
-    "onnxruntime @ https://github.com/nknytk/built-onnxruntime-for-raspberrypi-linux/raw/master/wheels/bullseye/onnxruntime-1.16.0-cp39-cp39-linux_armv7l.whl"
-]
+if struct.calcsize("P") * 8 == 32:
+    plugin_requires = [
+        "numpy>=1.24.3,<1.26",
+        "pillow"
+    ]
 
-if struct.calcsize("P") * 8 == 64:
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    os_release = {}
+
+    try:
+        with open("/etc/os-release") as f:
+            for line in f:
+                key, value = line.strip().split("=")
+                os_release[key] = value.strip('"')
+    except (FileNotFoundError, PermissionError):
+        raise ValueError("Unable to read /etc/os-release")
+
+    codename_map = {
+        "10": "buster",
+        "11": "bullseye",
+        "12": "bookworm"
+    }
+
+    version = os_release.get("VERSION_ID")
+
+    if version in codename_map:
+        debian_codename = codename_map[version]
+        first_version = f"cp{python_version.replace('.', '')}"
+        second_version = first_version
+        if sys.version_info.minor <= 7:
+            second_version += "m"
+        onnxruntime_wheel = f"https://github.com/DrAlexLiu/built-onnxruntime-for-raspberrypi-linux/raw/main/wheels/{debian_codename}/onnxruntime-1.17.1-{first_version}-{second_version}-linux_armv7l.whl"
+        
+        try:
+            response = requests.head(onnxruntime_wheel)
+            response.raise_for_status()
+            plugin_requires.append(f"onnxruntime @ {onnxruntime_wheel}")
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Failed to access onnxruntime wheel URL: {str(e)}")
+    else:
+        raise ValueError(f"Unsupported Raspbian version: {version}")
+elif struct.calcsize("P") * 8 == 64:
     plugin_requires = [
         "numpy>=1.24.3",
         "pillow",
         "onnxruntime>=1.15.0"
     ]
-
+else:
+    raise ValueError("Unsupported architecture")
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
