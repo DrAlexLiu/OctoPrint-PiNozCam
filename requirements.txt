@@ -6,7 +6,7 @@
 # works as expected. Requirements can be found in setup.py.
 ###
 
-numpy>=1.24.3
+numpy>=1.21.4
 pillow
 onnxruntime>=1.15.0
 

@@ -39,7 +39,7 @@ plugin_license = "AGPLv3"
 # Any additional requirements besides OctoPrint should be listed here
 if struct.calcsize("P") * 8 == 32:
     plugin_requires = [
-        "numpy>=1.24.3,<1.26",
+        "numpy>=1.21.4,<1.26",
         "pillow"
     ]
 
