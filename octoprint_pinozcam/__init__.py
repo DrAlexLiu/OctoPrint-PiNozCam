@@ -43,22 +43,35 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.lock = threading.Lock()
         self.stop_event = threading.Event()
 
-        #Parameters:
-        self.count = 0
+        #external setup Parameters:
+        self.enable_AI=True
         self.action = 0
-        self.ai_input_image = None
-        self.ai_results = deque(maxlen=100)
+        self.print_layout_threshold=0.5
+        self.img_sensitivity=0.04
+        self.scores_threshold=0.75
+        self.max_count=2
+        self.count_time = 300
+        self.max_notification=0
         self.telegram_bot_token = ""
         self.telegram_chat_id = ""
-        self.ai_running = False
-        self.num_threads = 1
         self.custom_snapshot_url = ""
+        self.discord_webhook_url= ""
+
+        
+
+
+        #internal parameters
+        self.count = 0
         self.welcome_text = "Welcome to PiNozCam!"
         self.no_camera_text = "No Camera"
-        self.discord_webhook_url= ""
         self.proc_img_width=640
         self.proc_img_height=384
         self.font = None
+        self.ai_running = False
+        self.num_threads = 1
+        self.ai_input_image = None
+        self.ai_results = deque(maxlen=100)
+        self.notification_reach_to_max=False
 
         #files:
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
@@ -141,14 +154,16 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     
     def get_settings_defaults(self):
         return dict(
+            enableAI=True,
             action=0,
             printLayoutThreshold=0.5,
             imgSensitivity=0.04,
-            scoresThreshold=0.7,
+            scoresThreshold=0.75,
             maxCount=2,
             countTime=300,
             cpuSpeedControl=0.5,
             customSnapshotURL="",
+            maxNotification=0,
             telegramBotToken="",
             telegramChatID="",
             discordWebhookURL="",
@@ -177,6 +192,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         Initializes plugin settings after startup by loading values from the configuration.
         It also logs the initialized settings for verification.
         """
+        self.enable_AI = self._settings.get_int(["enableAI"])
         self.action = self._settings.get_int(["action"])
         self.print_layout_threshold = self._settings.get_float(["printLayoutThreshold"])
         self.img_sensitivity = self._settings.get_float(["imgSensitivity"])
@@ -185,6 +201,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.count_time = self._settings.get_int(["countTime"])
         self.cpu_speed_control = self._settings.get_float(["cpuSpeedControl"])
         self.custom_snapshot_url = self._settings.get(["customSnapshotURL"])
+        self.max_notification = self._settings.get(["maxNotification"])
         self.telegram_bot_token = self._settings.get(["telegramBotToken"])
         self.telegram_chat_id = self._settings.get(["telegramChatID"])
         self.discord_webhook_url = self._settings.get(["discordWebhookURL"])
@@ -280,9 +297,12 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info("Print started, beginning AI image processing.")
             if event == Events.PRINT_STARTED:
                 self._logger.info("Count and results are cleared.")
+                #initial the parameters
                 self.count = 0
                 self.ai_results.clear()
+                self.notification_reach_to_max=False
             if not hasattr(self, 'ai_thread') or not self.ai_thread.is_alive():
+                self.ai_running = True
                 self.ai_thread = threading.Thread(target=self.process_ai_image)
                 self.ai_thread.daemon = True
                 self.ai_thread.start()
@@ -305,89 +325,100 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         It fetches the latest image, performs inference, and takes action based on the results.
         This function runs in a dedicated thread to not block the main plugin operations.
         """
-        self.ai_running = True
-
-        # Load model_data into memory
-        self._logger.info("begin loading AI Model into memory.")
-        try:
-            with open(self.bin_file_path, 'rb') as model_file:
-                model_data = model_file.read()
-            self._logger.info("Successfully loaded AI Model into memory.")
-
-            # Initialize SessionOptions and InferenceSession here
-            sess_opt = onnxruntime.SessionOptions()
-            sess_opt.intra_op_num_threads = self.num_threads
-            ort_session = onnxruntime.InferenceSession(model_data, sess_opt, providers=['CPUExecutionProvider'])
-            self._logger.info("InferenceSession initialized.")
-        except Exception as e:
-            self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
-            self.ai_running = False
-
         while self.ai_running:
-            
-            #get rid of results longer than count_time
-            with self.lock:
-                while self.ai_results and time.time() - self.ai_results[0]['time'] > self.count_time:
-                    result = self.ai_results.popleft()
-                    if result['severity'] > 0.66:
-                        self.count -= 1
-                        self._logger.info(f"Reduced failure count: {self.count}")
-            
-            self._logger.info("Begin to process one image.")
-            
-            ai_input_image = self.get_snapshot()
-            if ai_input_image is None:
-                self._logger.error(f"Failed to fetch image for AI processing: {e}")
-                continue
+            while not self.enable_AI and self.ai_running:
+                time.sleep(1)  # if enable_AI == False, pause 1 second and check
 
-            try:
-                scores, boxes, labels, severity, percentage_area, elapsed_time = image_inference(
-                    input_image=ai_input_image, 
-                    scores_threshold=self.scores_threshold, 
-                    img_sensitivity=self.img_sensitivity, 
-                    num_threads=self.num_threads, 
-                    ort_session=ort_session, 
-                    _proc_img_width=self.proc_img_width, 
-                    _proc_img_height=self.proc_img_height
-                )
-            except Exception as e:
-                self._logger.error(f"AI inference error: {e}")
-                continue
-            self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
-            #draw the result image
-            ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
+            if not self.ai_running:
+                break
             
-            # Store the result
-            if severity > 0.33:
-                result = {
-                    'time': time.time(),
-                    'scores': scores,
-                    'boxes': boxes,
-                    'labels': labels,
-                    'severity': severity,
-                    'percentage_area': percentage_area,
-                    'elapsed_time': elapsed_time,
-                    'ai_input_image': self.encode_image_to_base64(ai_input_image),
-                    'ai_result_image': self.encode_image_to_base64(ai_result_image)
-                }
+            # Load model_data into memory
+            self._logger.info("begin loading AI Model into memory.")
+            try:
+                with open(self.bin_file_path, 'rb') as model_file:
+                    model_data = model_file.read()
+                self._logger.info("Successfully loaded AI Model into memory.")
+
+                # Initialize SessionOptions and InferenceSession here
+                sess_opt = onnxruntime.SessionOptions()
+                sess_opt.intra_op_num_threads = self.num_threads
+                ort_session = onnxruntime.InferenceSession(model_data, sess_opt, providers=['CPUExecutionProvider'])
+                self._logger.info("InferenceSession initialized.")
+            except Exception as e:
+                self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
+                self.ai_running = False
+
+            while self.enable_AI and self.ai_running:
+                
+                #get rid of results longer than count_time
                 with self.lock:
-                    self.ai_results.append(result)
-                self._logger.info("Stored new AI inference result.")
-                if severity > 0.66:
+                    while self.ai_results and time.time() - self.ai_results[0]['time'] > self.count_time:
+                        result = self.ai_results.popleft()
+                        if result['severity'] > 0.66:
+                            self.count -= 1
+                            self._logger.info(f"Reduced failure count: {self.count}")
+                
+                self._logger.info("Begin to process one image.")
+                
+                ai_input_image = self.get_snapshot()
+                if ai_input_image is None:
+                    self._logger.error(f"Failed to fetch image for AI processing: {e}")
+                    continue
+
+                try:
+                    scores, boxes, labels, severity, percentage_area, elapsed_time = image_inference(
+                        input_image=ai_input_image, 
+                        scores_threshold=self.scores_threshold, 
+                        img_sensitivity=self.img_sensitivity, 
+                        num_threads=self.num_threads, 
+                        ort_session=ort_session, 
+                        _proc_img_width=self.proc_img_width, 
+                        _proc_img_height=self.proc_img_height
+                    )
+                except Exception as e:
+                    self._logger.error(f"AI inference error: {e}")
+                    continue
+                self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
+                #draw the result image
+                ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
+                
+                # Store the result
+                if severity > 0.33:
+                    result = {
+                        'time': time.time(),
+                        'scores': scores,
+                        'boxes': boxes,
+                        'labels': labels,
+                        'severity': severity,
+                        'percentage_area': percentage_area,
+                        'elapsed_time': elapsed_time,
+                        'ai_input_image': self.encode_image_to_base64(ai_input_image),
+                        'ai_result_image': self.encode_image_to_base64(ai_result_image)
+                    }
                     with self.lock:
-                        self.count += 1
-                    self._logger.info(f"self.count increased by 1 self.count={self.count}")
-                    # If count exceeds  within the last count_time minutes, perform action
-                    if self.telegram_bot_token and self.telegram_chat_id:
-                        self.telegram_send(ai_result_image,severity,percentage_area)
-                    
-                    if self.discord_webhook_url.startswith("http"):
-                        self.discord_send(ai_result_image,severity,percentage_area)
-                    
-                    with self.lock:
-                        failure_count = self.count
-                    if failure_count >= self.max_count:
-                        self.perform_action()
+                        self.ai_results.append(result)
+                    self._logger.info("Stored new AI inference result.")
+                    if severity > 0.66:
+                        with self.lock:
+                            self.count += 1
+                        self._logger.info(f"self.count increased by 1 self.count={self.count}")
+                        #
+                        if self.max_notification != 0 and self.count >= self.max_notification:
+                            self.notification_reach_to_max = True
+                        else:
+                            self.notification_reach_to_max = False
+
+                        # If count exceeds  within the last count_time minutes, perform action
+                        if not self.notification_reach_to_max and self.telegram_bot_token and self.telegram_chat_id:
+                            self.telegram_send(ai_result_image,severity,percentage_area)
+                        
+                        if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
+                            self.discord_send(ai_result_image,severity,percentage_area)
+                        
+                        with self.lock:
+                            failure_count = self.count
+                        if failure_count >= self.max_count:
+                            self.perform_action()
         sess_opt = None
     
     @staticmethod
@@ -484,6 +515,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 
         # Update the plugin settings based on the data provided
+        self.enable_AI = bool(data.get("enableAI", self.enable_AI))
         self.action = int(data.get("action", self.action))
         self.print_layout_threshold = float(data.get("printLayoutThreshold", self.print_layout_threshold))
         self.img_sensitivity = float(data.get("imgSensitivity", self.img_sensitivity))
@@ -492,16 +524,18 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.count_time = int(data.get("countTime", self.count_time))
         self.cpu_speed_control = float(data.get("cpuSpeedControl", self.cpu_speed_control))
         self.custom_snapshot_url = data.get("customSnapshotURL", self.custom_snapshot_url)
+        self.max_notification = int(data.get("maxNotification", self.max_notification))
         self.telegram_bot_token = data.get("telegramBotToken", self.telegram_bot_token)
         self.telegram_chat_id = data.get("telegramChatID", self.telegram_chat_id)
         self.discord_webhook_url = data.get("discordWebhookURL", self.discord_webhook_url)
                 
         self._logger.info("Plugin settings saved.")
-        self._thread_calculation()
-        
-        self.initialize_cameras()
 
+        #re-initialize the parameters
+        self._thread_calculation()
+        self.initialize_cameras()
         self.initialize_font()
+        self.notification_reach_to_max=False
 
         #send a welcome test message to the telegram chat
         welcome_image = self.create_image_with_text(self.welcome_text)
@@ -622,7 +656,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         response_data  = {
                 "image": base64EncodedImage,  
                 "failureCount": failure_count,  
-                "aiStatus": "ON" if self.ai_running else "OFF",
+                "aiStatus": "ON" if self.enable_AI and self.ai_running else "OFF",
                 "cpuTemperature": int(self.get_cpu_temperature())
             }
         return Response(json.dumps(response_data), mimetype="application/json")

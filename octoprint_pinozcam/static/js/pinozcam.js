@@ -4,6 +4,12 @@ $(function () {
 
         self.settingsViewModel = parameters[0];
 
+        self.currentEnableAI = ko.observable();
+        self.newEnableAI = ko.observable();
+
+        self.currentAction = ko.observable();
+        self.newAction = ko.observable("");
+
         self.currentPrintLayoutThreshold = ko.observable();
         self.newPrintLayoutThreshold = ko.observable();
         self.newPrintLayoutThreshold.subscribe(function(newPrintLayoutThreshold) {
@@ -44,6 +50,7 @@ $(function () {
                 self.newMaxCount(undefined); 
             }
         });
+
         self.currentCountTime = ko.observable();
         self.newCountTime = ko.observable();
         self.newCountTime.subscribe(function(newCountTime) {
@@ -60,8 +67,17 @@ $(function () {
         self.currentCustomSnapshotURL = ko.observable();
         self.newCustomSnapshotURL = ko.observable();
 
-        self.currentAction = ko.observable();
-        self.newAction = ko.observable("");
+
+
+        self.currentMaxNotification = ko.observable();
+        self.newMaxNotification = ko.observable();
+        self.newMaxNotification.subscribe(function(newMaxNotification) {
+            var newIntMaxNotification = parseInt(newMaxNotification, 10); 
+            if (isNaN(newIntMaxNotification) || newIntMaxNotification < 0 || newIntMaxNotification > 60000) {
+                alert("Max Notification Count must be between 0 and 60000.");
+                self.newMaxNotification(undefined); 
+            }
+        });
 
         self.currentTelegramBotToken = ko.observable();
         self.newTelegramBotToken = ko.observable();
@@ -75,7 +91,10 @@ $(function () {
         self.onBeforeBinding = function () {
             var pluginSettings =
                 self.settingsViewModel.settings.plugins.pinozcam;
-
+            
+            self.newEnableAI(pluginSettings.enableAI().toString());
+            self.currentEnableAI(self.newEnableAI());    
+            
             self.newAction(pluginSettings.action().toString());  
             self.currentAction(self.newAction());
 
@@ -100,6 +119,9 @@ $(function () {
             self.newCustomSnapshotURL(pluginSettings.customSnapshotURL());
             self.currentCustomSnapshotURL(self.newCustomSnapshotURL());
 
+            self.newMaxNotification(pluginSettings.maxNotification());
+            self.currentMaxNotification(self.newMaxNotification());
+
             self.newTelegramBotToken(pluginSettings.telegramBotToken());
             self.currentTelegramBotToken(self.newTelegramBotToken());
 
@@ -112,6 +134,7 @@ $(function () {
 
         self.saveSettings = function () {
             var newSettings = {
+                enableAI: self.newEnableAI() === "true",
                 action: parseInt(self.newAction(), 0),
                 printLayoutThreshold: parseFloat(self.newPrintLayoutThreshold()),
                 imgSensitivity: parseFloat(self.newImgSensitivity()),
@@ -120,6 +143,7 @@ $(function () {
                 countTime: parseInt(self.newCountTime(), 10), 
                 cpuSpeedControl: parseFloat(self.newCpuSpeedControl()),
                 customSnapshotURL: self.newCustomSnapshotURL(),
+                maxNotification: parseInt(self.newMaxNotification(), 10),
                 telegramBotToken: self.newTelegramBotToken(),
                 telegramChatID: self.newTelegramChatId(),
                 discordWebhookURL: self.newDiscordWebhookURL(),
@@ -132,6 +156,7 @@ $(function () {
                         text: "Settings have been saved.",
                         type: "success",
                     });
+                    self.currentEnableAI(self.newEnableAI());
                     self.currentAction(self.newAction());
                     self.currentPrintLayoutThreshold(self.newPrintLayoutThreshold());
                     self.currentImgSensitivity(self.newImgSensitivity());
@@ -140,6 +165,7 @@ $(function () {
                     self.currentCountTime(self.newCountTime());
                     self.currentCpuSpeedControl(self.newCpuSpeedControl());
                     self.currentCustomSnapshotURL(self.newCustomSnapshotURL());
+                    self.currentMaxNotification(self.newMaxNotification());
                     self.currentTelegramBotToken(self.newTelegramBotToken());
                     self.currentTelegramChatId(self.newTelegramChatId());
                     self.currentDiscordWebhookURL(self.newDiscordWebhookURL())
