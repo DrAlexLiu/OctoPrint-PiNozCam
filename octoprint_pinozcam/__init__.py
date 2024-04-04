@@ -409,7 +409,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         
                         if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
                             self.discord_send(ai_result_image,severity,percentage_area)
-        #
+                        #       
                         if self.max_notification != 0 and self.count >= self.max_notification:
                             self.notification_reach_to_max = True
                         else:
