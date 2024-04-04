@@ -402,6 +402,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         with self.lock:
                             self.count += 1
                         self._logger.info(f"self.count increased by 1 self.count={self.count}")
+                        
+                        #       
+                        if not self.notification_reach_to_max and self.max_notification != 0 and self.count > self.max_notification:
+                            self.notification_reach_to_max = True  
 
                         # If count exceeds  within the last count_time minutes, perform action
                         if not self.notification_reach_to_max and self.telegram_bot_token and self.telegram_chat_id:
@@ -409,9 +413,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         
                         if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
                             self.discord_send(ai_result_image,severity,percentage_area)
-                        #       
-                        if not self.notification_reach_to_max and self.max_notification != 0 and self.count >= self.max_notification:
-                            self.notification_reach_to_max = True  
                         
                         with self.lock:
                             failure_count = self.count
