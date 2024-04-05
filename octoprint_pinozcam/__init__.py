@@ -72,6 +72,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.ai_input_image = None
         self.ai_results = deque(maxlen=100)
         self.notification_reach_to_max=False
+        self.setting_change_while_printing=False
 
         #files:
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
@@ -381,6 +382,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
                 #draw the result image
                 ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
+
+                if self.setting_change_while_printing:
+                    self.setting_change_while_printing=False
+                    continue
                 
                 # Store the result
                 if severity > 0.33:
@@ -535,6 +540,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.initialize_cameras()
         self.initialize_font()
         self.notification_reach_to_max=False
+        self.setting_change_while_printing=True
 
         #send a welcome test message to the telegram chat
         welcome_image = self.create_image_with_text(self.welcome_text)
