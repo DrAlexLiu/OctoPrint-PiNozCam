@@ -29,6 +29,17 @@
         <hr style="margin-top: 20px; margin-bottom: 20px;">
     </div>
     <div class="control-group">
+        <label class="control-label">{{ _('Enable PiNozCam') }}</label>
+        <div class="controls" style="padding-top: 5px;">
+            <label class="radio-inline">
+                <input type="radio" name="enableAI" value="true" data-bind="checked: newEnableAI"> ON
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="enableAI" value="false" data-bind="checked: newEnableAI"> OFF
+            </label>
+        </div>
+    </div>
+    <div class="control-group">
         <label class="control-label">{{ _('Action after Detection') }}</label>
         <div class="controls">
             <label class="radio-inline">
@@ -87,6 +98,12 @@
         <label class="control-label">{{ _('Custom Snapshot URL') }}</label>
         <div class="controls">
             <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL">
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Max Notification Count') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" />
         </div>
     </div>
     <div class="control-group">

@@ -107,3 +107,6 @@ Initially, stick with the default settings and adjust them gradually to fine-tun
 
 For further discussion and support, please [**join our Discord channel**](https://discord.gg/W2zQNrpu).
 
+## Support my work
+
+I created this plugin in my spare time, so if you have enjoyed using it then please [support it’s development!](https://github.com/sponsors/DrAlexLiu)
