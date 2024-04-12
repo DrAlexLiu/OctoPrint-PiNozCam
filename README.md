@@ -4,7 +4,7 @@
   <img src="/assets/images/failure_detection2.jpg" width="48%" height="48%">
 </div>
 
-[![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/W2zQNrpu)
+[![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/gv4tKJ2ZKr)
 
 ## Introduction
 
@@ -105,7 +105,7 @@ Initially, stick with the default settings and adjust them gradually to fine-tun
 
 ## Support
 
-For further discussion and support, please [**join our Discord channel**](https://discord.gg/W2zQNrpu).
+For further discussion and support, please [**join our Discord channel**](https://discord.gg/gv4tKJ2ZKr).
 
 ## Support my work
 
