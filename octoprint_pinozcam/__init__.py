@@ -207,6 +207,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.telegram_chat_id = self._settings.get(["telegramChatID"])
         self.discord_webhook_url = self._settings.get(["discordWebhookURL"])
 
+        if "/?action=stream" in self.custom_snapshot_url:
+            self.custom_snapshot_url = self.custom_snapshot_url.replace("/?action=stream", "/?action=snapshot")
+            self._logger.info(f"self.custom_snapshot_url has been changed to {self.custom_snapshot_url}")
+
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
         #
@@ -532,7 +536,10 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.telegram_bot_token = data.get("telegramBotToken", self.telegram_bot_token)
         self.telegram_chat_id = data.get("telegramChatID", self.telegram_chat_id)
         self.discord_webhook_url = data.get("discordWebhookURL", self.discord_webhook_url)
-                
+
+        if "/?action=stream" in self.custom_snapshot_url:
+            self.custom_snapshot_url = self.custom_snapshot_url.replace("/?action=stream", "/?action=snapshot")
+            self._logger.info(f"self.custom_snapshot_url has been changed to {self.custom_snapshot_url}")
         self._logger.info("Plugin settings saved.")
 
         #re-initialize the parameters
@@ -579,6 +586,9 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     
                 else:
                     # Handle HTTP URLs
+                    if "/?action=stream" in self.custom_snapshot_url:
+                        self.custom_snapshot_url = self.custom_snapshot_url.replace("/?action=stream", "/?action=snapshot")
+                        self._logger.info(f"self.custom_snapshot_url has been changed to {self.custom_snapshot_url}")
                     response = requests.get(self.custom_snapshot_url)
                     response.raise_for_status()  # This will throw an error for bad responses
                     img = Image.open(BytesIO(response.content))
