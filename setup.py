@@ -18,7 +18,7 @@ plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "1.0.1"
+plugin_version = "1.0.2"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -28,7 +28,7 @@ plugin_description = """An AI-driven Failure Detection"""
 plugin_author = "DrAlexLiu"
 
 # The plugin's author's mail address.
-plugin_author_email = "xc.liu@mail.utoronto.ca"
+plugin_author_email = "liu1111w@uwindsor.ca"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
 plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCAM"
