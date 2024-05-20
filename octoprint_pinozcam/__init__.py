@@ -14,7 +14,13 @@ import octoprint.plugin
 from octoprint.events import Events
 import onnxruntime
 
+
 from .inference import image_inference
+
+
+from multiprocessing import Queue
+from bot_threading.discord.bot_process import run_bot_process, run_flask_process
+from config import *
 
 class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                      octoprint.plugin.TemplatePlugin,
@@ -56,7 +62,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.telegram_chat_id = ""
         self.custom_snapshot_url = ""
         self.discord_webhook_url= ""
-
         
 
 
@@ -83,9 +88,27 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #camera
         self.cameras = []
         self.snap_new_method = False
+        
+        # bot variables
+        self.discord_message_queue = Queue()
+
+    def initialize_discord_bot(self, queue):
+        """
+        Initializes the Discord bot process and Flask app for handling Discord messages.
+
+        Parameters:
+        - queue: A multiprocessing.Queue object for inter-process communication.
+        """
+        self._logger.info("Starting Discord bot and Flask app...")
+        bot_process = run_bot_process(TOKEN, queue)
+        flask_process = run_flask_process(queue)
+
+        bot_process.join()
+        flask_process.join()
+        self._logger.info("Discord bot and Flask app started.")
 
     def initialize_cameras(self):
-        self._logger.info("Initialize the camera")
+        self._logger.info("Initialize the camera!")
         if hasattr(octoprint.plugin.types, "WebcamProviderPlugin"):
             self.cameras = self._plugin_manager.get_implementations(octoprint.plugin.types.WebcamProviderPlugin)
             self.snap_new_method = True
@@ -214,6 +237,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         # Calculate the number of threads to use for AI inference       
         self._thread_calculation()
         #
+        
+        # Start the Discord bot and Flask app
+        self._logger.debug("Calling initialize_discord_bot")
+        self.initialize_discord_bot(self.discord_message_queue)
+        self._logger.debug("initialize_discord_bot called")
 
         self.initialize_cameras()
 
@@ -225,8 +253,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
         if not os.path.exists(self.no_camera_path):
             self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
-            self.no_camera_path = None 
-
+            self.no_camera_path = None          
     
     def telegram_send(self, image, severity, percentage_area, custom_message=""):
         """
@@ -299,7 +326,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         """
         if event in [Events.PRINT_STARTED, Events.PRINT_RESUMED]:
             self._logger.info(f"{event}: {payload}")
-            self._logger.info("Print started, beginning AI image processing.")
+            self._logger.info("Print started, beginning AI image processing.")       
+            
             if event == Events.PRINT_STARTED:
                 self._logger.info("Count and results are cleared.")
                 #initial the parameters
@@ -617,7 +645,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         # Create an Image object from the snapshot bytes
                         img = Image.open(BytesIO(snapshot))
                         img = self.transform_image(img, must_flip_h, must_flip_v, must_rotate)
-                        #self._logger.info(config)
+                        self._logger.info(config)
                         return img
                     except Exception as e:
                         self._logger.error(f"Error processing camera snapshot: {e}")
