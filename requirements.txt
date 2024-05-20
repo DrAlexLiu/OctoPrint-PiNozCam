@@ -9,5 +9,6 @@
 numpy>=1.21.4
 pillow
 onnxruntime>=1.15.0
+discord.py
 
 .
