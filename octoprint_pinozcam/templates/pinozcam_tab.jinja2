@@ -25,6 +25,23 @@
         <div id="cpu-temperature" style="margin-top: 10px;">CPU Temperature: --°C</div>
         <!-- Placeholder for Failure Count -->
         <div id="failure-count" style="margin-top: 10px;">Failure Count: 0</div>
+
+        <!-- Mask Image Button -->
+        <button id="open-dialog-btn" class="btn btn-primary" style="margin-top: 10px;">Mask Image</button>
+
+        <!-- Mask Dialog -->
+        <dialog id="mask-dialog">
+            <div class="dialog-content">
+                <h3>Draw Mask</h3>
+                <canvas id="mask-canvas" width="640" height="480"></canvas>
+                <div class="dialog-buttons">
+                    <button id="save-mask-btn" class="btn btn-primary">Save</button>
+                    <button id="clear-mask-btn" class="btn btn-secondary">Clear</button>
+                    <button id="cancel-mask-btn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </dialog>
+
         <!-- Line -->
         <hr style="margin-top: 20px; margin-bottom: 20px;">
     </div>
@@ -51,6 +68,12 @@
             <label class="radio-inline">
                 <input type="radio" name="action" value="2" data-bind="checked: newAction"> Stop
             </label>
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('AI Start Delay (s)') }}</label>
+        <div class="controls">
+            <input type="number" class="input-block-level custom-input" data-bind="value: newAiStartDelay, attr: {min: 0, max: 60000}" />
         </div>
     </div>
     <div class="control-group">

@@ -283,8 +283,8 @@ def image_inference(input_image, scores_threshold, img_sensitivity,
     """
 
     # model internal parameters
-    #_proc_img_width =640
-    #_proc_img_height=384
+    #_proc_img_width = 640
+    #_proc_img_height = 384
 
     # Get the width and height of the image
     img_width, img_height = input_image.size

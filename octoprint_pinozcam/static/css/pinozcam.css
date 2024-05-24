@@ -2,3 +2,20 @@
     display: inline-block;
     margin-right: 10px; 
 }
+
+#mask-dialog {
+    width: 90%;
+    max-width: 800px;
+    border: none;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-content {
+    padding: 20px;
+}
+
+.dialog-buttons {
+    text-align: right;
+    margin-top: 20px;
+}

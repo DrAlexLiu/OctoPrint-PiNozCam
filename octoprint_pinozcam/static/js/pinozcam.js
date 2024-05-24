@@ -4,11 +4,24 @@ $(function () {
 
         self.settingsViewModel = parameters[0];
 
+        self.currentMaskImageData = ko.observable('0'.repeat(4096));
+        self.newMaskImageData = ko.observable('0'.repeat(4096));
+
         self.currentEnableAI = ko.observable();
         self.newEnableAI = ko.observable();
 
         self.currentAction = ko.observable();
         self.newAction = ko.observable("");
+
+        self.currentAiStartDelay = ko.observable();
+        self.newAiStartDelay = ko.observable();
+        self.newAiStartDelay.subscribe(function(newAiStartDelay) {
+            var parsedAiStartDelay = parseInt(newAiStartDelay, 10); 
+            if (isNaN(parsedAiStartDelay) || parsedAiStartDelay < 0 || parsedAiStartDelay > 60000) {
+                alert("AI Start Delay must be between 0 and 60000 seconds.");
+                self.newAiStartDelay(undefined); 
+            }
+        });
 
         self.currentPrintLayoutThreshold = ko.observable();
         self.newPrintLayoutThreshold = ko.observable();
@@ -19,7 +32,6 @@ $(function () {
                 self.newPrintLayoutThreshold(undefined); 
             }
         });
-
 
         self.currentImgSensitivity = ko.observable();
         self.newImgSensitivity = ko.observable();
@@ -67,8 +79,6 @@ $(function () {
         self.currentCustomSnapshotURL = ko.observable();
         self.newCustomSnapshotURL = ko.observable();
 
-
-
         self.currentMaxNotification = ko.observable();
         self.newMaxNotification = ko.observable();
         self.newMaxNotification.subscribe(function(newMaxNotification) {
@@ -88,15 +98,159 @@ $(function () {
         self.currentDiscordWebhookURL = ko.observable();
         self.newDiscordWebhookURL = ko.observable();
 
+        self.handleMaskDialog = function() {
+            var maskDialog = document.getElementById('mask-dialog');
+            var openDialogBtn = document.getElementById('open-dialog-btn');
+            var saveMaskBtn = document.getElementById('save-mask-btn');
+            var clearMaskBtn = document.getElementById('clear-mask-btn');
+            var cancelMaskBtn = document.getElementById('cancel-mask-btn');
+
+            var maskCanvas = document.getElementById('mask-canvas');
+            var maskContext = maskCanvas.getContext('2d');
+
+            var isDrawing = false;
+            var maskWidth = 20;
+            //mask matrix
+            var tempMaskImageData = Array.from({ length: 64 }, () => Array(64).fill(0));
+
+            function loadBackgroundImage() {
+                var aiImage = document.getElementById('ai-image');
+                var aiImageUrl = aiImage.src;
+        
+                var backgroundImage = new Image();
+                backgroundImage.src = aiImageUrl;
+                backgroundImage.onload = function() {
+                    maskCanvas.width = backgroundImage.width;
+                    maskCanvas.height = backgroundImage.height;
+                    maskContext.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                    maskContext.drawImage(backgroundImage, 0, 0, maskCanvas.width, maskCanvas.height);
+                    var blockWidth = Math.ceil(maskCanvas.width / 64);
+                    var blockHeight = Math.ceil(maskCanvas.height / 64);
+        
+                    if (self.currentMaskImageData()) {
+                        var maskMatrix = decompressMaskMatrix(self.currentMaskImageData());
+    
+                        for (var i = 0; i < maskMatrix.length; i++) {
+                            for (var j = 0; j < maskMatrix[i].length; j++) {
+                                if (maskMatrix[i][j]) {
+                                    
+                                    maskContext.fillRect(j * blockWidth, i * blockHeight, blockWidth, blockHeight);
+                                    maskContext.strokeStyle = 'red';
+                                    maskContext.lineWidth = 1;
+                                    maskContext.strokeRect(j * blockWidth, i * blockHeight, blockWidth, blockHeight);
+                                }
+                            }
+                        }
+                    }
+
+                };
+            }
+
+            function startDrawing(e) {
+                isDrawing = true;
+                drawMask(e);
+            }
+
+            function drawMask(e) {
+                if (!isDrawing) return;
+        
+                var rect = maskCanvas.getBoundingClientRect();
+                var scaleX = maskCanvas.width / rect.width;
+                var scaleY = maskCanvas.height / rect.height;
+                var x = (e.clientX - rect.left) * scaleX;
+                var y = (e.clientY - rect.top) * scaleY;
+        
+                var row = Math.floor(y * 64 / maskCanvas.height);
+                var col = Math.floor(x * 64 / maskCanvas.width);
+                tempMaskImageData[row][col] = 1;
+        
+                maskContext.beginPath();
+                maskContext.arc(x, y, maskWidth / 2, 0, Math.PI * 2);
+                maskContext.fillStyle = 'black';
+                maskContext.fill();
+                maskContext.closePath();
+            }
+
+            function stopDrawing() {
+                isDrawing = false;
+            }
+
+            function compressMaskMatrix(maskMatrix) {
+                return maskMatrix.flat().map(cell => cell ? '1' : '0').join('');
+            }
+            
+            function decompressMaskMatrix(compressedMaskMatrix) {
+                return Array.from({ length: 64 }, (_, i) =>
+                    Array.from({ length: 64 }, (_, j) => compressedMaskMatrix[i * 64 + j] === '1')
+                );
+            }
+
+            maskCanvas.addEventListener('mousedown', startDrawing);
+            maskCanvas.addEventListener('mousemove', drawMask);
+            maskCanvas.addEventListener('mouseup', stopDrawing);
+            maskCanvas.addEventListener('mouseleave', stopDrawing);
+
+            openDialogBtn.addEventListener('click', function() {
+                loadBackgroundImage();
+                maskDialog.showModal();
+            });
+
+            saveMaskBtn.addEventListener('click', function() {
+                // Compress the current mask data into a string
+                var compressedMaskMatrix = tempMaskImageData.flat().join('');
+
+                // Get the previous mask data
+                var previousMaskImageData = self.currentMaskImageData();
+
+                // Decompress the previous mask data into a 2D boolean array
+                var previousMaskMatrix = decompressMaskMatrix(previousMaskImageData);
+
+                // Decompress the new mask data into a 2D boolean array
+                var newMaskMatrix = decompressMaskMatrix(compressedMaskMatrix);
+
+                // Merge the previous mask data with the new mask data
+                var mergedMaskMatrix = previousMaskMatrix.map((row, i) => row.map((cell, j) => cell || newMaskMatrix[i][j]));
+
+                // Compress the merged mask data into a string
+                var mergedCompressedMaskMatrix = compressMaskMatrix(mergedMaskMatrix);
+
+                // Update the mask data and save the settings
+                self.newMaskImageData(mergedCompressedMaskMatrix);
+                self.saveSettings();
+                maskDialog.close();
+            });
+
+            clearMaskBtn.addEventListener('click', function() {
+                maskContext.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                tempMaskImageData = Array.from({ length: 64 }, () => Array(64).fill(0));
+                self.newMaskImageData('0'.repeat(4096));
+                self.currentMaskImageData('0'.repeat(4096));
+                self.saveSettings();
+                setTimeout(function() {
+                    loadBackgroundImage();
+                }, 500); 
+            });
+        
+            cancelMaskBtn.addEventListener('click', function() {
+                maskDialog.close();
+            });
+        };
+
         self.onBeforeBinding = function () {
             var pluginSettings =
                 self.settingsViewModel.settings.plugins.pinozcam;
+
+            self.newMaskImageData(pluginSettings.maskImageData());
+            self.currentMaskImageData(self.newMaskImageData());
             
             self.newEnableAI(pluginSettings.enableAI().toString());
             self.currentEnableAI(self.newEnableAI());    
             
             self.newAction(pluginSettings.action().toString());  
             self.currentAction(self.newAction());
+
+            self.newAiStartDelay(pluginSettings.aiStartDelay());
+            self.currentAiStartDelay(self.newAiStartDelay());
 
             self.newPrintLayoutThreshold(pluginSettings.printLayoutThreshold());
             self.currentPrintLayoutThreshold(self.newPrintLayoutThreshold());
@@ -134,8 +288,10 @@ $(function () {
 
         self.saveSettings = function () {
             var newSettings = {
+                maskImageData: self.newMaskImageData(),
                 enableAI: self.newEnableAI() === "true",
                 action: parseInt(self.newAction(), 0),
+                aiStartDelay: parseInt(self.newAiStartDelay(), 10),
                 printLayoutThreshold: parseFloat(self.newPrintLayoutThreshold()),
                 imgSensitivity: parseFloat(self.newImgSensitivity()),
                 scoresThreshold: parseFloat(self.newScoresThreshold()),
@@ -156,8 +312,10 @@ $(function () {
                         text: "Settings have been saved.",
                         type: "success",
                     });
+                    self.currentMaskImageData(self.newMaskImageData());
                     self.currentEnableAI(self.newEnableAI());
                     self.currentAction(self.newAction());
+                    self.currentAiStartDelay(self.newAiStartDelay());
                     self.currentPrintLayoutThreshold(self.newPrintLayoutThreshold());
                     self.currentImgSensitivity(self.newImgSensitivity());
                     self.currentScoresThreshold(self.newScoresThreshold());
@@ -177,6 +335,10 @@ $(function () {
                         type: "error",
                     });
                 });
+        };
+
+        self.onStartupComplete = function() {
+            self.handleMaskDialog();
         };
     }
 
