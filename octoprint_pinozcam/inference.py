@@ -3,7 +3,7 @@ import numpy as np
 import time
 import os
 
-def _generate_anchors(stride, ratio_vals, scales_vals, angles_vals=None):
+def _generate_anchors(stride, ratio_vals, scales_vals):
     """Generate anchor coordinates based on scales and ratios using Numpy.
 
     Args:
@@ -69,8 +69,6 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
         boxes = boxes[indices, :]
         classes = classes[indices]
 
-        # Round the class scores to the specified number of decimal places
-        classes = np.round(classes[indices]).astype(int)
         # Calculate the area of each box for IoU computation
         areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
         keep = np.ones(scores.shape[0], dtype=bool)
@@ -135,21 +133,19 @@ def _delta2box(deltas, anchors, size, stride):
         clamp(pred_ctr + 0.5 * pred_wh - 1)
     ], axis=1)
 
-def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, anchors=None, rotated=False):
+def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, anchors=None):
     """
     Decode bounding boxes and filter based on score threshold.
     """
-    if rotated:
-        anchors = anchors[0]
-    num_boxes = 4 if not rotated else 6
+    num_boxes = 4 
 
     batch_size, _, height, width = all_cls_head.shape
     num_anchors = anchors.shape[0] if anchors is not None else 1
     num_classes = all_cls_head.shape[1] // num_anchors
 
-    out_scores = []
-    out_boxes = []
-    out_classes = []
+    out_scores = np.zeros((batch_size, top_n), dtype=all_cls_head.dtype)
+    out_boxes = np.zeros((batch_size, top_n, 4), dtype=all_box_head.dtype)
+    out_classes = np.zeros((batch_size, top_n), dtype=np.int32)
 
     for batch in range(batch_size):
         cls_head = all_cls_head[batch].reshape(-1)
@@ -162,11 +158,11 @@ def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, an
         scores = cls_head[keep]
         indices = scores.argsort()[::-1][:top_n]
         scores = scores[indices]
-        classes = (keep[indices] / width / height) % num_classes
-
-        x = (keep[indices] % width).astype(np.int64)
-        y = ((keep[indices] / width) % height).astype(np.int64)
-        a = (keep[indices] / num_classes / height / width).astype(np.int64)
+        classes = keep[indices] // (width * height * num_anchors)+1
+        
+        x = (keep[indices] % width).astype(np.int16)
+        y = ((keep[indices] / width) % height).astype(np.int16)
+        a = (keep[indices] / num_classes / height / width).astype(np.int16)
 
         boxes = box_head[keep[indices]]
 
@@ -174,11 +170,11 @@ def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, an
             grid = np.stack([x, y, x, y], axis=1) * stride + anchors[a]
             boxes = _delta2box(boxes, grid, [width, height], stride)
 
-        out_scores.append(scores)
-        out_boxes.append(boxes)
-        out_classes.append(classes)
+        out_scores[batch, :scores.size] = scores
+        out_boxes[batch, :boxes.shape[0], :] = boxes
+        out_classes[batch, :classes.size] = classes
 
-    return np.array(out_scores), np.array(out_boxes), np.array(out_classes)
+    return out_scores, out_boxes, out_classes
 
 def _detection_postprocess(image, cls_heads, box_heads):
     """
@@ -213,7 +209,7 @@ def _detection_postprocess(image, cls_heads, box_heads):
             anchors[stride] = _generate_anchors(stride, ratio_vals=[1.0, 2.0, 0.5], scales_vals=[4 * 2 ** (i / 3) for i in range(3)])
 
         # Decode the class and box heads into human-readable format using Numpy
-        scores, boxes, classes = _decode(cls_head, box_head, stride, 0.05, 1000, anchors[stride])
+        scores, boxes, classes = _decode(cls_head, box_head, stride, 0.05, 100, anchors[stride])
         if scores.size > 0:  # Only add non-empty detections
             decoded.append((scores, boxes, classes))
     
