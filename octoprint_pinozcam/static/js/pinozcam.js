@@ -63,6 +63,9 @@ $(function () {
             }
         });
 
+        self.currentEnableMaxFailureCountNotification = ko.observable();
+        self.newEnableMaxFailureCountNotification = ko.observable();
+
         self.currentCountTime = ko.observable();
         self.newCountTime = ko.observable();
         self.newCountTime.subscribe(function(newCountTime) {
@@ -264,6 +267,9 @@ $(function () {
             self.newMaxCount(pluginSettings.maxCount());
             self.currentMaxCount(self.newMaxCount());
 
+            self.newEnableMaxFailureCountNotification(pluginSettings.enableMaxFailureCountNotification().toString());
+            self.currentEnableMaxFailureCountNotification(self.newEnableMaxFailureCountNotification());
+
             self.newCountTime(pluginSettings.countTime());
             self.currentCountTime(self.newCountTime());
 
@@ -296,6 +302,7 @@ $(function () {
                 imgSensitivity: parseFloat(self.newImgSensitivity()),
                 scoresThreshold: parseFloat(self.newScoresThreshold()),
                 maxCount: parseInt(self.newMaxCount(), 10), 
+                enableMaxFailureCountNotification: self.newEnableMaxFailureCountNotification() === "true",
                 countTime: parseInt(self.newCountTime(), 10), 
                 cpuSpeedControl: parseFloat(self.newCpuSpeedControl()),
                 customSnapshotURL: self.newCustomSnapshotURL(),

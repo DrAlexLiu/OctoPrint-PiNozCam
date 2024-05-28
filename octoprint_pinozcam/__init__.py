@@ -51,6 +51,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.img_sensitivity=0.04
         self.scores_threshold=0.75
         self.max_count=2
+        self.enable_max_failure_count_notification = False
         self.count_time = 300
         self.max_notification=0
         self.telegram_bot_token = ""
@@ -160,6 +161,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             imgSensitivity=0.04,
             scoresThreshold=0.75,
             maxCount=2,
+            enableMaxFailureCountNotification=False,
             countTime=300,
             cpuSpeedControl=0.5,
             customSnapshotURL="",
@@ -227,6 +229,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.img_sensitivity = self._settings.get_float(["imgSensitivity"])
         self.scores_threshold = self._settings.get_float(["scoresThreshold"])
         self.max_count = self._settings.get_int(["maxCount"])
+        self.enable_max_failure_count_notification = self._settings.get_boolean(["enableMaxFailureCountNotification"])
         self.count_time = self._settings.get_int(["countTime"])
         self.cpu_speed_control = self._settings.get_float(["cpuSpeedControl"])
         self.custom_snapshot_url = self._settings.get(["customSnapshotURL"])
@@ -448,19 +451,23 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         
                         #       
                         if not self.notification_reach_to_max and self.max_notification != 0 and self.count > self.max_notification:
-                            self.notification_reach_to_max = True  
+                            self.notification_reach_to_max = True 
+
+                        with self.lock:
+                            failure_count = self.count
 
                         # If count exceeds  within the last count_time minutes, perform action
                         if not self.notification_reach_to_max and self.telegram_bot_token and self.telegram_chat_id:
-                            self.telegram_send(ai_result_image,severity,percentage_area)
+                            if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
+                                self.telegram_send(ai_result_image,severity,percentage_area)
                         
                         if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
-                            self.discord_send(ai_result_image,severity,percentage_area)
+                            if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
+                                self.discord_send(ai_result_image,severity,percentage_area)
                         
-                        with self.lock:
-                            failure_count = self.count
                         if failure_count >= self.max_count:
                             self.perform_action()
+                            
         sess_opt = None
     
     @staticmethod
@@ -565,6 +572,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.img_sensitivity = float(data.get("imgSensitivity", self.img_sensitivity))
         self.scores_threshold = float(data.get("scoresThreshold", self.scores_threshold))
         self.max_count = int(data.get("maxCount", self.max_count))
+        self.enable_max_failure_count_notification = self._settings.get_boolean(["enableMaxFailureCountNotification"])
         self.count_time = int(data.get("countTime", self.count_time))
         self.cpu_speed_control = float(data.get("cpuSpeedControl", self.cpu_speed_control))
         self.custom_snapshot_url = data.get("customSnapshotURL", self.custom_snapshot_url)
@@ -587,6 +595,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
 
         #send a welcome test message to the telegram chat
         welcome_image = self.create_image_with_text(self.welcome_text)
+        welcome_image = self.apply_mask_to_image(welcome_image)
         if self.telegram_bot_token and self.telegram_chat_id:
             self.telegram_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
         if self.discord_webhook_url.startswith("http"):

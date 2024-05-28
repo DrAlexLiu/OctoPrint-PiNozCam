@@ -60,7 +60,7 @@
         <label class="control-label">{{ _('Action after Detection') }}</label>
         <div class="controls">
             <label class="radio-inline">
-                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Notification
+                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Cell Notification
             </label>
             <label class="radio-inline">
                 <input type="radio" name="action" value="1" data-bind="checked: newAction"> Pause
@@ -98,6 +98,17 @@
         <label class="control-label">{{ _('Max Failure Count') }}</label>
         <div class="controls">
             <input type="number" class="input-block-level custom-input" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" />
+        </div>
+    </div>
+    <div class="control-group">
+        <label class="control-label">{{ _('Cell Notify Mode') }}</label>
+        <div class="controls" style="padding-top: 5px;">
+            <label class="radio-inline">
+                <input type="radio" name="enableMaxFailureCountNotification" value="false" data-bind="checked: newEnableMaxFailureCountNotification"> Every failure
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="enableMaxFailureCountNotification" value="true" data-bind="checked: newEnableMaxFailureCountNotification"> After reaching the Max Failure Count
+            </label>
         </div>
     </div>
     <div class="control-group">
