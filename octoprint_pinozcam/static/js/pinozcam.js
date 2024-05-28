@@ -116,6 +116,8 @@ $(function () {
             //mask matrix
             var tempMaskImageData = Array.from({ length: 64 }, () => Array(64).fill(0));
 
+            let tempClearMaskImageData = '0'.repeat(4096); 
+
             function loadBackgroundImage() {
                 var aiImage = document.getElementById('ai-image');
                 var aiImageUrl = aiImage.src;
@@ -220,21 +222,26 @@ $(function () {
                 // Update the mask data and save the settings
                 self.newMaskImageData(mergedCompressedMaskMatrix);
                 self.saveSettings();
+                tempClearMaskImageData = '0'.repeat(4096);
                 maskDialog.close();
             });
 
             clearMaskBtn.addEventListener('click', function() {
                 maskContext.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
                 tempMaskImageData = Array.from({ length: 64 }, () => Array(64).fill(0));
-                self.newMaskImageData('0'.repeat(4096));
+                //self.newMaskImageData('0'.repeat(4096));
+                tempClearMaskImageData = self.currentMaskImageData();
                 self.currentMaskImageData('0'.repeat(4096));
-                self.saveSettings();
+                //self.saveSettings();
                 setTimeout(function() {
                     loadBackgroundImage();
                 }, 500); 
             });
         
             cancelMaskBtn.addEventListener('click', function() {
+                if (tempClearMaskImageData !== '0'.repeat(4096)) {
+                    self.currentMaskImageData(tempClearMaskImageData);
+                }
                 maskDialog.close();
             });
         };

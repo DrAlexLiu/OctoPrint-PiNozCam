@@ -16,6 +16,10 @@
             text-align: right;
             margin-top: 20px;
         }
+
+        .help-text {
+            font-size: 18px;
+        }
     </style>
     <div id="printout-threads-container">
         <!-- ID is ai-image -->
@@ -27,17 +31,17 @@
         <div id="failure-count" style="margin-top: 10px;">Failure Count: 0</div>
 
         <!-- Mask Image Button -->
-        <button id="open-dialog-btn" class="btn btn-primary" style="margin-top: 10px;">Mask Image</button>
+        <button id="open-dialog-btn" class="btn btn-primary" style="margin-top: 10px;" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Mask Image</button>
 
         <!-- Mask Dialog -->
         <dialog id="mask-dialog">
             <div class="dialog-content">
                 <h3>Draw Mask</h3>
-                <canvas id="mask-canvas" width="640" height="480"></canvas>
+                <canvas id="mask-canvas" width="640" height="480" title="Draw a mask on the image to exclude certain areas from failure detection. Areas covered by the mask will be ignored by the AI, allowing you to focus on specific regions of interest. Click and drag your mouse to draw the mask. The mask will be applied on top of the original image."></canvas>
                 <div class="dialog-buttons">
-                    <button id="save-mask-btn" class="btn btn-primary">Save</button>
-                    <button id="clear-mask-btn" class="btn btn-secondary">Clear</button>
-                    <button id="cancel-mask-btn" class="btn btn-secondary">Cancel</button>
+                    <button id="save-mask-btn" class="btn btn-primary" type="button" title="Save the current mask and close the dialog">Save</button>
+                    <button id="clear-mask-btn" class="btn btn-secondary" type="button" title="Clear the current mask, removing all drawn areas">Clear</button>
+                    <button id="cancel-mask-btn" class="btn btn-secondary" type="button" title="Cancel drawing the mask and close the dialog without saving">Cancel</button>
                 </div>
             </div>
         </dialog>
@@ -48,10 +52,10 @@
     <div class="control-group">
         <label class="control-label">{{ _('Enable PiNozCam') }}</label>
         <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline">
+            <label class="radio-inline" title="Enable the AI detection function of PiNozCam">
                 <input type="radio" name="enableAI" value="true" data-bind="checked: newEnableAI"> ON
             </label>
-            <label class="radio-inline">
+            <label class="radio-inline" title="Disable the AI detection function of PiNozCam">
                 <input type="radio" name="enableAI" value="false" data-bind="checked: newEnableAI"> OFF
             </label>
         </div>
@@ -59,13 +63,13 @@
     <div class="control-group">
         <label class="control-label">{{ _('Action after Detection') }}</label>
         <div class="controls">
-            <label class="radio-inline">
-                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Cell Notification
+            <label class="radio-inline" title="Send a notification when a failure is detected">
+                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Notification
             </label>
-            <label class="radio-inline">
+            <label class="radio-inline" title="Pause the print when a failure is detected">
                 <input type="radio" name="action" value="1" data-bind="checked: newAction"> Pause
             </label>
-            <label class="radio-inline">
+            <label class="radio-inline" title="Stop the print when a failure is detected">
                 <input type="radio" name="action" value="2" data-bind="checked: newAction"> Stop
             </label>
         </div>
@@ -73,40 +77,40 @@
     <div class="control-group">
         <label class="control-label">{{ _('AI Start Delay (s)') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newAiStartDelay, attr: {min: 0, max: 60000}" />
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newAiStartDelay, attr: {min: 0, max: 60000}" title="Delay in seconds before PiNozCam starts detecting failures after Octoprint begins a print. It's recommended to set this delay to allow for the completion of bed leveling and other initial print processes. Once the set delay has passed, PiNozCam's AI will begin monitoring for potential print failures."/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Boxes Display Threshold') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newPrintLayoutThreshold, attr: {min: '0', max: '1', step: '0.001'}">
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newPrintLayoutThreshold, attr: {min: '0', max: '1', step: '0.001'}" title="Only display the bounding boxes with scores (score shown on the top right of each box) higher the threshold. Setting this number lower will show more boxes, even for things the AI isn't very sure are failures. Setting it higher will only show boxes for failures the AI is really sure about. Change this number to control how many boxes you see based on how sensitive you want the display to be."/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Image Sensitivity') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newImgSensitivity, attr: {min: '0', max: '1', step: '0.001'}">
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newImgSensitivity, attr: {min: '0', max: '1', step: '0.001'}" title="Image sensitivity = (All bounding box areas 'higher than Failure Scores Threshold')/(Whole image area). Set the sensitivity according to how far the camera is from the nozzle and how big you expect print failures to be. A lower sensitivity will detect smaller bounding boxes as failures, while a higher sensitivity will only detect bigger, more obvious bounding boxes. Adjust this setting based on your specific printer setup, camera position, and how many false alerts or missed failures you're okay with to get the best failure detection."/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Failure Scores Threshold') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newScoresThreshold, attr: {min: '0', max: '1', step: '0.001'}">
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newScoresThreshold, attr: {min: '0', max: '1', step: '0.001'}" title="Set the minimum score needed for detected bounding boxes (scores shown on the top right of each box must be higher) to count towards the failure total and trigger alerts or actions. If the score is higher than this number, it will be counted as a failure. If it's lower, it will be ignored. Adjust this setting to control how many real failures are caught and how many false alarms happen."/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Max Failure Count') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" />
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" title="Maximum number of failures allowed before Pause/Stop"/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Cell Notify Mode') }}</label>
         <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline">
-                <input type="radio" name="enableMaxFailureCountNotification" value="false" data-bind="checked: newEnableMaxFailureCountNotification"> Every failure
+            <label class="radio-inline" title="Send a notification for each failure detected">
+                <input type="radio" name="enableMaxFailureCountNotification" value="false" data-bind="checked: newEnableMaxFailureCountNotification"> Each failure
             </label>
-            <label class="radio-inline">
+            <label class="radio-inline" title="Send a notification only after reaching the Max Failure Count">
                 <input type="radio" name="enableMaxFailureCountNotification" value="true" data-bind="checked: newEnableMaxFailureCountNotification"> After reaching the Max Failure Count
             </label>
         </div>
@@ -114,16 +118,16 @@
     <div class="control-group">
         <label class="control-label">{{ _('Failure Consider Time (s)') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newCountTime, attr: {min: 0, max: 60000}" />
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newCountTime, attr: {min: 0, max: 60000}" title="This setting is like a plane's black box that only records the last X seconds of flight data. Just like the black box overwrites old data, this setting forgets failures that happened before the specified time window. It's a moving window that only remembers and counts the most recent failures towards the Max Failure Count for triggering actions or notifications."/>
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('CPU Speed Control') }}</label>
         <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline">
+            <label class="radio-inline" title="Use half of the available CPU core numbers for AI processing. Note that the actual processing speed may vary and is not solely determined by the number of cores used. It's recommended to perform real-world tests to assess performance.">
                 <input type="radio" name="cpuSpeedControl" value="0.5" data-bind="checked: newCpuSpeedControl"> Half
             </label>
-            <label class="radio-inline">
+            <label class="radio-inline" title="Use all available CPU core numbers for AI processing. Note that the actual processing speed may vary and is not solely determined by the number of cores used. It's recommended to perform real-world tests to assess performance.">
                 <input type="radio" name="cpuSpeedControl" value="1" data-bind="checked: newCpuSpeedControl"> Full
             </label>
         </div>
@@ -131,34 +135,40 @@
     <div class="control-group">
         <label class="control-label">{{ _('Custom Snapshot URL') }}</label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL" title="Custom URL for fetching snapshots instead of the default snapshot URL">
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Max Notification Count') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" />
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" title="This setting limits how many notifications you can get before the system stops sending more. Once you've reached this number of notifications, it will go quiet until the print is done or stopped."/>
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Telegram Bot Token') }}</label>
+        <label class="control-label">
+            <a href="https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a" target="_blank">{{ _('Telegram Bot Token') }}</a>
+        </label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramBotToken">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramBotToken" title="Token for authenticating with your Telegram bot">
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Telegram Chat ID') }}</label>
+        <label class="control-label">
+            <a href="https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a" target="_blank">{{ _('Telegram Chat ID') }}</a>
+        </label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramChatId">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramChatId" title="ID of the Telegram chat where notifications will be sent">
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Discord Webhook URL') }}</label>
+        <label class="control-label">
+            <a href="https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/" target="_blank">{{ _('Discord Webhook URL') }}</a>
+        </label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newDiscordWebhookURL">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newDiscordWebhookURL" title="URL of the Discord webhook where notifications will be sent">
         </div>
     </div>
     <div class="save-button-container">
-        <button type="button" class="btn btn-primary" data-bind="click: saveSettings">Save</button>
+        <button type="button" class="btn btn-primary" data-bind="click: saveSettings" title="Save the current settings">Save</button>
     </div>
 </form>
