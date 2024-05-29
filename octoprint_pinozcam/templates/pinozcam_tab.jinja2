@@ -24,15 +24,32 @@
     <div id="printout-threads-container">
         <!-- ID is ai-image -->
         <img id="ai-image" src="" alt="AI Image" style="max-width: 100%; height: auto;">
-        <!-- Placeholder for Printing Status -->
-        <div id="ai-status" style="margin-top: 10px;">AI Status: OFF</div>
-        <div id="cpu-temperature" style="margin-top: 10px;">CPU Temperature: --°C</div>
-        <!-- Placeholder for Failure Count -->
-        <div id="failure-count" style="margin-top: 10px;">Failure Count: 0</div>
-
-        <!-- Mask Image Button -->
-        <button id="open-dialog-btn" class="btn btn-primary" style="margin-top: 10px;" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Mask Image</button>
-
+        
+        <div style="display: flex; margin-top: 10px;">
+            <div style="flex: 1;">
+                <!-- Placeholder for Printing Status -->
+                <div id="ai-status">AI Status: OFF</div>
+                <div id="cpu-temperature">CPU Temperature: --°C</div>
+                <!-- Placeholder for Failure Count -->
+                <div id="failure-count">Failure Count: 0</div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <!-- Mask Image Button -->
+                <button id="open-dialog-btn" class="btn btn-primary" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Mask Image</button>
+                
+                <!-- Discord link -->
+                <div style="margin-top: 10px;">
+                    <a href="https://discord.gg/gv4tKJ2ZKr" target="_blank" style="font-size: 14px; color: #7289da; text-decoration: none; transition: color 0.3s;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" style="vertical-align: middle; margin-right: 5px;">
+                            <path fill="currentColor" d="M20.317 4.3698C18.7873 3.70243 17.1499 3.24428 15.4479 3.02089C15.4007 3.01339 15.3522 3.02748 15.3139 3.05949C14.9911 3.38082 14.6424 3.8111 14.3767 4.14111C12.5572 3.86032 10.7238 3.86032 8.90623 4.14111C8.64054 3.80654 8.28819 3.38082 7.96892 3.05949C7.93053 3.02764 7.88211 3.01339 7.83488 3.02089C6.13298 3.24428 4.4956 3.70243 2.96588 4.3698C2.94211 4.37646 2.92026 4.39079 2.90227 4.41049C0.463112 8.67768 -0.243922 12.8592 0.0953659 16.9916C0.0985729 17.0238 0.11089 17.0549 0.128178 17.0809C1.85701 18.5207 3.55079 19.4457 5.21149 20.0002C5.24462 20.0087 5.27961 19.9993 5.30719 19.9744C5.78988 19.4803 6.23065 18.9509 6.62182 18.3914C6.65186 18.3338 6.63368 18.2596 6.58269 18.221C6.06877 17.9002 5.57649 17.5431 5.10595 17.1546C5.05362 17.114 5.04743 17.0403 5.08823 17.0036C5.17719 16.9206 5.26615 16.8359 5.35273 16.7527C5.38117 16.7213 5.42094 16.7081 5.45817 16.7157C9.01527 18.1131 12.9856 18.1131 16.526 16.7157C16.5633 16.7065 16.603 16.7213 16.6315 16.7527C16.7181 16.8359 16.807 16.9206 16.8959 17.0036C16.9367 17.0403 16.9321 17.114 16.8782 17.1546C16.4077 17.5481 15.9154 17.9002 15.4015 18.221C15.3505 18.2596 15.3339 18.3354 15.3639 18.3914C15.7567 18.9509 16.1975 19.4803 16.6802 19.9744C16.7077 19.9993 16.7427 20.0087 16.7759 20.0002C18.4398 19.4457 20.1368 18.5207 21.8656 17.0809C21.8829 17.0549 21.8952 17.0238 21.8984 16.9916C22.2835 12.2572 21.1736 8.11505 18.8065 4.41033C18.7902 4.39079 18.7683 4.37646 18.7446 4.3698V4.3698ZM8.14189 14.2794C7.0261 14.2794 6.11379 13.2653 6.11379 12.0155C6.11379 10.7656 6.99648 9.75155 8.14189 9.75155C9.2888 9.75155 10.1826 10.7734 10.165 12.0155C10.165 13.2653 9.28568 14.2794 8.14189 14.2794ZM15.8656 14.2794C14.7498 14.2794 13.8375 13.2653 13.8375 12.0155C13.8375 10.7656 14.7202 9.75155 15.8656 9.75155C17.0111 9.75155 17.9049 10.7734 17.8889 12.0155C17.8889 13.2653 17.0111 14.2794 15.8656 14.2794Z"/>
+                        </svg>
+                        Join Discord
+                    </a>
+                </div>
+            </div>
+        </div>
+        
         <!-- Mask Dialog -->
         <dialog id="mask-dialog">
             <div class="dialog-content">
@@ -105,7 +122,7 @@
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Cell Notify Mode') }}</label>
+        <label class="control-label">{{ _('Notify Mode') }}</label>
         <div class="controls" style="padding-top: 5px;">
             <label class="radio-inline" title="Send a notification for each failure detected">
                 <input type="radio" name="enableMaxFailureCountNotification" value="false" data-bind="checked: newEnableMaxFailureCountNotification"> Each failure
