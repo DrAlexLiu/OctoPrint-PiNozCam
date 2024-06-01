@@ -1,7 +1,5 @@
 import numpy as np
-
 import time
-import os
 
 def _generate_anchors(stride, ratio_vals, scales_vals):
     """Generate anchor coordinates based on scales and ratios using Numpy.
@@ -29,7 +27,7 @@ def _generate_anchors(stride, ratio_vals, scales_vals):
     
     return np.concatenate([xy1, xy2], axis=1)
 
-def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
+def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=120):
     """
     Apply Non-Maximum Suppression (NMS) to prediction boxes to eliminate redundant overlapping boxes.
 
@@ -37,66 +35,64 @@ def _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=100):
     probable bounding box for an object when multiple boxes predict its presence.
 
     Parameters:
-    - all_scores (np.ndarray): A numpy array of shape (batch_size, num_predictions) containing the scores of each prediction.
-    - all_boxes (np.ndarray): A numpy array of shape (batch_size, num_predictions, 4) containing the coordinates of each prediction box.
-    - all_classes (np.ndarray): A numpy array of shape (batch_size, num_predictions) containing the class IDs of each prediction.
+    - all_scores (np.ndarray): A numpy array of shape (num_predictions,) containing the scores of each prediction.
+    - all_boxes (np.ndarray): A numpy array of shape (num_predictions, 4) containing the coordinates of each prediction box.
+    - all_classes (np.ndarray): A numpy array of shape (num_predictions,) containing the class IDs of each prediction.
     - nms (float): The Non-Maximum Suppression threshold for overlap. Predictions with IoU (Intersection over Union) over this threshold will be suppressed.
     - ndetections (int): The maximum number of detections to return after NMS.
 
     Returns:
     - out_scores, out_boxes, out_classes (tuple of np.ndarray): The scores, boxes, and classes after applying NMS,
-      each of shape (batch_size, ndetections) or (batch_size, ndetections, 4) for boxes.
+      each of shape (ndetections,) or (ndetections, 4) for boxes.
     """
-
-    batch_size = all_scores.shape[0]
-    out_scores = np.zeros((batch_size, ndetections))
-    out_boxes = np.zeros((batch_size, ndetections, 4))
-    out_classes = np.zeros((batch_size, ndetections))
-
-    for batch in range(batch_size):
-        # Filter out scores that are zero or below
-        keep = all_scores[batch, :] > 0
-        scores = all_scores[batch, keep]
-        boxes = all_boxes[batch, keep, :]
-        classes = all_classes[batch, keep]
-
-        if scores.size == 0:
-            continue
-
-        # Sort the scores in descending order and sort boxes and classes accordingly
-        indices = np.argsort(-scores)
-        scores = scores[indices]
-        boxes = boxes[indices, :]
-        classes = classes[indices]
-
-        # Calculate the area of each box for IoU computation
-        areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
-        keep = np.ones(scores.shape[0], dtype=bool)
-
-        for i in range(ndetections):
-            if not np.any(keep) or i >= scores.size:
-                break
-
-            # Compute intersection areas
-            xy1 = np.maximum(boxes[:, :2], boxes[i, :2])
-            xy2 = np.minimum(boxes[:, 2:], boxes[i, 2:])
-            inter = np.prod(np.maximum(0, xy2 - xy1 + 1), axis=1)
-
-            criterion = ((scores > scores[i]) |
-                         (inter / (areas + areas[i] - inter) <= nms) |
-                         (classes != classes[i]))
-
-            criterion[i] = True
-            keep &= criterion
-
-        # Applying the keep mask to scores, boxes, and classes
-        keep_indices = np.where(keep)[0]
-
-        final_count = min(ndetections, keep_indices.size)
-        out_scores[batch, :final_count] = scores[keep_indices][:final_count]
-        out_boxes[batch, :final_count, :] = boxes[keep_indices, :][:final_count, :]
-        out_classes[batch, :final_count] = classes[keep_indices][:final_count]
     
+    out_scores = np.zeros(ndetections)
+    out_boxes = np.zeros((ndetections, 4))  
+    out_classes = np.zeros(ndetections)
+
+    # Filter out scores that are zero or below
+    keep = all_scores > 0
+    scores = all_scores[keep]
+    boxes = all_boxes[keep, :]
+    classes = all_classes[keep]
+
+    if scores.size == 0:
+        return out_scores, out_boxes, out_classes
+
+    # Sort the scores in descending order and sort boxes and classes accordingly 
+    indices = np.argsort(-scores)
+    scores = scores[indices]
+    boxes = boxes[indices, :]
+    classes = classes[indices]
+
+    # Calculate the area of each box for IoU computation
+    areas = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
+    keep = np.ones(scores.shape[0], dtype=bool)
+
+    for i in range(ndetections):
+        if not np.any(keep) or i >= scores.size:
+            break
+  
+        # Compute intersection areas
+        xy1 = np.maximum(boxes[:, :2], boxes[i, :2]) 
+        xy2 = np.minimum(boxes[:, 2:], boxes[i, 2:])
+        inter = np.prod(np.maximum(0, xy2 - xy1 + 1), axis=1)
+
+        criterion = ((scores > scores[i]) |
+                     (inter / (areas + areas[i] - inter) <= nms) |  
+                     (classes != classes[i]))
+        
+        criterion[i] = True
+        keep &= criterion
+
+    # Applying the keep mask to scores, boxes and classes  
+    keep_indices = np.where(keep)[0]
+    
+    final_count = min(ndetections, keep_indices.size)
+    out_scores[:final_count] = scores[keep_indices][:final_count]  
+    out_boxes[:final_count, :] = boxes[keep_indices, :][:final_count, :]
+    out_classes[:final_count] = classes[keep_indices][:final_count]
+
     return out_scores, out_boxes, out_classes
 
 def _delta2box(deltas, anchors, size, stride):
@@ -133,50 +129,40 @@ def _delta2box(deltas, anchors, size, stride):
         clamp(pred_ctr + 0.5 * pred_wh - 1)
     ], axis=1)
 
-def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=1000, anchors=None):
+def _decode(all_cls_head, all_box_head, stride=1, threshold=0.05, top_n=120, anchors=None):
     """
     Decode bounding boxes and filter based on score threshold.
     """
     num_boxes = 4 
 
-    batch_size, _, height, width = all_cls_head.shape
-    num_anchors = anchors.shape[0] if anchors is not None else 1
-    num_classes = all_cls_head.shape[1] // num_anchors
+    num_anchors, height, width = all_cls_head.shape
+    num_classes = all_cls_head.shape[0] // num_anchors
 
-    out_scores = np.zeros((batch_size, top_n), dtype=all_cls_head.dtype)
-    out_boxes = np.zeros((batch_size, top_n, 4), dtype=all_box_head.dtype)
-    out_classes = np.zeros((batch_size, top_n), dtype=np.int32)
+    cls_head = all_cls_head.reshape(-1)
+    box_head = all_box_head.reshape(-1, num_boxes)
 
-    for batch in range(batch_size):
-        cls_head = all_cls_head[batch].reshape(-1)
-        box_head = all_box_head[batch].reshape(-1, num_boxes)
+    keep = np.where(cls_head >= threshold)[0]
+    if keep.size == 0:
+        return np.zeros(0), np.zeros((0, 4)), np.zeros(0)
 
-        keep = np.where(cls_head >= threshold)[0]
-        if keep.size == 0:
-            continue
+    scores = cls_head[keep]
+    indices = scores.argsort()[::-1][:top_n]
+    scores = scores[indices]
+    classes = keep[indices] // (width * height * num_anchors) + 1
 
-        scores = cls_head[keep]
-        indices = scores.argsort()[::-1][:top_n]
-        scores = scores[indices]
-        classes = keep[indices] // (width * height * num_anchors)+1
-        
-        x = (keep[indices] % width).astype(np.int16)
-        y = ((keep[indices] / width) % height).astype(np.int16)
-        a = (keep[indices] / num_classes / height / width).astype(np.int16)
+    x = (keep[indices] % width).astype(np.uint8)
+    y = ((keep[indices] / width) % height).astype(np.uint8)
+    a = (keep[indices] / num_classes / height / width).astype(np.uint8)
 
-        boxes = box_head[keep[indices]]
+    boxes = box_head[keep[indices]]
 
-        if anchors is not None:
-            grid = np.stack([x, y, x, y], axis=1) * stride + anchors[a]
-            boxes = _delta2box(boxes, grid, [width, height], stride)
+    if anchors is not None:
+        grid = np.stack([x, y, x, y], axis=1) * stride + anchors[a]
+        boxes = _delta2box(boxes, grid, [width, height], stride)
 
-        out_scores[batch, :scores.size] = scores
-        out_boxes[batch, :boxes.shape[0], :] = boxes
-        out_classes[batch, :classes.size] = classes
+    return scores, boxes, classes
 
-    return out_scores, out_boxes, out_classes
-
-def _detection_postprocess(image, cls_heads, box_heads):
+def _detection_postprocess(cls_heads, box_heads):
     """
     Post-process detection outputs using Numpy for decoding and processing
 
@@ -185,41 +171,41 @@ def _detection_postprocess(image, cls_heads, box_heads):
     or analysis.
 
     Args:
-        image (np.ndarray): The input image tensor with shape (B, C, H, W).
-        cls_heads (list of np.ndarray): List of class head tensors, each with shape (B, A, H', W').
-        box_heads (list of np.ndarray): List of box head tensors, each with shape (B, A*4, H', W').
+        image (np.ndarray): The input image tensor with shape (C, H, W).
+        cls_heads (list of np.ndarray): List of class head tensors, each with shape (A, H', W').
+        box_heads (list of np.ndarray): List of box head tensors, each with shape (A*4, H', W').
 
     Returns:
         tuple: Tuple containing:
-            - scores (np.ndarray): Scores of the detected boxes with shape (B, N).
-            - boxes (np.ndarray): Detected bounding boxes with shape (B, N, 4).
-            - labels (np.ndarray): Class labels for the detected boxes with shape (B, N).
+            - scores (np.ndarray): Scores of the detected boxes with shape (N,).
+            - boxes (np.ndarray): Detected bounding boxes with shape (N, 4).
+            - labels (np.ndarray): Class labels for the detected boxes with shape (N,).
     """
 
     # Dictionary to store anchors based on stride
     anchors = {}
     decoded = []
+    strides = [8, 16, 32, 64, 128]  # Predefined strides
 
-    for cls_head, box_head in zip(cls_heads, box_heads):
+    for cls_head, box_head, stride in zip(cls_heads, box_heads, strides):
         # Calculate the stride based on the image and class head dimensions
-        stride = image.shape[-1] // cls_head.shape[-1]
+        #stride = image.shape[-1] // cls_head.shape[-1]
 
         # Generate anchors if they haven't been generated for this stride
         if stride not in anchors:
             anchors[stride] = _generate_anchors(stride, ratio_vals=[1.0, 2.0, 0.5], scales_vals=[4 * 2 ** (i / 3) for i in range(3)])
 
         # Decode the class and box heads into human-readable format using Numpy
-        scores, boxes, classes = _decode(cls_head, box_head, stride, 0.05, 100, anchors[stride])
+        scores, boxes, classes = _decode(cls_head, box_head, stride, 0.05, 120, anchors[stride])
         if scores.size > 0:  # Only add non-empty detections
             decoded.append((scores, boxes, classes))
     
     # Handle cases where no detections meet the threshold
     if not decoded:
-        return np.zeros((1, 6)), np.zeros((1, 6, 4)), np.zeros((1, 6))
+        return np.zeros(6), np.zeros((6, 4)), np.zeros(6)
 
     # Process decoded results
     scores_list, boxes_list, classes_list = [], [], []
-    batch_size = image.shape[0]
 
     for scores, boxes, classes in decoded:
         if scores.size == 0:
@@ -228,10 +214,10 @@ def _detection_postprocess(image, cls_heads, box_heads):
         boxes_list.append(boxes)
         classes_list.append(classes)
 
-    # Concatenation while preserving the batch dimension
-    all_scores = np.concatenate([arr for arr in scores_list], axis=1)
-    all_boxes = np.concatenate([arr for arr in boxes_list], axis=1)
-    all_classes = np.concatenate([arr for arr in classes_list], axis=1)
+    # Concatenation along the first dimension (axis=0)
+    all_scores = np.concatenate(scores_list, axis=0)
+    all_boxes = np.concatenate(boxes_list, axis=0)
+    all_classes = np.concatenate(classes_list, axis=0)
 
     # Apply non-maximum suppression to remove overlapping boxes, using the original _nms function or a modified version for Numpy
     scores, boxes, labels = _nms(all_scores, all_boxes, all_classes, nms=0.5, ndetections=6)
@@ -260,7 +246,7 @@ def _preprocess_image(image):
 
 def image_inference(input_image, scores_threshold, img_sensitivity, 
                     ort_session,
-                    num_threads=2, _proc_img_width=640, _proc_img_height=384):
+                    _proc_img_width=640, _proc_img_height=384):
     """
     Performs inference on the given image using a pre-trained ONNX model.
 
@@ -308,19 +294,19 @@ def image_inference(input_image, scores_threshold, img_sensitivity,
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
     
+    ort_outs = [out[0] for out in ort_outs]
 
     # Split the output into classification and box regression heads
     cls_heads = ort_outs[:5]
-    box_heads = ort_outs[5:10]
+    box_heads = ort_outs[5:]
 
-    scores, boxes, labels = _detection_postprocess(input_array, cls_heads, box_heads)
+    scores, boxes, labels = _detection_postprocess(cls_heads, box_heads)
 
     # Create a 2D array (bitmap) representing the image
     bitmap = [[False for _ in range(_proc_img_width)] for _ in range(_proc_img_height)]
     
-    # Filter boxes based on scores_threshold and label constraints
-    filtered_boxes = [box for score, box in zip(scores[0], boxes[0]) 
-                    if score > scores_threshold]
+    # Filter boxes based on scores_threshold
+    filtered_boxes = [box for score, box in zip(scores, boxes) if score > scores_threshold]
     
 
     for box in filtered_boxes:
@@ -350,7 +336,7 @@ def image_inference(input_image, scores_threshold, img_sensitivity,
     width_scale = img_width / _proc_img_width
 
     # Scale the boxes to the original size of picture
-    scaled_boxes = [[[x1 * width_scale, y1 * height_scale, x2 * width_scale, y2 * height_scale] for x1, y1, x2, y2 in box] for box in boxes]
+    scaled_boxes = [[x1 * width_scale, y1 * height_scale, x2 * width_scale, y2 * height_scale] for x1, y1, x2, y2 in boxes]
 
     return scores.tolist(), scaled_boxes, labels.tolist(), severity, percentage_area, elapsed_time
 

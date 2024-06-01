@@ -412,7 +412,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         input_image=ai_input_image, 
                         scores_threshold=self.scores_threshold, 
                         img_sensitivity=self.img_sensitivity, 
-                        num_threads=self.num_threads, 
                         ort_session=ort_session, 
                         _proc_img_width=self.proc_img_width, 
                         _proc_img_height=self.proc_img_height
@@ -505,7 +504,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             color = "yellow"
 
         # Assuming you've already created an ImageDraw.Draw object named 'draw'
-        for box, score in zip(boxes[0], scores[0]):
+        for box, score in zip(boxes, scores):
             if score < self.scores_threshold:
                 break
             x1, y1, x2, y2 = box
