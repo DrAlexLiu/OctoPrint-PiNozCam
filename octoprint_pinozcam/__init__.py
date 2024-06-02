@@ -46,10 +46,12 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #external setup Parameters:
         self.enable_AI=True
         self.action = 0
+        self.ai_start_delay = 0
         self.print_layout_threshold=0.5
         self.img_sensitivity=0.04
         self.scores_threshold=0.75
         self.max_count=2
+        self.enable_max_failure_count_notification = False
         self.count_time = 300
         self.max_notification=0
         self.telegram_bot_token = ""
@@ -57,10 +59,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.custom_snapshot_url = ""
         self.discord_webhook_url= ""
 
-        
-
-
         #internal parameters
+        self.mask_image_data = '0' * 4096 # 64*64 mask matrix
         self.count = 0
         self.welcome_text = "Welcome to PiNozCam!"
         self.no_camera_text = "No Camera"
@@ -79,7 +79,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.no_camera_path = os.path.join(os.path.dirname(__file__), 'static', 'no_camera.jpg')
         self.bin_file_path = os.path.join(os.path.dirname(__file__),'static', 'nozcam.bin')
         
-
         #camera
         self.cameras = []
         self.snap_new_method = False
@@ -140,7 +139,6 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         except IOError:
             return False
 
-
     def get_cpu_temperature(self):
         if self.cpu_is_raspberry_pi():
             try:
@@ -155,12 +153,15 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
     
     def get_settings_defaults(self):
         return dict(
+            maskImageData='0' * 4096, # 64*64 mask matrix
             enableAI=True,
             action=0,
+            aiStartDelay=0,
             printLayoutThreshold=0.5,
             imgSensitivity=0.04,
             scoresThreshold=0.75,
             maxCount=2,
+            enableMaxFailureCountNotification=False,
             countTime=300,
             cpuSpeedControl=0.5,
             customSnapshotURL="",
@@ -170,6 +171,33 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             discordWebhookURL="",
         )
     
+    def apply_mask_to_image(self, input_image):
+        """
+        Applies a black mask to the input image based on the stored mask_image_data.
+
+        Args:
+            input_image (PIL.Image): The input image to apply the mask to.
+
+        Returns:
+            PIL.Image: The input image with the black mask applied.
+        """
+        # Decompress the mask_image_data into a 2D boolean array
+        mask_matrix = [[char == '1' for char in self.mask_image_data[i:i+64]] for i in range(0, len(self.mask_image_data), 64)]
+
+        # Create a drawing context for the input image
+        draw = ImageDraw.Draw(input_image)
+        
+        # Draw black rectangles on the input image based on the mask_matrix
+        block_width = math.ceil(input_image.size[0] / 64)
+        block_height = math.ceil(input_image.size[1] / 64)
+        for i in range(64):
+            for j in range(64):
+                if mask_matrix[i][j]:
+                    x, y = j * block_width, i * block_height
+                    draw.rectangle((x, y, x + block_width, y + block_height), fill=(0, 0, 0))
+
+        return input_image
+
     def perform_action(self):
         """
         Executes an action based on the current setting of 'self.action'.
@@ -193,12 +221,15 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         Initializes plugin settings after startup by loading values from the configuration.
         It also logs the initialized settings for verification.
         """
+        self.mask_image_data = self._settings.get(["maskImageData"])
         self.enable_AI = self._settings.get_int(["enableAI"])
         self.action = self._settings.get_int(["action"])
+        self.ai_start_delay = self._settings.get_int(["aiStartDelay"])
         self.print_layout_threshold = self._settings.get_float(["printLayoutThreshold"])
         self.img_sensitivity = self._settings.get_float(["imgSensitivity"])
         self.scores_threshold = self._settings.get_float(["scoresThreshold"])
         self.max_count = self._settings.get_int(["maxCount"])
+        self.enable_max_failure_count_notification = self._settings.get_boolean(["enableMaxFailureCountNotification"])
         self.count_time = self._settings.get_int(["countTime"])
         self.cpu_speed_control = self._settings.get_float(["cpuSpeedControl"])
         self.custom_snapshot_url = self._settings.get(["customSnapshotURL"])
@@ -352,6 +383,9 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             except Exception as e:
                 self._logger.error(f"Failed to load model from {self.bin_file_path}. Error: {e}")
                 self.ai_running = False
+            
+            self._logger.info(f"Waiting for {self.ai_start_delay}s before starting AI processing")
+            time.sleep(self.ai_start_delay)
 
             while self.enable_AI and self.ai_running:
                 
@@ -365,17 +399,19 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 
                 self._logger.info("Begin to process one image.")
                 
-                ai_input_image = self.get_snapshot()
-                if ai_input_image is None:
+                ai_unmasked_input_image = self.get_snapshot()
+                if ai_unmasked_input_image is None:
                     self._logger.error(f"Failed to fetch image for AI processing: {e}")
                     continue
+
+                #apply mask to the ai_input_image
+                ai_input_image = self.apply_mask_to_image(ai_unmasked_input_image)
 
                 try:
                     scores, boxes, labels, severity, percentage_area, elapsed_time = image_inference(
                         input_image=ai_input_image, 
                         scores_threshold=self.scores_threshold, 
                         img_sensitivity=self.img_sensitivity, 
-                        num_threads=self.num_threads, 
                         ort_session=ort_session, 
                         _proc_img_width=self.proc_img_width, 
                         _proc_img_height=self.proc_img_height
@@ -414,19 +450,23 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         
                         #       
                         if not self.notification_reach_to_max and self.max_notification != 0 and self.count > self.max_notification:
-                            self.notification_reach_to_max = True  
+                            self.notification_reach_to_max = True 
+
+                        with self.lock:
+                            failure_count = self.count
 
                         # If count exceeds  within the last count_time minutes, perform action
                         if not self.notification_reach_to_max and self.telegram_bot_token and self.telegram_chat_id:
-                            self.telegram_send(ai_result_image,severity,percentage_area)
+                            if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
+                                self.telegram_send(ai_result_image,severity,percentage_area)
                         
                         if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
-                            self.discord_send(ai_result_image,severity,percentage_area)
+                            if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
+                                self.discord_send(ai_result_image,severity,percentage_area)
                         
-                        with self.lock:
-                            failure_count = self.count
                         if failure_count >= self.max_count:
                             self.perform_action()
+                            
         sess_opt = None
     
     @staticmethod
@@ -464,14 +504,14 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             color = "yellow"
 
         # Assuming you've already created an ImageDraw.Draw object named 'draw'
-        for box, score in zip(boxes[0], scores[0]):
+        for box, score in zip(boxes, scores):
             if score < self.scores_threshold:
                 break
             x1, y1, x2, y2 = box
             draw.rectangle([(x1, y1), (x2, y2)], outline=color, width=2)
             
             # Text to be drawn
-            spaghetti_text = "Spaghetti"
+            spaghetti_text = ""
             score_text = f"{score:.2f}"  # Format the score to two decimal places
 
             # Adjust text position so it does not overlap with the bounding box
@@ -523,12 +563,15 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 
         # Update the plugin settings based on the data provided
+        self.mask_image_data = data.get("maskImageData", self.mask_image_data)
         self.enable_AI = bool(data.get("enableAI", self.enable_AI))
         self.action = int(data.get("action", self.action))
+        self.ai_start_delay = int(data.get("aiStartDelay", self.ai_start_delay))
         self.print_layout_threshold = float(data.get("printLayoutThreshold", self.print_layout_threshold))
         self.img_sensitivity = float(data.get("imgSensitivity", self.img_sensitivity))
         self.scores_threshold = float(data.get("scoresThreshold", self.scores_threshold))
         self.max_count = int(data.get("maxCount", self.max_count))
+        self.enable_max_failure_count_notification = self._settings.get_boolean(["enableMaxFailureCountNotification"])
         self.count_time = int(data.get("countTime", self.count_time))
         self.cpu_speed_control = float(data.get("cpuSpeedControl", self.cpu_speed_control))
         self.custom_snapshot_url = data.get("customSnapshotURL", self.custom_snapshot_url)
@@ -551,13 +594,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
 
         #send a welcome test message to the telegram chat
         welcome_image = self.create_image_with_text(self.welcome_text)
+        welcome_image = self.apply_mask_to_image(welcome_image)
         if self.telegram_bot_token and self.telegram_chat_id:
             self.telegram_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
         if self.discord_webhook_url.startswith("http"):
             self.discord_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
-
-        self._logger.info(f"discord_webhook_url={self.discord_webhook_url}")
-
 
     def transform_image(self, img, must_flip_h, must_flip_v, must_rotate):
         # Only call Pillow if we need to transpose anything
@@ -697,10 +738,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             return self.check_response(ai_result_image)
 
         # Use the get_snapshot method to get the processed image
-        input_image = self.get_snapshot()
-        if input_image is None:
+        input_unmasked_image = self.get_snapshot()
+        if input_unmasked_image is None:
             return self.check_response(self._encode_no_camera_image())
 
+        input_image = self.apply_mask_to_image(input_unmasked_image)
         # Since get_snapshot returns the image data as bytes, we can directly use it
         encoded_image = self.encode_image_to_base64(input_image)
         return self.check_response(encoded_image)
