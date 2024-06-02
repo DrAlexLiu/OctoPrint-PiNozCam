@@ -1,7 +1,7 @@
 # OctoPrint-PiNozCam
 <div>
   <img src="/assets/images/failure_detection1.jpg" width="40%" height="40%">
-  <img src="/assets/images/failure_detection_side.jpeg.jpg" width="48%" height="48%">
+  <img src="/assets/images/failure_detection_side.jpeg" width="48%" height="48%">
 </div>
 
 [![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/gv4tKJ2ZKr)
@@ -65,7 +65,7 @@ or manually using this URL:
 
 ## Plugin Setting
 
-| **Choose Mode and Correct Setting:** | |
+| **Choose Mode and Set Correct Parameters in PiNozCam:** | |
 |:--|:--|
 | **NozzleCam** | **WebCam** |
 | <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> | <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> |
@@ -84,7 +84,6 @@ or manually using this URL:
   - [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
 
   ⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
-
 
   ### Fixture
   Search and print a camera fixture for your camera model from Thingiverse or Printables. 
@@ -127,17 +126,19 @@ Initially, stick with the default settings and adjust them gradually to fine-tun
 - **Action after Detection:** Specifies the action PiNozCam should take when a print failure is detected (e.g., notify only, pause print, stop print). Detected failures are displayed in this webpage for 5 seconds, allowing for immediate visual verification.
 - **Image Sensitivity:** Image sensitivity = (All bounding box areas 'higher than Failure Scores Threshold')/(Whole image area). A smaller number will find small failures or when a failure just starts. A bigger number will only find big, easy-to-see failures or failures that have been going on for a while and have gotten larger.
 - **Failure Scores Threshold:** Set the smallest score a box needs to count as a failure and make alerts or actions happen. You can see the score in the corner of each box. A higher number means the AI is more certain about failures but could miss some. A lower number means the AI will spot failures sooner but might also give false alarms.
-- **Max Failure Count:** Set the maximum number of failures allowed within the Failure Consider Time before PiNozCam pauses or stops the print as configured in Action after Detection. A value 2 or above is recommended to avoid false positives.
+- **Max Failure Count:** Set the maximum number of failures allowed within the Failure Consider Time before PiNozCam pauses or stops the print as configured in Action after Detection. A value 2 or above is recommended to avoid false alarms.
 - **Failure Consider Time (s):** Set the time window in seconds that PiNozCam remembers and counts failures towards the **Max Failure Count**. Older failures outside this window are forgotten, like how an airplane's black box only records the last part of the flight.
 
 <details>
 <summary>Other Parameters</summary>
+
 - **Enable PiNozCam:** Turn the AI detection function of PiNozCam on or off.
 - **AI Start Delay (s):** Set how many seconds PiNozCam should wait after OctoPrint starts a print before it begins looking for failures. This delay gives time for the bed to level and other starting print steps to finish.
 - **Notify Mode:** Choose whether to send a notification for each failure detected or only after reaching the **Max Failure Count**.
-- **Custom Snapshot URL:** Provide a custom URL for PiNozCam to fetch camera images from instead of the default snapshot URL. Examples:
+- **Custom Snapshot URL:** Provide a custom URL or IP camera URL for PiNozCam to fetch camera images from instead of the default snapshot URL. Examples: http://192.168.0.xxx/webcam/?action=snapshot. (RTSP protocol is not supported)
 - **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended.
-- **Max Notification Count:** Set the maximum number of notifications PiNozCam will send before muting further alerts until the print is done or stopped.
+- **Max Notification Count:** Set the maximum number of messages PiNozCam will send before it stops sending more until the print is finished or stopped. If you set it to 0, there will be no limit and it will keep sending messages.
+
 </details>
 
 ## Support

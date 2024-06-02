@@ -36,7 +36,7 @@
             
             <div style="display: flex; flex-direction: column; align-items: flex-end;">
                 <!-- Mask Image Button -->
-                <button id="open-dialog-btn" class="btn btn-primary" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Mask Image</button>
+                <button id="open-dialog-btn" class="btn btn-primary" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Set Undetect Zone</button>
                 
                 <!-- Discord link -->
                 <div style="margin-top: 10px;">
@@ -118,7 +118,7 @@
     <div class="control-group">
         <label class="control-label">{{ _('Max Failure Count') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" title="Maximum number of failures allowed before Pause/Stop"/>
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" title="Set the maximum number of failures allowed within the Failure Consider Time before PiNozCam pauses or stops the print as configured in Action after Detection. A value 2 or above is recommended to avoid false alarms."/>
         </div>
     </div>
     <div class="control-group">
@@ -152,13 +152,13 @@
     <div class="control-group">
         <label class="control-label">{{ _('Custom Snapshot URL') }}</label>
         <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL" title="Custom URL for fetching snapshots instead of the default snapshot URL">
+            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL" title="Custom URL for fetching snapshots instead of the default snapshot URL for your IP camera. Examples: http://192.168.0.xxx/webcam/?action=snapshot. (RTSP protocol is not supported)">
         </div>
     </div>
     <div class="control-group">
         <label class="control-label">{{ _('Max Notification Count') }}</label>
         <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" title="This setting limits how many notifications you can get before the system stops sending more. Once you've reached this number of notifications, it will go quiet until the print is done or stopped."/>
+            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" title="Set the maximum number of messages PiNozCam will send before it stops sending more until the print is finished or stopped. If you set it to 0, there will be no limit and it will keep sending messages."/>
         </div>
     </div>
     <div class="control-group">
