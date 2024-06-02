@@ -16,7 +16,7 @@ Raspberry Pi 5|45
 Raspberry Pi 4|9
 
 <details>
-  <summary>More Devices</summary>
+  <summary>More Support Devices</summary>
   
   **Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
   :-----:|:-----:
@@ -33,7 +33,7 @@ Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **
 | | | |
 |:--|:--|:--|
 | **Fast Local Detection** | **Instant Notifications** | **Privacy-Focused** |
-| **Auto Pause/Stop** | **No Subscriptions** | **Mask Background** |
+| **Auto Pause/Stop** | **No Subscriptions** | **Set Undetect Zone** |
 
 <details>
 <summary>Support Platforms</summary>
@@ -74,7 +74,7 @@ or manually using this URL:
 <details>
 <summary style="font-weight: bold;">Camera Setup</summary>
   
-  ### **Camera Setup**
+  ### **📷Camera Setup**
 
   | **Endoscope** | **WebCam** |
   |:--|:--|
@@ -89,7 +89,7 @@ or manually using this URL:
   Search and print a camera fixture for your camera model from Thingiverse or Printables. 
 </details>
 
-### Telegram/Discord Cellphone Notification
+### 📱Telegram/Discord Cellphone Notification
 
 To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
 or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Also, [setup your printer title](https://community.octoprint.org/t/how-do-i-change-the-web-interfaces-name/21662), a message carrys the printer title to help you identify your printer. Leave blank to disable notification.
@@ -102,14 +102,14 @@ Upon configuration and clicking "Save". A welcome message confirms successful se
 | **Example:** | |
 |:--|:--|
 | **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.jpg" width=50% height=50%> |
+| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=50% height=50%> |
 
 </details>
 
-### **Set Undetect Zone:**
+### **💥Set Undetect Zone:**
 Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on the most important parts of your print. The mask you draw will be placed on top of the original image when the AI analyzes it for failures.
 
-<img src="/assets/images/mask_background.jpg" width=50% height=50%>
+<img src="/assets/images/mask_background.png" width=50% height=50%>
 
 ### **Parameters Adjustment**
 
