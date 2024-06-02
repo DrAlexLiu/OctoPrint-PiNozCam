@@ -63,7 +63,7 @@ or manually using this URL:
     
 </details>
 
-## One AI, Two Modes
+## 🚀One AI, Two Modes
 
 | **Choose Mode and Set Correct Parameters in PiNozCam:** | |
 |:--|:--|
@@ -109,7 +109,7 @@ Upon configuration and clicking "Save". A welcome message confirms successful se
 ### **💥Set Undetect Zone:**
 Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on the most important parts of your print. The mask you draw will be placed on top of the original image when the AI analyzes it for failures.
 
-<img src="/assets/images/mask_background.png" width=30% height=30%>
+<img src="/assets/images/mask_background.png" width=20% height=20%>
 
 ### **Parameters Adjustment**
 
