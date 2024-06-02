@@ -10,16 +10,20 @@
 
 Welcome to the era of edge computing with free failure detection performed directly on your Pi
 
-**Device (50% of All Cores for AI)**|**Inference Speed (images / minute)**
-:-----:|:-----:
-Raspberry Pi 5|45
-Raspberry Pi 4|9
-Raspberry Pi 3B|5
-PC with Intel i5 10600|260
-OrangePi Zero 2/3|9
-Raspberry Pi Zero 2 W|3
+<details>
+  <summary>Speed on CPU</summary>
+  
+  **Device (50% of All Cores for AI)**|**Inference Speed (images / minute)**
+  :-----:|:-----:
+  Raspberry Pi 5|45
+  Raspberry Pi 4|9
+  Raspberry Pi 3B|5 
+  PC with Intel i5 10600|260
+  OrangePi Zero 2/3|9
+  Raspberry Pi Zero 2 W|3
 
-<sub>*The inference speed tests were conducted under the circumstance that 50% of the device's cores were allocated for AI processing, while the remaining 50% of the cores were dedicated to OctoPrint and printing processes.</sub>
+  <sub>*The inference speed tests were conducted under the circumstance that 50% of the device's cores were allocated for AI processing, while the remaining 50% of the cores were dedicated to OctoPrint and printing processes.</sub>
+</details>
 
 Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
 
