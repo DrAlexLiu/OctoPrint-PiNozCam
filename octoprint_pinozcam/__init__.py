@@ -511,7 +511,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             draw.rectangle([(x1, y1), (x2, y2)], outline=color, width=2)
             
             # Text to be drawn
-            spaghetti_text = "Spaghetti"
+            spaghetti_text = ""
             score_text = f"{score:.2f}"  # Format the score to two decimal places
 
             # Adjust text position so it does not overlap with the bounding box
