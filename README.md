@@ -16,7 +16,7 @@ Raspberry Pi 5|45
 Raspberry Pi 4|9
 
 <details>
-  <summary>More Platforms</summary>
+  <summary>More Devices</summary>
   
   **Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
   :-----:|:-----:
@@ -30,24 +30,29 @@ Raspberry Pi 4|9
 
 Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
 
-| | |
-|:--|:--|
-| **Fast Local Detection** | **Instant Notifications** |
-| **Privacy-Focused** | **No Subscriptions** |
-| **Auto Pause/Stop** | **Forever Free** |
+| | | |
+|:--|:--|:--|
+| **Fast Local Detection** | **Instant Notifications** | **Privacy-Focused** |
+| **Auto Pause/Stop** | **No Subscriptions** | **Forever Free** |
 
-Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
+<details>
+<summary>Support Platforms</summary>
+  Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
 
- **OS platform**|**Buster**|**Bullseye**|**Bookworm**
-:-----:|:-----:|:-----:|:-----:
-arm64 (x64)|✅|✅|✅
-armhf (x32)|✅|✅|✅
+  **OS platform**|**Buster**|**Bullseye**|**Bookworm**
+  :-----:|:-----:|:-----:|:-----:
+  arm64 (x64)|✅|✅|✅
+  armhf (x32)|✅|✅|✅
 
-⚠️ This plugin supports the [OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) . However, I am still working on this plugin on [Octo4a](https://github.com/feelfreelinux/octo4a) and it may be supported in the future versions. 
+  ⚠️ This plugin supports the [OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) . However, I am still working on this plugin on [Octo4a](https://github.com/feelfreelinux/octo4a) and it may be supported in the future versions. 
 
-**RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
-:-----:|:-----:|:-----:|:-----:|:-----:
-✅|✅|✅|✅|>=512MB
+  **RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
+  :-----:|:-----:|:-----:|:-----:|:-----:
+  ✅|✅|✅|✅|>=512MB
+</details>
+
+<details>
+<summary>Plugin Setup</summary>
 
 ## Plugin Setup
 
@@ -55,6 +60,8 @@ Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bu
 or manually using this URL:
 
     https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
+    
+</details>
 
 ## Required Hardware Setup
 
