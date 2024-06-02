@@ -63,12 +63,12 @@ or manually using this URL:
     
 </details>
 
-## Plugin Setting
+## One AI, Two Modes
 
 | **Choose Mode and Set Correct Parameters in PiNozCam:** | |
 |:--|:--|
 | **NozzleCam** | **WebCam** |
-| <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> | <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> |
+| <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> | <img src="/assets/images/side_camera_setup.jpg" width=50% height=50%> |
 | Boxes Display Threshold: 0.6<br>Image Sensitivity：0.05 (0.04-0.1)<br>Failure Scores Threshold: 0.75 (0.75-0.88) | Boxes Display Threshold: 0.75<br>Image Sensitivity：0.02 (0.02-0.04)<br>Failure Scores Threshold: 0.94 (0.94-0.99) |
 
 <details>
@@ -89,23 +89,27 @@ or manually using this URL:
   Search and print a camera fixture for your camera model from Thingiverse or Printables. 
 </details>
 
-### Cellphone
+### Telegram/Discord Cellphone Notification
 
 To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
 or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Also, [setup your printer title](https://community.octoprint.org/t/how-do-i-change-the-web-interfaces-name/21662), a message carrys the printer title to help you identify your printer. Leave blank to disable notification.
 
 <details>
-<summary>Notification Example</summary>
+<summary>Notification Examples</summary>
 
 Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
 
 | **Example:** | |
 |:--|:--|
 | **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> |
+| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.jpg" width=50% height=50%> |
 
 </details>
 
+### **Set Undetect Zone:**
+Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on the most important parts of your print. The mask you draw will be placed on top of the original image when the AI analyzes it for failures.
+
+<img src="/assets/images/mask_background.jpg" width=50% height=50%>
 
 ### **Parameters Adjustment**
 
@@ -117,12 +121,10 @@ The screenshot:
 
 <img src="/assets/images/screenshot.png" width=40% height=40%>
 
-
 **Key Parameters:**
 
 Initially, stick with the default settings and adjust them gradually to fine-tune performance.
 
-- **Set Undetect Zone:** Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on the most important parts of your print. The mask you draw will be placed on top of the original image when the AI analyzes it for failures.
 - **Action after Detection:** Specifies the action PiNozCam should take when a print failure is detected (e.g., notify only, pause print, stop print). Detected failures are displayed in this webpage for 5 seconds, allowing for immediate visual verification.
 - **Image Sensitivity:** Image sensitivity = (All bounding box areas 'higher than Failure Scores Threshold')/(Whole image area). A smaller number will find small failures or when a failure just starts. A bigger number will only find big, easy-to-see failures or failures that have been going on for a while and have gotten larger.
 - **Failure Scores Threshold:** Set the smallest score a box needs to count as a failure and make alerts or actions happen. You can see the score in the corner of each box. A higher number means the AI is more certain about failures but could miss some. A lower number means the AI will spot failures sooner but might also give false alarms.
@@ -141,10 +143,13 @@ Initially, stick with the default settings and adjust them gradually to fine-tun
 
 </details>
 
-## Support
+## Customer Support
 
 For further discussion and support, please [**join our Discord channel**](https://discord.gg/gv4tKJ2ZKr).
 
-## Support my work
+<details>
+<summary>Support my work</summary>
 
 I created this plugin in my spare time, so if you have enjoyed using it then please [support it’s development!](https://paypal.me/xingchen613)
+
+</details>
