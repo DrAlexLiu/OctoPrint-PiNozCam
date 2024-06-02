@@ -68,7 +68,7 @@ or manually using this URL:
 | **Choose Mode and Set Correct Parameters in PiNozCam:** | |
 |:--|:--|
 | **NozzleCam** | **WebCam** |
-| <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> | <img src="/assets/images/side_camera_setup.jpg" width=50% height=50%> |
+| <img src="/assets/images/nozzle_cam_setup.jpg" width=60% height=60%> | <img src="/assets/images/side_camera_setup.jpg" width=40% height=40%> |
 | Boxes Display Threshold: 0.6<br>Image Sensitivity：0.05 (0.04-0.1)<br>Failure Scores Threshold: 0.75 (0.75-0.88) | Boxes Display Threshold: 0.75<br>Image Sensitivity：0.02 (0.02-0.04)<br>Failure Scores Threshold: 0.94 (0.94-0.99) |
 
 <details>
@@ -102,14 +102,14 @@ Upon configuration and clicking "Save". A welcome message confirms successful se
 | **Example:** | |
 |:--|:--|
 | **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=50% height=50%> |
+| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
 
 </details>
 
 ### **💥Set Undetect Zone:**
 Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on the most important parts of your print. The mask you draw will be placed on top of the original image when the AI analyzes it for failures.
 
-<img src="/assets/images/mask_background.png" width=50% height=50%>
+<img src="/assets/images/mask_background.png" width=30% height=30%>
 
 ### **Parameters Adjustment**
 
