@@ -65,7 +65,7 @@ or manually using this URL:
 
 ## 🚀One AI, Two Modes
 
-| **Choose Mode and Set Correct Parameters in PiNozCam:** | |
+| **Choose Mode and Set Correct Parameters:** | |
 |:--|:--|
 | **NozzleCam** | **WebCam** |
 | <img src="/assets/images/nozzle_cam_setup.jpg" width=60% height=60%> | <img src="/assets/images/side_camera_setup.jpg" width=40% height=40%> |
