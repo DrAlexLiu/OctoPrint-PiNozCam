@@ -8,15 +8,18 @@
 
 ## Introduction
 
-Welcome to the era of edge computing with free failure detection performed directly on your Pi
+Welcome to the era of edge computing with free failure detection performed directly on your device
+
+**Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
+:-----:|:-----:
+Raspberry Pi 5|45
+Raspberry Pi 4|9
 
 <details>
-  <summary>Speed on CPU</summary>
+  <summary>More Platforms</summary>
   
-  **Device (50% of All Cores for AI)**|**Inference Speed (images / minute)**
+  **Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
   :-----:|:-----:
-  Raspberry Pi 5|45
-  Raspberry Pi 4|9
   Raspberry Pi 3B|5 
   PC with Intel i5 10600|260
   OrangePi Zero 2/3|9
@@ -27,13 +30,11 @@ Welcome to the era of edge computing with free failure detection performed direc
 
 Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
 
-**Features include:**
-
-- **Fast Inference on Pi Arm CPU/Local Device, 24/7 AI service**
-- **Instant Telegram/Discord Error Notifications**
-- **Privacy-first approach with RAM-only data storage**
-- **No email register/sign up/subscription/Cloud/Ads/Payment**
-- **Auto Pause/Stop Functionality**
+| | |
+|:--|:--|
+| **Fast Local Detection** | **Instant Notifications** |
+| **Privacy-Focused** | **No Subscriptions** |
+| **Auto Pause/Stop** | **Forever Free** |
 
 Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
 
