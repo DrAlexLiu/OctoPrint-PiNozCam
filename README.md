@@ -63,27 +63,32 @@ or manually using this URL:
     
 </details>
 
-## Required Hardware Setup
+## Plugin Setting
 
-### **Endoscope Camera**
+| **Choose Mode:** | |
+|:--|:--|
+| **NozzleCam** | **WebCam** |
+| <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> | <img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%> |
+| Boxes Display Threshold:0.6<br>Image Sensitivity：>0.05<br>Failure Scores Threshold: 0.83±0.05 | Boxes Display Threshold:0.75<br>Image Sensitivity：0.02-0.04<br>Failure Scores Threshold: >0.94 |
 
-Compatible with most market-available endoscope cameras. 
-- Nozzle camera kits: [StealthBurner](https://www.sliceengineering.com/products/stealthburner-nozzle-camera-kit), [3Do](https://kb-3d.com/store/electronics/779-3do-nozzle-camera-kit.html), etc.
-- [Build](https://www.instructables.com/3D-Printer-Layer-Cam-Nozzle-Cam-Prusa-Mini/) yours with cameras from [Aliexpress](https://s.click.aliexpress.com/e/_AZAMf2) or [Amazon](https://www.amazon.com/dp/B09NVYXTG5?psc=1&ref=ppx_yo2ov_dt_b_product_details) or [Temu](https://www.temu.com/search_result.html?search_key=endoscope%20camera). 
+<details>
+<summary style="font-weight: bold;">Camera Setup</summary>
+  
+  ### **Camera Setup**
 
-Ensure your camera:
-- [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
-- Built-in LED **backlighting**.
-- Positioned **5-10 cm** from the nozzle. 
+  | **Endoscope** | **WebCam** |
+  |:--|:--|
+  | - NozzleCam kits: [StealthBurner](https://www.sliceengineering.com/products/stealthburner-nozzle-camera-kit), [3Do](https://kb-3d.com/store/electronics/779-3do-nozzle-camera-kit.html), etc.<br>- [Build](https://www.instructables.com/3D-Printer-Layer-Cam-Nozzle-Cam-Prusa-Mini/) yours from [Aliexpress](https://s.click.aliexpress.com/e/_AZAMf2) or [Amazon](https://www.amazon.com/dp/B09NVYXTG5?psc=1&ref=ppx_yo2ov_dt_b_product_details) or [Temu](https://www.temu.com/search_result.html?search_key=endoscope%20camera).<br>- Built-in LED **backlighting**.<br>- Positioned **5-10 cm** from the nozzle.<br>- Fixed Focus Lens | Logitech C920, C270<br>AutoFocus enabled<br>Desk Lamp to provide enough light <br>Positioned front left/right corner of printing bed |
 
-⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
+  Ensure your camera:
+  - [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
 
-### Endoscope camera Bracket
-Search and print a nozzle camera bracket for your camera model. 
+  ⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
 
-The setup would be like this:
 
-<img src="/assets/images/nozzle_cam_setup.jpg" width=50% height=50%>
+  ### Fixture
+  Search and print a camera fixture for your camera model from Thingiverse or Printables. 
+</details>
 
 ### Cellphone
 
