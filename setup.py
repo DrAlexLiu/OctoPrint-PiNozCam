@@ -82,7 +82,7 @@ elif struct.calcsize("P") * 8 == 64:
     plugin_requires = [
         "numpy>=1.21.4",
         "pillow",
-        "onnxruntime>=1.15.0"
+        "onnxruntime>=1.14.1"
     ]
 else:
     raise ValueError("Unsupported architecture")
