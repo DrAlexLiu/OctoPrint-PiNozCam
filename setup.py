@@ -80,7 +80,7 @@ if struct.calcsize("P") * 8 == 32:
         raise ValueError(f"Unsupported Raspbian version: {version}")
 elif struct.calcsize("P") * 8 == 64:
     plugin_requires = [
-        "numpy",
+        "numpy>=1.21.4",
         "pillow",
         "onnxruntime>=1.15.0"
     ]
