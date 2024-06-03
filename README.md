@@ -71,7 +71,7 @@ or manually using this URL:
 | <img src="/assets/images/nozzle_cam_setup.jpg" width=60% height=60%> | <img src="/assets/images/side_camera_setup.jpg" width=40% height=40%> |
 | Boxes Display Threshold: 0.6<br>Image Sensitivity：0.05 (0.04-0.1)<br>Failure Scores Threshold: 0.75 (0.75-0.88) | Boxes Display Threshold: 0.75<br>Image Sensitivity：0.02 (0.02-0.04)<br>Failure Scores Threshold: 0.94 (0.94-0.99) |
 
-❗❗ ***Choose the correct settings for your PiNozCam before use. The wrong mode setting can cause false alarms or missed failures.*** ❗❗
+❗ ***Choose the correct settings for your PiNozCam before use. The wrong mode setting can cause false alarms or missed failures.*** ❗
 
 <details>
 <summary style="font-weight: bold;">Camera Setup</summary>
