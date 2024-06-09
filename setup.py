@@ -40,7 +40,8 @@ plugin_license = "AGPLv3"
 if struct.calcsize("P") * 8 == 32:
     plugin_requires = [
         "numpy>=1.21.4,<1.26",
-        "pillow"
+        "pillow",
+        "pyTelegramBotAPI"
     ]
 
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -82,7 +83,8 @@ elif struct.calcsize("P") * 8 == 64:
     plugin_requires = [
         "numpy>=1.21.4",
         "pillow",
-        "onnxruntime>=1.14.1"
+        "onnxruntime>=1.14.1",
+        "pyTelegramBotAPI"
     ]
 else:
     raise ValueError("Unsupported architecture")
