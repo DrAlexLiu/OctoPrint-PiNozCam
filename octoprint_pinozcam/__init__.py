@@ -787,20 +787,28 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
 
     def get_printer_status(self):
         """
-        Retrieves the current status of the printer including job progress, temperatures, current layer height, and file metadata.
+        Retrieves the current status of the printer including job progress, temperatures, and file metadata.
         """
-
+        
         title = self._settings.global_get(["appearance", "name"])
 
         # Get the current printer data
         printer_data = self._printer.get_current_data()
 
-        # Check if there's an ongoing print job
-        if printer_data['state']['flags']['printing']:
-            state = "Printing"
+        # Get the printer state
+        state_id = self._printer.get_state_id()
+
+        if state_id == "PRINTING":
+            state = "🖨️ Printing"
             progress = printer_data['progress']['completion']  # Get print progress (percentage)
+        elif state_id == "PAUSED":
+            state = "⏸️ Paused"
+            progress = printer_data['progress']['completion']
+        elif state_id == "OPERATIONAL":
+            state = "⏹️ Idle"
+            progress = 0
         else:
-            state = "Idle"
+            state = "❓ Unknown"
             progress = 0
 
         # Initialize temperature variables
@@ -810,9 +818,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         # Set default values if any value is None
         state = state or "Unknown"
         progress = f"{progress:.1f}%" if progress is not None else "0.0%"
-        nozzle_temp = nozzle_temp or 0
-        bed_temp = bed_temp or 0
-
+        
         # Get temperature information
         temperatures = {}
         for k, v in self._printer.get_current_temperatures().items():
