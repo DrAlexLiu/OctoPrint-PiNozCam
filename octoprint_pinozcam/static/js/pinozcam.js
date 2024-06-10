@@ -375,6 +375,7 @@ setInterval(function () {
             $("#ai-image").attr("src", response.image);  // Update the image source
             $("#failure-count").text("Failure Count: " + response.failureCount);  // Update the failure count display
             $("#ai-status").text("AI Status: " + response.aiStatus);  // Update the AI status display
+            $("#telegram-status").text("Telegram Status: " + response.telegramStatus); // Update the telegram status display
             $("#cpu-temperature").text("CPU Temperature: " + response.cpuTemperature + "°C");  // Update the CPU temperature display
         },
         error: function (error) {
