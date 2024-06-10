@@ -780,7 +780,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #discord
         if self.discord_webhook_url.startswith("http"):
 
-            self.discord_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
+            self.discord_send(image=welcome_image,caption="Welcome to PiNozCam!")
 
     def get_printer_status(self):
         """
