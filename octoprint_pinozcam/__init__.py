@@ -269,20 +269,22 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
 
     def start_telegram_bot(self):
-        @self.telegram_bot.message_handler(commands=['hi', 'help'])
+        @self.telegram_bot.message_handler(commands=['hi'])
         def send_welcome(message):
             # Use the get_snapshot method to get the processed image
             input_unmasked_image = self.get_snapshot()
             if input_unmasked_image:
-                state, progress, expected_completion, nozzle_temp, bed_temp = self.get_printer_status()
-                status_message = f"Printer Status: {state}\nProgress: {progress:.1f}%\nExpected Completion: {expected_completion}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                title, state, progress, nozzle_temp, bed_temp, file_metadata = self.get_printer_status()
+                status_message = f"Printer: {title}\nStatus: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                if file_metadata:
+                    status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
                 self.telegram_send_with_reply(image=input_unmasked_image, caption=status_message, reply_buttons=4, disable_notification=True)
             else:
                 self.telegram_send_with_reply(caption="No camera connected.", reply_buttons=0, disable_notification=True)
         
         @self.telegram_bot.message_handler(func=lambda message: True)
         def echo_all(message):
-            response_text = "I am PiNozCam. Send /hi or click Check button from previous messages to see the current camera view. Send /help to get help."
+            response_text = "I am PiNozCam. Send /hi or click Check button from previous messages to see the current camera view."
             self.telegram_bot.reply_to(message, response_text)
         
 
@@ -557,12 +559,12 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                             failure_count = self.count
 
                         title, state, progress, nozzle_temp, bed_temp, file_metadata = self.get_printer_status()
-                        status_message = f"Status: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                        status_message = f"Printer: {title}\nStatus: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
                         if file_metadata:
                             status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
 
                         severity_percentage = severity * 100
-                        caption = (f"Printer: {title}\n"
+                        caption = (
                                 f"{status_message}\n"
                                 f"Severity: {severity_percentage:.2f}%\n"
                                 f"Failure Area: {percentage_area:.2f}\n"
@@ -572,7 +574,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         
                         if self.telegram_pending_action:
                             action_time, _ = self.telegram_pending_action
-                            if time.time() - action_time > 60:
+                            if time.time() - action_time > 20:
                                 self.telegram_pending_action = None
 
                         # If count exceeds  within the last count_time minutes, perform action
@@ -871,7 +873,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 if self.telegram_pending_action:
                     action_time, action_type = self.telegram_pending_action
                     self._logger.info(f"action_type={action_type}")
-                    if time.time() - action_time <= 60:
+                    if time.time() - action_time <= 20:
                         if action_type == "pause" and (message_id in self.current_telegram_message_set):
                             if not self.current_telegram_message_paused:
                                 self._logger.info(f"User confirmed to pause the print for message ID: {message_id}")
@@ -900,14 +902,14 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         self.telegram_send_with_reply(caption="You have to response within 60 seconds.", reply_buttons=0, disable_notification=True)
                         self.telegram_pending_action = None
                 else:
-                    self._logger.info(f"User clicked 'Yes' button for message ID: {message_id}, self.telegram_pending_action={self.telegram_pending_action}")
+                    self._logger.info(f"User clicked 'Yes' button for message ID: {message_id}, telegram_pending_action={self.telegram_pending_action}")
             elif call.data == "no":
                 if self.telegram_pending_action:
                     self._logger.info(f"User canceled the pending action for message ID: {message_id}")
                     self.telegram_send_with_reply(caption="Never Mind.", reply_buttons=0, disable_notification=True)
                     self.telegram_pending_action = None
                 else:
-                    self._logger.info(f"User clicked 'No' button for message ID: {message_id}")
+                    self._logger.info(f"User clicked 'No' button for message ID: {message_id}, telegram_pending_action={self.telegram_pending_action}")
             elif call.data == "check":
                 self._logger.info(f"User clicked 'Check' button for message ID: {message_id}")
                 # Use the get_snapshot method to get the processed image
@@ -919,7 +921,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 if input_unmasked_image:
                         self.telegram_send_with_reply(image=input_unmasked_image, caption=status_message, reply_buttons=4, disable_notification=True)
                 else:
-                    self.telegram_send_with_reply(caption="No camera connected.", reply_buttons=0, disable_notification=True)
+                    status_message += "\nNo camera connected."
+                    self.telegram_send_with_reply(caption=status_message, reply_buttons=0, disable_notification=True)
             elif call.data == "mute":
                 if self.current_telegram_message_mute:
                     self.current_telegram_message_mute = False
