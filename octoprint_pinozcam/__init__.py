@@ -13,6 +13,8 @@ from flask import Response
 import octoprint.plugin
 from octoprint.events import Events
 import onnxruntime
+import telebot
+import re
 
 from .inference import image_inference
 
@@ -51,7 +53,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.img_sensitivity=0.04
         self.scores_threshold=0.75
         self.max_count=2
-        self.enable_max_failure_count_notification = False
+        self.enable_max_failure_count_notification = True
         self.count_time = 300
         self.max_notification=0
         self.telegram_bot_token = ""
@@ -73,6 +75,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.ai_results = deque(maxlen=100)
         self.notification_reach_to_max=False
         self.setting_change_while_printing=False
+        self.current_telegram_message_set = set()
+        self.current_telegram_message_mute = False
+        self.telegram_pending_action = None
+        self.current_telegram_message_paused = False
+        self.telegram_server_running = False
 
         #files:
         self.font_path = os.path.join(os.path.dirname(__file__), 'static', 'Arial.ttf')
@@ -161,7 +168,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             imgSensitivity=0.04,
             scoresThreshold=0.75,
             maxCount=2,
-            enableMaxFailureCountNotification=False,
+            enableMaxFailureCountNotification=True,
             countTime=300,
             cpuSpeedControl=0.5,
             customSnapshotURL="",
@@ -257,70 +264,164 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         if not os.path.exists(self.no_camera_path):
             self._logger.error(f"No camera image file does not exist: {self.no_camera_path}")
             self.no_camera_path = None 
+        
+        self.setup_telegram_bot()
+        
 
+    def start_telegram_bot(self):
+        @self.telegram_bot.message_handler(commands=['hi'])
+        def send_welcome(message):
+            # Use the get_snapshot method to get the processed image
+            input_unmasked_image = self.get_snapshot()
+            if input_unmasked_image:
+                title, state, progress, nozzle_temp, bed_temp, file_metadata = self.get_printer_status()
+                status_message = f"Printer: {title}\nStatus: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                if file_metadata:
+                    status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
+                self.telegram_send_with_reply(image=input_unmasked_image, caption=status_message, reply_buttons=4, disable_notification=True)
+            else:
+                self.telegram_send_with_reply(caption="No camera connected.", reply_buttons=0, disable_notification=True)
+        
+        @self.telegram_bot.message_handler(func=lambda message: True)
+        def echo_all(message):
+            response_text = "I am PiNozCam. Send /hi or click Check button from previous messages to see the current camera view."
+            self.telegram_bot.reply_to(message, response_text)
+        
+
+        #try to start the telegram_bot polling for 3 times
+        max_retries = 3
+        retry_count = 0
     
-    def telegram_send(self, image, severity, percentage_area, custom_message=""):
+        while retry_count < max_retries:
+            try:
+                self.telegram_bot.infinity_polling(long_polling_timeout=60)
+                self._logger.info("Telegram bot polling starts successfullly")
+                break
+            except Exception as e:
+                retry_count += 1
+                self._logger.error(f"Telegram bot polling error (attempt {retry_count}/{max_retries}): {str(e)}")
+                if retry_count < max_retries:
+                    self._logger.info("Retrying Telegram bot polling in 5 seconds...")
+                    time.sleep(5)
+        
+        if retry_count == max_retries:
+            self._logger.error("Telegram bot polling failed after 3 attempts. Stopping.")
+            self.stop_telegram_bot()
+
+    def telegram_check_setting(self):
+        """
+        Tests if the Telegram chat_id and bot token are correct by attempting to retrieve chat information.
+        If the chat information is retrieved, it indicates that the chat_id and token are valid.
+        
+        This function makes a GET request to the Telegram API's getChat endpoint using the stored
+        chat_id and bot token. A successful retrieval of chat information means that the provided
+        credentials are correct.
+
+        Returns:
+        bool: True if the chat information is successfully retrieved, otherwise False.
+
+        Exception Handling:
+        - This function catches exceptions related to network issues and logs an error if the API call fails.
+        """
+        telegram_api_url = f"https://api.telegram.org/bot{self.telegram_bot_token}/getChat"
+        data = {'chat_id': self.telegram_chat_id}
+
+        try:
+            # Attempt to retrieve chat information
+            response = requests.get(telegram_api_url, params=data)
+            if response.status_code == 200:
+                self._logger.info("Successfully retrieved chat information. Telegram settings are correct.")
+                return True
+            else:
+                self._logger.error(f"Failed to retrieve chat information. Status Code: {response.status_code}, Response: {response.text}")
+                return False
+        except requests.exceptions.RequestException as e:
+            # Handle exceptions related to the request, such as connectivity issues, timeouts, etc.
+            self._logger.error(f"An error occurred while attempting to verify Telegram settings: {str(e)}")
+            return False
+    
+    def telegram_send_without_reply(self, image=None, caption=" "):
         """
         Sends an alert message with an image to a Telegram chat.
         The message includes details such as printer name, severity, failure area, failure count, and max failure count.
 
         Parameters:
         - image: The PIL Image object to send.
-        - severity: The severity of the failure detected.
-        - percentage_area: The area of the print affected by the failure.
+        - caption: The caption of the message.
+
+        Returns:
+        bool: True if the message was sent successfully, False otherwise.
+
+        Exception Handling:
+        - Handles exceptions related to network issues or other unforeseen errors that could occur during the request.
         """
-        telegram_api_url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendPhoto"
-        title = self._settings.global_get(["appearance", "name"])
-        severity_percentage = severity * 100
-        with self.lock:
-            failure_count = self.count
-        caption = (f"Printer {title}\n"
-                f"Severity: {severity_percentage:.2f}%\n"
-                f"Failure Area: {percentage_area:.2f}\n"
-                f"Failure Count: {failure_count}\n"
-                f"Max Failure Count: {self.max_count}\n"
-                f"{custom_message}")
+        telegram_api_url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
+        data = {'chat_id': self.telegram_chat_id}
+        files = None
 
-        image_stream = BytesIO()
-        image.save(image_stream, format='JPEG')
-        image_stream.seek(0)
+        try:
+            if image:
+                image_stream = BytesIO()
+                image.save(image_stream, format='JPEG')
+                image_stream.seek(0)
+                files = {'photo': ('image.jpeg', image_stream, 'image/jpeg')}
+                data['caption'] = caption
+                telegram_api_url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendPhoto"
+            else:
+                data['text'] = caption
 
-        files = {'photo': ('image.jpeg', image_stream, 'image/jpeg')}
-        data = {'chat_id': self.telegram_chat_id, 'caption': caption}
+            response = requests.post(telegram_api_url, files=files, data=data)
+            if response.status_code == 200:
+                self._logger.info("Telegram message sent successfully.")
+                return True
+            else:
+                self._logger.error(f"Failed to send message to Telegram. Status Code: {response.status_code}, Response: {response.text}")
+                return False
+        except requests.exceptions.RequestException as e:
+            self._logger.error(f"Error occurred while sending message to Telegram: {str(e)}")
+            return False
 
-        response = requests.post(telegram_api_url, files=files, data=data)
-        if response.status_code == 200:
-            self._logger.info("Telegram message sent successfully.")
-        else:
-            self._logger.error(f"Failed to send message to Telegram: {response.text}")
 
-    def discord_send(self, image, severity, percentage_area, custom_message=""):
+    def discord_send(self, image=None, caption=""):
         """
+        Sends an alert message with an image to a Discord channel via webhook.
         
-        """
+        Parameters:
+        - image: The PIL Image object to send.
+        - caption: The caption of the message, including details such as printer name, severity, failure area, failure count, and max failure count.
         
-        title = self._settings.global_get(["appearance", "name"])
-        severity_percentage = severity * 100
-        with self.lock:
-            failure_count = self.count
-        caption = (f"Printer {title}\n"
-                f"Severity: {severity_percentage:.2f}%\n"
-                f"Failure Area: {percentage_area:.2f}\n"
-                f"Failure Count: {failure_count}\n"
-                f"Max Failure Count: {self.max_count}\n"
-                f"{custom_message}")
+        The function attempts to send an image and a text message to the configured Discord webhook URL.
+        It logs a success message if the HTTP request is successful, or an error if it fails.
+        
+        Exception Handling:
+        - Handles exceptions related to network issues or other unforeseen errors that could occur during the request.
+        - Logs detailed error information to assist with troubleshooting.
 
-        image_stream = BytesIO()
-        image.save(image_stream, format='JPEG')
-        image_stream.seek(0)
-        files = {'file': ('image.jpeg', image_stream, 'image/jpeg')}
-        data = {"content": caption}
-        response = requests.post(self.discord_webhook_url, files=files, data=data)
-        
-        if response.status_code in [200, 204]:
-            self._logger.info("Message sent to Discord successfully.")
-        else:
-            self._logger.error(f"Failed to send message to Discord. Status Code: {response.status_code}, Response: {response.json()}")
+        Returns:
+        bool: True if the message was sent successfully, False otherwise.
+        """
+
+        try:
+            image_stream = BytesIO()
+            image.save(image_stream, format='JPEG')
+            image_stream.seek(0)
+            files = {'file': ('image.jpeg', image_stream, 'image/jpeg')}
+            data = {"content": caption}
+            response = requests.post(self.discord_webhook_url, files=files, data=data)
+            
+            if response.status_code in [200, 204]:
+                self._logger.info("Message sent to Discord successfully.")
+                return True
+            else:
+                self._logger.error(f"Failed to send message to Discord. Status Code: {response.status_code}, Response: {response.json()}")
+                return False
+        except requests.exceptions.RequestException as e:
+            self._logger.error(f"Error occurred while sending message to Discord: {str(e)}")
+            return False
+        except Exception as e:
+            self._logger.error(f"An unexpected error occurred while sending message to Discord: {str(e)}")
+            return False
+
 
     def on_event(self, event, payload):
         """
@@ -337,6 +438,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 self.count = 0
                 self.ai_results.clear()
                 self.notification_reach_to_max=False
+                self.current_telegram_message_paused = False
+                self.current_telegram_message_set.clear()
             if not hasattr(self, 'ai_thread') or not self.ai_thread.is_alive():
                 self.ai_running = True
                 self.ai_thread = threading.Thread(target=self.process_ai_image)
@@ -346,6 +449,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             self._logger.info(f"{event}: {payload}")
             self._logger.info("Print ended, stopping AI image processing.")
             self.ai_running = False
+            self.current_telegram_message_set.clear()
 
     def encode_image_to_base64(self, image):
         """
@@ -395,9 +499,9 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         result = self.ai_results.popleft()
                         if result['severity'] > 0.66:
                             self.count -= 1
-                            self._logger.info(f"Reduced failure count: {self.count}")
+                            #self._logger.info(f"Reduced failure count: {self.count}")
                 
-                self._logger.info("Begin to process one image.")
+                #self._logger.info("Begin to process one image.")
                 
                 ai_unmasked_input_image = self.get_snapshot()
                 if ai_unmasked_input_image is None:
@@ -419,7 +523,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 except Exception as e:
                     self._logger.error(f"AI inference error: {e}")
                     continue
-                self._logger.info(f"scores=f{scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
+                self._logger.info(f"scores={scores} boxes={boxes} labels={labels} severity={severity} percentage_area={percentage_area} elapsed_time={elapsed_time}")
                 #draw the result image
                 ai_result_image = self.draw_response_data(scores, boxes, labels, severity, ai_input_image)
 
@@ -442,11 +546,11 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     }
                     with self.lock:
                         self.ai_results.append(result)
-                    self._logger.info("Stored new AI inference result.")
+                    #self._logger.info("Stored new AI inference result.")
                     if severity > 0.66:
                         with self.lock:
                             self.count += 1
-                        self._logger.info(f"self.count increased by 1 self.count={self.count}")
+                        #self._logger.info(f"self.count increased by 1 self.count={self.count}")
                         
                         #       
                         if not self.notification_reach_to_max and self.max_notification != 0 and self.count > self.max_notification:
@@ -455,14 +559,35 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                         with self.lock:
                             failure_count = self.count
 
+                        title, state, progress, nozzle_temp, bed_temp, file_metadata = self.get_printer_status()
+                        status_message = f"Printer: {title}\nStatus: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                        if file_metadata:
+                            status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
+
+                        severity_percentage = severity * 100
+                        caption = (
+                                f"{status_message}\n"
+                                f"Severity: {severity_percentage:.2f}%\n"
+                                f"Failure Area: {percentage_area:.2f}\n"
+                                f"Failure Count: {failure_count}\n"
+                                f"Max Failure Count: {self.max_count}\n"
+                                )
+                        
+                        if self.telegram_pending_action:
+                            action_time, _ = self.telegram_pending_action
+                            if time.time() - action_time > 20:
+                                self.telegram_pending_action = None
+
                         # If count exceeds  within the last count_time minutes, perform action
                         if not self.notification_reach_to_max and self.telegram_bot_token and self.telegram_chat_id:
                             if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
-                                self.telegram_send(ai_result_image,severity,percentage_area)
+                                if not self.telegram_pending_action and not self.current_telegram_message_mute:
+                                    #self.telegram_send(ai_result_image,severity,percentage_area)
+                                    self.telegram_send_with_reply(image=ai_result_image, caption=caption, reply_buttons=4, disable_notification=False)
                         
                         if not self.notification_reach_to_max and self.discord_webhook_url.startswith("http"):
                             if not self.enable_max_failure_count_notification or (failure_count >= self.max_count):
-                                self.discord_send(ai_result_image,severity,percentage_area)
+                                self.discord_send(image=ai_result_image, caption=caption)
                         
                         if failure_count >= self.max_count:
                             self.perform_action()
@@ -552,6 +677,55 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
         return image
 
+    def setup_telegram_bot(self):
+        """
+        Set up and start the Telegram bot in a separate thread. This method initializes the Telegram bot
+        using the stored bot token and chat ID, and then starts the bot in a daemon thread to handle messages
+        asynchronously. If the bot is already running, it first stops the current bot before restarting it.
+        
+        This method should be called whenever the Telegram configuration might have changed, such as after
+        updating settings or during plugin startup. This ensures that the bot is always running with the
+        latest configuration.
+
+        Exception Handling:
+        - If initializing the Telegram bot or starting the thread fails, an error will be logged,
+        and the method will attempt to safely shut down any partially started services.
+        - It checks if the current configuration is valid using `telegram_check_setting` method before
+        proceeding to start the bot. If settings are invalid, it logs an error and exits without starting the bot.
+
+        Usage:
+        - Call this method in `on_after_startup` to ensure the bot starts running when the plugin is loaded.
+        - Call this method in `on_settings_save` to restart the bot with new settings after changes are made.
+
+        Raises:
+        - Exception: Captures any exceptions related to starting the bot thread or stopping a currently
+        running bot, logs the error, and ensures no stray threads or services remain active.
+        """
+        if self.telegram_bot_token and self.telegram_chat_id and self.telegram_check_setting():
+            try:
+                if not hasattr(self, 'telegram_bot_thread') or not self.telegram_bot_thread.is_alive():
+                    self.telegram_bot = telebot.TeleBot(self.telegram_bot_token)
+                    self.telegram_bot_thread = threading.Thread(target=self.start_telegram_bot)
+                    self.telegram_bot_thread.daemon = True
+                    self.telegram_bot_thread.start()
+                self.telegram_server_running = True
+            except Exception as e:
+                self._logger.error(f"An error occurred while setting up the Telegram bot: {str(e)}")
+                self.stop_telegram_bot()
+        else:
+            self._logger.error("Failed to send test message. Telegram bot will not be started.")
+            self.stop_telegram_bot()
+
+    def stop_telegram_bot(self):
+        if hasattr(self, 'telegram_bot_thread') and self.telegram_bot_thread.is_alive():
+            if hasattr(self, 'telegram_bot'):
+                try:
+                    self.telegram_bot.stop_polling()
+                except Exception as e:
+                    self._logger.error(f"Error occurred while stopping Telegram bot polling: {str(e)}")
+            self._logger.info("Telegram bot has been stopped.")
+        self.telegram_server_running = False
+
     def on_settings_save(self, data):
         """
         Handles saving of plugin settings. Updates the plugin's configuration
@@ -595,10 +769,184 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         #send a welcome test message to the telegram chat
         welcome_image = self.create_image_with_text(self.welcome_text)
         welcome_image = self.apply_mask_to_image(welcome_image)
-        if self.telegram_bot_token and self.telegram_chat_id:
-            self.telegram_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
+        
+        #telegram
+
+        self.setup_telegram_bot()
+            
+        if self.telegram_server_running:
+            self.telegram_send_with_reply(welcome_image, "Welcome to PiNozCam!", reply_buttons=0, disable_notification=True)
+        
+        #discord
         if self.discord_webhook_url.startswith("http"):
+
             self.discord_send(welcome_image, 0, 0, "Welcome to PiNozCam!")
+
+    def get_printer_status(self):
+        """
+        Retrieves the current status of the printer including job progress, temperatures, and file metadata.
+        """
+        
+        title = self._settings.global_get(["appearance", "name"])
+
+        # Get the current printer data
+        printer_data = self._printer.get_current_data()
+
+        # Get the printer state
+        state_id = self._printer.get_state_id()
+
+        if state_id == "PRINTING":
+            state = "🖨️ Printing"
+            progress = printer_data['progress']['completion']  # Get print progress (percentage)
+        elif state_id == "PAUSED":
+            state = "⏸️ Paused"
+            progress = printer_data['progress']['completion']
+        elif state_id == "OPERATIONAL":
+            state = "⏹️ Idle"
+            progress = 0
+        else:
+            state = "❓ Unknown"
+            progress = 0
+
+        # Initialize temperature variables
+        nozzle_temp = 0
+        bed_temp = 0
+
+        # Set default values if any value is None
+        state = state or "Unknown"
+        progress = f"{progress:.1f}%" if progress is not None else "0.0%"
+        
+        # Get temperature information
+        temperatures = {}
+        for k, v in self._printer.get_current_temperatures().items():
+            if re.search(r'^(tool\d+|bed|chamber)$', k):
+                temperatures[k] = v
+        nozzle_temp = temperatures.get('tool0', {}).get('actual', nozzle_temp)
+        bed_temp = temperatures.get('bed', {}).get('actual', bed_temp)
+
+        # Get file metadata
+        file_metadata = printer_data.get('job', {}).get('file', {})
+
+        return title, state, progress, nozzle_temp, bed_temp, file_metadata
+
+
+    def telegram_send_with_reply(self, image=None, caption='', reply_buttons=0, disable_notification=False):
+        keyboard = None
+        if reply_buttons == 2:
+            keyboard = telebot.types.InlineKeyboardMarkup()
+            keyboard.row(
+                telebot.types.InlineKeyboardButton('Yes', callback_data='yes'),
+                telebot.types.InlineKeyboardButton('No', callback_data='no')
+            )
+        elif reply_buttons == 4:
+            keyboard = telebot.types.InlineKeyboardMarkup()
+            keyboard.row(
+                telebot.types.InlineKeyboardButton('Check', callback_data='check'),
+                telebot.types.InlineKeyboardButton('Unmute' if self.current_telegram_message_mute else 'Mute', callback_data='mute')
+            )
+            keyboard.row(
+                 telebot.types.InlineKeyboardButton('Resume' if self.current_telegram_message_paused else 'Pause', callback_data='pause'),
+                telebot.types.InlineKeyboardButton('Stop', callback_data='stop')
+            )
+
+        try:
+            if image:
+                message = self.telegram_bot.send_photo(self.telegram_chat_id, image, caption=caption, reply_markup=keyboard, disable_notification=disable_notification)
+            else:
+                message = self.telegram_bot.send_message(self.telegram_chat_id, text=caption, reply_markup=keyboard, disable_notification=disable_notification)
+            
+            self._logger.info(f"Message sent to Telegram successfully. Message ID: {message.message_id}")
+            if self.ai_running:
+                self.current_telegram_message_set.add(message.message_id)
+        except Exception as e:
+            self._logger.error(f"Failed to send message to Telegram: {str(e)}")
+
+        @self.telegram_bot.callback_query_handler(func=lambda call: True)
+        def callback_query(call):
+            message_id = call.message.message_id
+            if call.data == "yes":
+                if self.telegram_pending_action:
+                    action_time, action_type = self.telegram_pending_action
+                    self._logger.info(f"action_type={action_type}")
+                    if time.time() - action_time <= 20:
+                        if action_type == "pause" and (message_id in self.current_telegram_message_set):
+                            if not self.current_telegram_message_paused:
+                                self._logger.info(f"User confirmed to pause the print for message ID: {message_id}")
+                                self._logger.info("Pausing print...")
+                                self._printer.pause_print()
+                                self._logger.info("Print paused.")
+                                self.telegram_send_with_reply(caption="The print job has been paused.", reply_buttons=0, disable_notification=True)
+                                self.current_telegram_message_paused = True
+                        elif action_type == "resume":
+                            self._logger.info(f"current_telegram_message_paused={self.current_telegram_message_paused}")
+                            if self.current_telegram_message_paused:
+                                self._logger.info(f"User confirmed to pause the print for message ID: {message_id}")
+                                self._logger.info("Resuming print...")
+                                self._printer.resume_print()
+                                self._logger.info("Print resumed.")
+                                self.telegram_send_with_reply(caption="The print job has been resumed.", reply_buttons=0, disable_notification=True)
+                                self.current_telegram_message_paused = False
+                        elif action_type == "stop" and (message_id in self.current_telegram_message_set):
+                            self._logger.info(f"User confirmed to stop the print for message ID: {message_id}")
+                            self._logger.info("Stopping print...")
+                            self._printer.cancel_print()
+                            self._logger.info("Print stopped.")
+                            self.telegram_send_with_reply(caption="The print job has been stopped.", reply_buttons=0, disable_notification=True)
+                        self.telegram_pending_action = None
+                    else:
+                        self.telegram_send_with_reply(caption="You have to response within 60 seconds.", reply_buttons=0, disable_notification=True)
+                        self.telegram_pending_action = None
+                else:
+                    self._logger.info(f"User clicked 'Yes' button for message ID: {message_id}, telegram_pending_action={self.telegram_pending_action}")
+            elif call.data == "no":
+                if self.telegram_pending_action:
+                    self._logger.info(f"User canceled the pending action for message ID: {message_id}")
+                    self.telegram_send_with_reply(caption="Never Mind.", reply_buttons=0, disable_notification=True)
+                    self.telegram_pending_action = None
+                else:
+                    self._logger.info(f"User clicked 'No' button for message ID: {message_id}, telegram_pending_action={self.telegram_pending_action}")
+            elif call.data == "check":
+                self._logger.info(f"User clicked 'Check' button for message ID: {message_id}")
+                # Use the get_snapshot method to get the processed image
+                input_unmasked_image = self.get_snapshot()
+                title, state, progress, nozzle_temp, bed_temp, file_metadata = self.get_printer_status()
+                status_message = f"Printer: {title}\nStatus: {state}\nProgress: {progress}\nNozzle Temp: {nozzle_temp}°C\nBed Temp: {bed_temp}°C"
+                if file_metadata:
+                    status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
+                if input_unmasked_image:
+                        self.telegram_send_with_reply(image=input_unmasked_image, caption=status_message, reply_buttons=4, disable_notification=True)
+                else:
+                    status_message += "\nNo camera connected."
+                    self.telegram_send_with_reply(caption=status_message, reply_buttons=0, disable_notification=True)
+            elif call.data == "mute":
+                if self.current_telegram_message_mute:
+                    self.current_telegram_message_mute = False
+                    self._logger.info(f"User clicked 'Unmute' button for message ID: {message_id}")
+                    self.telegram_send_with_reply(caption="Telegram Notification is unmuted.", reply_buttons=0, disable_notification=True)
+                else:
+                    self.current_telegram_message_mute = True
+                    self._logger.info(f"User clicked 'Mute' button for message ID: {message_id}")
+                    self.telegram_send_with_reply(caption="Telegram Notification is muted. Send /hi or click Check button from previous messages to manully see the current camera view", reply_buttons=0, disable_notification=True)
+            elif call.data == "pause":
+                if not self.current_telegram_message_paused:
+                    if message_id in self.current_telegram_message_set:
+                        self._logger.info(f"User clicked 'Pause' button for message ID: {message_id}")
+                        self.telegram_pending_action = (time.time(), "pause")
+                        self.telegram_send_with_reply(caption="Are you sure you want to pause the print job?", reply_buttons=2, disable_notification=True)
+                    else:
+                        self.telegram_send_with_reply(caption="There is no active print job.", reply_buttons=0, disable_notification=True)
+                else:
+                    self.telegram_pending_action = (time.time(), "resume")
+                    self.telegram_send_with_reply(caption="Are you sure you want to resume the print job?", reply_buttons=2, disable_notification=True)
+
+            elif call.data == "stop":
+                if message_id in self.current_telegram_message_set:
+                    self._logger.info(f"User clicked 'Stop' button for message ID: {message_id}")
+                    self.telegram_pending_action = (time.time(), "stop")
+                    self.telegram_send_with_reply(caption="Are you sure you want to stop the print job?", reply_buttons=2, disable_notification=True)
+                else:
+                    self.telegram_send_with_reply(caption="There is no active print job.", reply_buttons=0, disable_notification=True)
+            self.telegram_bot.answer_callback_query(call.id)
 
     def transform_image(self, img, must_flip_h, must_flip_v, must_rotate):
         # Only call Pillow if we need to transpose anything
@@ -713,6 +1061,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 "image": base64EncodedImage,  
                 "failureCount": failure_count,  
                 "aiStatus": "ON" if self.enable_AI and self.ai_running else "OFF",
+                "telegramStatus": "ON" if self.telegram_server_running else "OFF",
                 "cpuTemperature": int(self.get_cpu_temperature())
             }
         return Response(json.dumps(response_data), mimetype="application/json")

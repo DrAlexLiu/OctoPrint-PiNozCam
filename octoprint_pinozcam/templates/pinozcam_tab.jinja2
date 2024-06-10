@@ -29,6 +29,7 @@
             <div style="flex: 1;">
                 <!-- Placeholder for Printing Status -->
                 <div id="ai-status">AI Status: OFF</div>
+                <div id="telegram-status">Telegram Status: OFF</div>
                 <div id="cpu-temperature">CPU Temperature: --°C</div>
                 <!-- Placeholder for Failure Count -->
                 <div id="failure-count">Failure Count: 0</div>
@@ -67,7 +68,7 @@
         <hr style="margin-top: 20px; margin-bottom: 20px;">
     </div>
     <div class="control-group">
-        <label class="control-label">{{ _('Enable PiNozCam') }}</label>
+        <label class="control-label">{{ _('Enable AI Detection') }}</label>
         <div class="controls" style="padding-top: 5px;">
             <label class="radio-inline" title="Enable the AI detection function of PiNozCam">
                 <input type="radio" name="enableAI" value="true" data-bind="checked: newEnableAI"> ON
