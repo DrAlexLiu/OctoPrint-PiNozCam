@@ -295,7 +295,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         while retry_count < max_retries:
             try:
                 self.telegram_bot.infinity_polling(long_polling_timeout=60)
-                self._logger.info("Telegram bot polling stopped gracefully")
+                self._logger.info("Telegram bot polling starts successfullly")
                 break
             except Exception as e:
                 retry_count += 1
@@ -306,6 +306,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
         if retry_count == max_retries:
             self._logger.error("Telegram bot polling failed after 3 attempts. Stopping.")
+            self.stop_telegram_bot()
 
     def telegram_check_setting(self):
         """
@@ -707,29 +708,23 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     self.telegram_bot_thread = threading.Thread(target=self.start_telegram_bot)
                     self.telegram_bot_thread.daemon = True
                     self.telegram_bot_thread.start()
-                self.telegram_server_running=True
+                self.telegram_server_running = True
             except Exception as e:
                 self._logger.error(f"An error occurred while setting up the Telegram bot: {str(e)}")
-                # Attempt to stop the bot if it's running
-                if hasattr(self, 'telegram_bot_thread') and self.telegram_bot_thread.is_alive():
-                    try:
-                        if hasattr(self, 'telegram_bot'):
-                            self.telegram_bot.stop_polling()
-                    except Exception as ex:
-                        self._logger.error(f"Error occurred while stopping Telegram bot polling: {str(ex)}")
-                self.telegram_server_running = False
-                self._logger.info("Telegram bot has been stopped due to error.")   
+                self.stop_telegram_bot()
         else:
             self._logger.error("Failed to send test message. Telegram bot will not be started.")
-            if hasattr(self, 'telegram_bot_thread') and self.telegram_bot_thread.is_alive():
-                if hasattr(self, 'telegram_bot'):
-                    try:
-                        self.telegram_bot.stop_polling()
-                    except Exception as e:
-                        self._logger.error(f"Error occurred while stopping Telegram bot polling: {str(e)}")
+            self.stop_telegram_bot()
 
-                self._logger.info(f"telegram_bot has been stopped.")
-            self.telegram_server_running=False
+    def stop_telegram_bot(self):
+        if hasattr(self, 'telegram_bot_thread') and self.telegram_bot_thread.is_alive():
+            if hasattr(self, 'telegram_bot'):
+                try:
+                    self.telegram_bot.stop_polling()
+                except Exception as e:
+                    self._logger.error(f"Error occurred while stopping Telegram bot polling: {str(e)}")
+            self._logger.info("Telegram bot has been stopped.")
+        self.telegram_server_running = False
 
     def on_settings_save(self, data):
         """
