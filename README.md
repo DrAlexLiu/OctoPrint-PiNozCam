@@ -6,9 +6,9 @@
 
 [![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/gv4tKJ2ZKr)
 
-## Introduction
+## 🌉Introduction
 
-Welcome to the era of edge computing with free failure detection performed directly on your device
+Welcome to the future of 3D printing with PiNozCam!🎉 It brings free failure detection to your device using edge computing on Arm📟. You can also control your printer remotely using Telegram📱.
 
 **Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
 :-----:|:-----:
@@ -32,11 +32,11 @@ Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **
 
 | | | |
 |:--|:--|:--|
-| **Fast Local Detection** | **Instant Notifications** | **Privacy-Focused** |
-| **Auto Pause/Stop** | **No Subscriptions** | **Set Undetect Zone** |
+| **Fast Local Detection** | **Instant AI Failure Notifications** | **Privacy-Focused** |
+| **Remote Pause/Stop** | **No Ad/Credit Card/Subscriptions** | **Set Undetect Zone** |
 
 <details>
-<summary>Support Platforms</summary>
+<summary>💻Support Platforms</summary>
   Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
 
   **OS platform**|**Buster**|**Bullseye**|**Bookworm**
@@ -91,20 +91,30 @@ or manually using this URL:
   Search and print a camera fixture for your camera model from Thingiverse or Printables. 
 </details>
 
-### 📱Telegram/Discord Cellphone Notification
+### 📱Telegram/Discord Remote Control
 
-To enable notifications, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
-or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Also, [setup your printer title](https://community.octoprint.org/t/how-do-i-change-the-web-interfaces-name/21662), a message carrys the printer title to help you identify your printer. Leave blank to disable notification.
+To enable remote control, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
+or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Also, [setup your printer title](https://community.octoprint.org/t/how-do-i-change-the-web-interfaces-name/21662), you can check your 3D printer and control it from your Telegram chat. After setting up the Telegram bot, you can use these buttons. 
+
+-🔍 Check: See a picture of your printer, its status, progress, temperatures, and file name.
+
+-🔇 Mute / 🔊 Unmute: Stop or start getting notifications about your printer. You can still use "Check" when muted.
+
+-⏸️ Pause / ▶️ Resume: Pause your print. Click again to continue printing.
+
+-⏹️ Stop: Stop your print. The printer will start cooling down.
+
+Remote control by discord will be released soon.
 
 <details>
-<summary>Notification Examples</summary>
+<summary>Remote Control UI</summary>
 
 Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
 
 | **Example:** | |
 |:--|:--|
 | **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
+| <img src="/assets/images/telegram_remote_control.png" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
 
 </details>
 
