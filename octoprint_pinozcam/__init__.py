@@ -284,7 +284,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         
         @self.telegram_bot.message_handler(func=lambda message: True)
         def echo_all(message):
-            response_text = "I am PiNozCam. Send /hi or click Check button from previous messages to see the current camera view."
+            response_text = "I am PiNozCam. Send or click /hi or click Check button from previous messages to see the current camera view and printer info."
             self.telegram_bot.reply_to(message, response_text)
         
 
@@ -775,7 +775,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.setup_telegram_bot()
             
         if self.telegram_server_running:
-            self.telegram_send_with_reply(welcome_image, "Welcome to PiNozCam!", reply_buttons=0, disable_notification=True)
+            self.telegram_send_with_reply(welcome_image, "Welcome to PiNozCam! Send or click /hi to manually see the current camera view and printer info.", reply_buttons=0, disable_notification=True)
         
         #discord
         if self.discord_webhook_url.startswith("http"):
@@ -886,7 +886,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                                 self._logger.info("Print resumed.")
                                 self.telegram_send_with_reply(caption="The print job has been resumed.", reply_buttons=0, disable_notification=True)
                                 self.current_telegram_message_paused = False
-                        elif action_type == "stop" and (message_id in self.current_telegram_message_set):
+                                self.telegram_pending_action = None
+                        elif action_type == "stop" and ((message_id in self.current_telegram_message_set) or self.current_telegram_message_paused):
                             self._logger.info(f"User confirmed to stop the print for message ID: {message_id}")
                             self._logger.info("Stopping print...")
                             self._printer.cancel_print()
@@ -926,7 +927,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                 else:
                     self.current_telegram_message_mute = True
                     self._logger.info(f"User clicked 'Mute' button for message ID: {message_id}")
-                    self.telegram_send_with_reply(caption="Telegram Notification is muted. Send /hi or click Check button from previous messages to manully see the current camera view", reply_buttons=0, disable_notification=True)
+                    self.telegram_send_with_reply(caption="Telegram Notification is muted. Send or click /hi or click Check button from previous messages to manually see the current camera view and printer info.", reply_buttons=0, disable_notification=True)
             elif call.data == "pause":
                 if not self.current_telegram_message_paused:
                     if message_id in self.current_telegram_message_set:
@@ -940,7 +941,7 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
                     self.telegram_send_with_reply(caption="Are you sure you want to resume the print job?", reply_buttons=2, disable_notification=True)
 
             elif call.data == "stop":
-                if message_id in self.current_telegram_message_set:
+                if (message_id in self.current_telegram_message_set) or self.current_telegram_message_paused:
                     self._logger.info(f"User clicked 'Stop' button for message ID: {message_id}")
                     self.telegram_pending_action = (time.time(), "stop")
                     self.telegram_send_with_reply(caption="Are you sure you want to stop the print job?", reply_buttons=2, disable_notification=True)
