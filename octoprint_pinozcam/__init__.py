@@ -841,12 +841,12 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         elif reply_buttons == 4:
             keyboard = telebot.types.InlineKeyboardMarkup()
             keyboard.row(
-                telebot.types.InlineKeyboardButton('Check', callback_data='check'),
-                telebot.types.InlineKeyboardButton('Unmute' if self.current_telegram_message_mute else 'Mute', callback_data='mute')
+                telebot.types.InlineKeyboardButton('🔍Check', callback_data='check'),
+                telebot.types.InlineKeyboardButton('🔊Unmute' if self.current_telegram_message_mute else '🔇Mute', callback_data='mute')
             )
             keyboard.row(
-                 telebot.types.InlineKeyboardButton('Resume' if self.current_telegram_message_paused else 'Pause', callback_data='pause'),
-                telebot.types.InlineKeyboardButton('Stop', callback_data='stop')
+                 telebot.types.InlineKeyboardButton('▶️Resume' if self.current_telegram_message_paused else '⏸️Pause', callback_data='pause'),
+                telebot.types.InlineKeyboardButton('🛑Stop', callback_data='stop')
             )
 
         try:
