@@ -32,7 +32,7 @@ Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **
 
 | | | |
 |:--|:--|:--|
-| **Fast Local Detection** | **Instant Notifications** | **Privacy-Focused** |
+| **Fast Local Detection** | **Instant AI Failure Notifications** | **Privacy-Focused** |
 | **Remote Pause/Stop** | **No Ad/Credit Card/Subscriptions** | **Set Undetect Zone** |
 
 <details>
@@ -114,7 +114,7 @@ Upon configuration and clicking "Save". A welcome message confirms successful se
 | **Example:** | |
 |:--|:--|
 | **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_notification.jpg" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
+| <img src="/assets/images/telegram_remote_control.png" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
 
 </details>
 
