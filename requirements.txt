@@ -10,5 +10,5 @@ numpy>=1.21.4
 pillow
 onnxruntime>=1.14.1
 pyTelegramBotAPI
-
+discord.py
 .
