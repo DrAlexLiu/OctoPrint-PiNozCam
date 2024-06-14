@@ -15,6 +15,7 @@ from octoprint.events import Events
 import onnxruntime
 import telebot
 import re
+from octoprint_pinozcam.bot.discord.discord_bot import run_bot
 
 from .inference import image_inference
 
@@ -266,6 +267,23 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
             self.no_camera_path = None 
         
         self.setup_telegram_bot()
+        
+        self.setup_discord_bot()
+        
+    def setup_discord_bot(self):
+        token="MTIxMTI5MTY4NjUzMDE5MTQ0MA.GPB2nt.IsINqHJeyshnIU1E-pkSIBa5MGkC214Hr5hvCI"
+        channel_id=1244798722861174784
+        if token and channel_id:
+            try:
+                if not hasattr(self, 'discord_bot_thread') or not self.discord_bot_thread.is_alive():
+                    self.discord_bot_thread = threading.Thread(target=run_bot, args=(token, channel_id, self))
+                    self.discord_bot_thread.daemon = True
+                    self.discord_bot_thread.start()
+                # self.discord_server_running = True
+            except Exception as e:
+                self._logger.error(f"An error occurred while setting up the Discord bot: {str(e)}")
+        else:
+            self._logger.error("There is no token or channel id")
         
 
     def start_telegram_bot(self):
