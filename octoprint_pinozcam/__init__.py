@@ -271,8 +271,8 @@ class PinozcamPlugin(octoprint.plugin.StartupPlugin,
         self.setup_discord_bot()
         
     def setup_discord_bot(self):
-        token="MTIxMTI5MTY4NjUzMDE5MTQ0MA.GPB2nt.IsINqHJeyshnIU1E-pkSIBa5MGkC214Hr5hvCI"
-        channel_id=1244798722861174784
+        token=""
+        channel_id=
         if token and channel_id:
             try:
                 if not hasattr(self, 'discord_bot_thread') or not self.discord_bot_thread.is_alive():
