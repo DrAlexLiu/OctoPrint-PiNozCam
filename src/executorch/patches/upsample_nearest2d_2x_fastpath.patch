@@ -1,5 +1,5 @@
---- /tmp/orig_upsample.cpp	2026-07-28 21:49:54.142671519 -0400
-+++ kernels/portable/cpu/op_upsample_nearest2d.cpp	2026-07-28 21:49:54.150781820 -0400
+--- a/kernels/portable/cpu/op_upsample_nearest2d.cpp
++++ b/kernels/portable/cpu/op_upsample_nearest2d.cpp
 @@ -6,6 +6,7 @@
   * LICENSE file in the root directory of this source tree.
   */
