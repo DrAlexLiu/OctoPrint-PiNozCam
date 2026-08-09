@@ -43,6 +43,23 @@ download the Actions artifact and run the same Wheel on RK3566, RK3576,
 RK3588, and Jetson Orin hardware. The A733 workflow performs its AWNN inference
 on the self-hosted board as part of the workflow itself.
 
+## Validation record
+
+The source-build workflows were exercised on 2026-08-09. These were QA
+artifacts with development version numbers, not release assets.
+
+| Target | Successful Actions run | Hardware qualification |
+| --- | --- | --- |
+| x86-64 CPU | [31337036007](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31337036007) | Installed artifact completed PING/INFO/INFER/SHUTDOWN with the production PTE on x86-64 |
+| A733 AWNN | [31339370137](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31339370137) | The ephemeral self-hosted A733 job built the runner and completed real AWNN inference |
+| RK3566/RK3576/RK3588 | [31340003668](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340003668) | The exact three downloaded Wheels completed real NPU inference on one board of each SoC family |
+| Jetson Orin Vulkan | [31340384861](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340384861) | The exact downloaded Wheel completed Vulkan inference on an NVIDIA Tegra Orin after the hosted lavapipe check |
+
+The hardware smoke request uses a deterministic synthetic frame and validates
+backend loading, device execution, the binary protocol, finite output, and
+clean shutdown. It is a liveness and integration gate, not a substitute for
+the separate image-set accuracy and CPU/accelerator parity qualification.
+
 ## Publishing
 
 Actions artifacts are temporary QA outputs, not release downloads. After

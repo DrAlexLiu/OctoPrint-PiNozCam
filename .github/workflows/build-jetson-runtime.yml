@@ -2,9 +2,6 @@ name: Build Jetson Orin Vulkan runtime
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - ci/accelerator-runtime-builds
 
 permissions:
   contents: read
