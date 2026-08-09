@@ -359,10 +359,10 @@ class NozcamBackend(object):
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, DEFAULT_MODEL))
 
-    def _may_fallback_from_vulkan(self):
-        """Return whether automatic Vulkan selection may fall back to CPU."""
-        forced = ("cpu", "rknn", "awnn", "vulkan")
-        return self._kind == "vulkan" and self._requested_backend not in forced
+    def _may_fallback_to_cpu(self):
+        """Return whether an auto-selected accelerator may use CPU."""
+        return (self._requested_backend == "auto"
+                and self._kind in ("rknn", "awnn", "vulkan"))
 
     def _pick_model(self, model_name, default):
         """Return the caller's model override or this backend's default."""
@@ -408,7 +408,7 @@ class NozcamBackend(object):
     def kind(self):
         """Return the backend this live client is currently using.
 
-        Automatic Vulkan startup can fall back to the bundled CPU runtime,
+        Automatic accelerator startup can fall back to the bundled CPU runtime,
         so status must read the live client instead of guessing from the
         saved setting.
         """
@@ -474,11 +474,17 @@ class NozcamBackend(object):
             except Exception as exc:
                 # Public stop() would reacquire this non-reentrant lock.
                 self._stop_locked(graceful=False)
-                if self._may_fallback_from_vulkan():
+                if self._may_fallback_to_cpu():
+                    failed_kind = self._kind
+                    failed_label = {
+                        "rknn": "Rockchip NPU",
+                        "awnn": "A733 NPU",
+                        "vulkan": "Vulkan GPU",
+                    }[failed_kind]
                     self._logger.warning(
-                        "Auto-selected Vulkan backend failed to start; "
+                        "Auto-selected %s backend failed to start; "
                         "using the bundled CPU fallback for this detector "
-                        "session: %s", exc
+                        "session: %s", failed_label, exc
                     )
                     self._select_payload("cpu")
                     try:
@@ -487,13 +493,14 @@ class NozcamBackend(object):
                         self._stop_locked(graceful=False)
                         delay = self._note_failure()
                         self._logger.error(
-                            "Vulkan failed and its CPU fallback also failed "
+                            "%s failed and its CPU fallback also failed "
                             "(%d in a row), retrying in %.0fs: %s",
-                            self._fail_count, delay, cpu_exc
+                            failed_label, self._fail_count, delay, cpu_exc
                         )
                         raise BackendUnavailable(
-                            "automatic Vulkan start failed (%s); bundled CPU "
-                            "fallback also failed (%s)" % (exc, cpu_exc)
+                            "automatic %s start failed (%s); bundled CPU "
+                            "fallback also failed (%s)"
+                            % (failed_kind, exc, cpu_exc)
                         )
                     self._note_success()
                     return

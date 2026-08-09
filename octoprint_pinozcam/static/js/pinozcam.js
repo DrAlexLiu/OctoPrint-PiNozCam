@@ -469,7 +469,9 @@ $(function () {
                                     self.testInferenceBusy,
                                     self.testInferenceResult,
                                     self.testInferenceOk,
-                                    self.testInferenceBad);
+                                    self.testInferenceBad,
+                                    {cpuSpeedControl:
+                                         self.newCpuSpeedControl});
 
         self.testTelegramBusy = ko.observable(false);
         self.testTelegramResult = ko.observable("");

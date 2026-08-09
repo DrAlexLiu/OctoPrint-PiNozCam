@@ -73,6 +73,9 @@ Orin GPU. PiNozCam finds the fastest option your board has on its own, and
 falls back to the CPU when there is nothing faster. *(No Windows, macOS,
 FreeBSD, or Android/Octo4a.)*
 
+Rockchip users can verify the driver, runtime library and OctoPrint service
+permissions with the [Rockchip NPU setup checklist](docs/rockchip-npu.md).
+
 If an ARM board supports both operating systems, prefer **64-bit AArch64**:
 it is usually faster and is the recommended installation. The 32-bit ARMHF
 runtime remains supported for boards and OctoPi images that require it.
@@ -159,3 +162,16 @@ Open source under [AGPL-3.0](LICENSE). Third-party notices:
 
 - 💬 Questions: [PiNozCam Discord](https://discord.gg/gv4tKJ2ZKr)
 - 🐛 Bugs: [GitHub Issues](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/issues)
+
+## 🛠️ Troubleshooting with an LLM
+
+When asking an LLM for help, include this public repository URL so it can
+check the actual source and documentation:
+
+```text
+https://github.com/DrAlexLiu/OctoPrint-PiNozCam
+```
+
+Also include the exact PiNozCam version, board and OS, selected backend, and
+the relevant error lines. Remove API keys, bot tokens, passwords, camera URL
+credentials, and other secrets before sharing any configuration or log.

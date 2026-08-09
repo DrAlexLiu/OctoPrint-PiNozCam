@@ -17,6 +17,7 @@ import octoprint.access
 from octoprint.access.permissions import Permissions
 
 from . import camera
+from . import cpu_affinity
 from .mask import MASK_GRID
 from .nozcam_backend import NozcamBackend
 
@@ -615,6 +616,19 @@ class ApiMixin(object):
         denied = self._require_control()
         if denied is not None:
             return denied
+        draft = self._draft("cpuSpeedControl")
+        cpu_speed_control = self.cpu_speed_control
+        if "cpuSpeedControl" in draft:
+            try:
+                cpu_speed_control = float(draft["cpuSpeedControl"])
+            except (TypeError, ValueError):
+                cpu_speed_control = -1.0
+            if not 0.01 <= cpu_speed_control <= 1.0:
+                return Response(json.dumps({
+                    "ok": False,
+                    "message": "CPU Cores Used must be between 1% and "
+                               "100%."}),
+                    status=400, mimetype="application/json")
         if not self._test_inference_lock.acquire(blocking=False):
             return Response(json.dumps({
                 "ok": False,
@@ -622,12 +636,21 @@ class ApiMixin(object):
                            "to finish."}),
                 status=409, mimetype="application/json")
         try:
-            return self._test_inference_locked()
+            return self._test_inference_locked(cpu_speed_control)
         finally:
             self._test_inference_lock.release()
 
-    def _test_inference_locked(self):
+    def _test_inference_locked(self, cpu_speed_control=None):
         """The body of /test_inference; caller holds the one-test lock."""
+        if cpu_speed_control is None:
+            cpu_speed_control = self.cpu_speed_control
+        topology = getattr(self, "cpu_topology", None)
+        if topology is None:
+            topology = cpu_affinity.detect_cpu_topology(
+                cpu_affinity.read_cpu_topology())
+        selection = cpu_affinity.select_ai_cpus(
+            cpu_speed_control, topology)
+        cpus = selection.cpus
         backend, temporary = self.backend, False
         if backend is None:
             try:
@@ -641,10 +664,6 @@ class ApiMixin(object):
                     "message": "Inference backend unavailable: %s"
                                % self.redact(str(exc))}),
                     mimetype="application/json")
-        cpus = getattr(self, "ai_cpus", None)
-        if cpus is None:
-            self._thread_calculation()
-            cpus = getattr(self, "ai_cpus", None)
         if temporary:
             try:
                 backend.ensure_started(self.scores_threshold,
@@ -699,10 +718,9 @@ class ApiMixin(object):
         # num_threads is what _thread_calculation() actually pinned to, not
         # what the setting asked for -- the two differ, because the lower
         # settings deliberately leave a core for the gcode streamer.
-        affinity = self._affinity_core_summary()
-        cores = affinity["selected"] or 1
-        pool_cores = affinity["pool"] or 1
-        pool_label = ("performance core" if affinity["heterogeneous"]
+        cores = len(cpus) or 1
+        pool_cores = len(topology.performance_pool) or 1
+        pool_label = ("performance core" if topology.is_heterogeneous
                       else "core")
         # infer() returns elapsed_time as its last element.
         model_ms = float(result[-1]) * 1000.0

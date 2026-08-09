@@ -144,11 +144,8 @@
       If no camera frame is available, Speed Test uses the built-in no-camera
       image and says so in the result.
       <br><br>
-      &#x27;&#x27;&#x27;It uses the SAVED core setting, so save before
-      testing.&#x27;&#x27;&#x27; Unlike the other Test buttons this one cannot
-      try an unsaved value: the affinity mask is fixed when the detector
-      process starts, so measuring a draft would mean restarting it and leaving
-      it running with a setting your configuration does not describe.
+      &#x27;&#x27;&#x27;Speed Test uses the CPU Cores Used value currently shown, even
+      before you save.&#x27;&#x27;&#x27; The test does not change the saved setting.
     {% endcall %}
 
     {% call f.number(_('Minimum Check Interval (s)'), 'newDetectionInterval', 'help-minimum-check-interval', min=0, max=3600) %}
