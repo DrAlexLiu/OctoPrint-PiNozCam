@@ -6,3 +6,6 @@ __pycache__/
 
 # Ignore all .pyc files
 *.pyc
+
+# Runtime Wheels are release assets, not Git source files.
+*.whl
