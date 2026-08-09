@@ -2,6 +2,9 @@ name: Build Rockchip RKNN runtimes
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/accelerator-runtime-builds
 
 permissions:
   contents: read

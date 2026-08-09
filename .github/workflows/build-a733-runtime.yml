@@ -11,6 +11,9 @@ on:
         description: Runtime wheel version
         required: true
         default: "1.1.0rc6.dev0"
+  push:
+    branches:
+      - ci/accelerator-runtime-builds
 
 permissions:
   contents: read
@@ -56,8 +59,8 @@ jobs:
       MODEL_WHEEL_SHA256: 6fe4ef17b71be17c512bf3d993a6751898bc697d1bf093aae8a1f40c45840907
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
       AWNN_MODEL_SHA256: 0000bb6d454ee6d3f80e5b13df8a2622e800444a769f6a744db39c47a7a90334
-      AWNN_SDK_DIR: ${{ inputs.awnn_sdk_dir }}
-      VERSION: ${{ inputs.version }}
+      AWNN_SDK_DIR: ${{ inputs.awnn_sdk_dir || '/home/radxa/npu_test/examples/libawnn_viplite' }}
+      VERSION: ${{ inputs.version || format('1.1.0rc6.dev{0}', github.run_number) }}
 
     steps:
       - name: Check out PiNozCam
