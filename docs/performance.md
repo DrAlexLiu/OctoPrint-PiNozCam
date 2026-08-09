@@ -264,6 +264,16 @@ OctoPrint work.
 | Pi Zero 2 W / Pi CM0 tier, AI idle | 0.131 ms | 0.190 ms | 9.016 ms | — |
 | Pi Zero 2 W / Pi CM0 tier, 25% (1 core), nice 10 | 0.179 ms | 0.503 ms | 19.438 ms | 3.5 |
 | Pi Zero 2 W / Pi CM0 tier, 100% (4 cores), nice 10 | 0.233 ms | 5.404 ms | 23.546 ms | 11.4 |
+| Raspberry Pi 3B+, AArch64, AI idle | 0.117 ms | 0.159 ms | 1.194 ms | — |
+| Raspberry Pi 3B+, AArch64, 25% (1 core), nice 10 | 0.153 ms | 0.224 ms | 3.434 ms | 5.2 |
+| Raspberry Pi 3B+, AArch64, 50% (2 cores), nice 10 | 0.171 ms | 0.336 ms | 4.158 ms | 10.1 |
+| Raspberry Pi 3B+, AArch64, 75% (3 cores), nice 10 | 0.178 ms | 0.486 ms | 6.622 ms | 14.1 |
+| Raspberry Pi 3B+, AArch64, 100% (4 cores), nice 10 | 0.220 ms | 1.322 ms | 4.790 ms | 17.8 |
+| Ryzen 9 5950X, x86_64, AI idle | 0.072 ms | 0.444 ms | 0.892 ms | — |
+| Ryzen 9 5950X, x86_64, 25% (8 logical cores), nice 10 | 0.076 ms | 0.090 ms | 1.030 ms | 418.9 |
+| Ryzen 9 5950X, x86_64, 50% (16 logical cores), nice 10 | 0.074 ms | 0.221 ms | 1.043 ms | 687.6 |
+| Ryzen 9 5950X, x86_64, 75% (24 logical cores), nice 10 | 0.068 ms | 0.329 ms | 1.821 ms | 762.6 |
+| Ryzen 9 5950X, x86_64, 100% (32 logical cores), nice 10 | 0.073 ms | 1.860 ms | 3.403 ms | 785.9 |
 
 The physical small-board run used a Pi Zero 2 W; Pi CM0 uses the same
 performance tier and recommendation. Both boards remained unthrottled. Each
@@ -271,9 +281,26 @@ row contains at least 6,000 wake samples. The p99 column is the useful steady
 comparison; a single worst value can also come from unrelated operating-system
 work, as the idle rows show.
 
+The Pi 3B+ and x86_64 rows were measured on 2026-08-09 with the 1.1.0rc1
+production CPU daemon and PTE. The Pi was a four-core Cortex-A53 running a
+64-bit AArch64 Debian 13 userspace at 1.4 GHz. The x86 host was a Ryzen 9
+5950X with 16 physical cores and 32 logical CPUs. Each idle row contains
+exactly 6,000 wake samples; the loaded rows contain 6,001–6,887 because a
+request already in progress was allowed to finish after the 60-second target.
+The detector used its normal 640×384 input and `nice=10`; camera fetch and the
+rest of the OctoPrint plugin were intentionally outside this AI-only test.
+
+The sustained rates correspond to mean daemon request times of 11,480, 5,919,
+4,241 and 3,372 ms/check on the Pi 3B+ at 25%, 50%, 75% and 100%, respectively.
+On x86_64 they were 143.24, 87.27, 78.68 and 76.35 ms/check. These are
+AI-process round trips derived from the sustained rate, not plugin-check times
+and not the wake-delay measurements in the three columns beside them.
+
 At 25%, periodic work stayed close to its idle timing. At 100%, inference was
 roughly three times faster, but the p99 wake delay rose to 2.9 ms on the CM4
-and 5.4 ms on the Zero 2 W. These values are scheduling delay, not an
+and 5.4 ms on the Zero 2 W. The fresh Pi 3B+ run rose from 0.224 ms at 25%
+to 1.322 ms at 100%; x86_64 rose from 0.090 ms to 1.860 ms while throughput
+increased from 419 to 786 checks/min. These values are scheduling delay, not an
 equal-length pause at the print head: printer firmware normally keeps queued
 motion buffered. They show why reserving CPU headroom is still useful on a
 slower board.
