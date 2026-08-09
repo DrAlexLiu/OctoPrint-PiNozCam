@@ -8,6 +8,21 @@ on:
         required: true
         default: 1.1.0rc1
         type: string
+      runtime_target:
+        description: Upload one target while bootstrapping projects, or all later
+        required: true
+        default: x86_64
+        type: choice
+        options:
+          - x86_64
+          - armhf
+          - aarch64
+          - rknn3566
+          - rknn3576
+          - rknn3588
+          - a733
+          - jetson_orin
+          - all
 
 concurrency:
   group: testpypi-${{ inputs.release_tag }}
@@ -117,11 +132,50 @@ jobs:
               print("{}  {}".format(digest, filename))
           PY
 
+      - name: Select Wheels for this upload
+        env:
+          RUNTIME_TARGET: ${{ inputs.runtime_target }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import shutil
+
+          wheel_stems = {
+              "x86_64": "pinozcam_runtime_x86_64-",
+              "armhf": "pinozcam_runtime_armhf-",
+              "aarch64": "pinozcam_runtime_aarch64-",
+              "rknn3566": "pinozcam_runtime_rknn3566-",
+              "rknn3576": "pinozcam_runtime_rknn3576-",
+              "rknn3588": "pinozcam_runtime_rknn3588-",
+              "a733": "pinozcam_runtime_a733-",
+              "jetson_orin": "pinozcam_runtime_jetson_orin-",
+          }
+          source = Path("dist")
+          destination = Path("publish-dist")
+          destination.mkdir()
+          target = os.environ["RUNTIME_TARGET"]
+          wheels = sorted(source.glob("*.whl"))
+          if target != "all":
+              prefix = wheel_stems[target]
+              wheels = [path for path in wheels if path.name.startswith(prefix)]
+          expected_count = 8 if target == "all" else 1
+          if len(wheels) != expected_count:
+              raise SystemExit(
+                  "target {!r} selected {} Wheels, expected {}".format(
+                      target, len(wheels), expected_count
+                  )
+              )
+          for wheel in wheels:
+              shutil.copy2(str(wheel), str(destination / wheel.name))
+              print("selected " + wheel.name)
+          PY
+
       - name: Stage verified Wheels for publishing
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verified-runtime-wheels
-          path: dist/*.whl
+          path: publish-dist/*.whl
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
