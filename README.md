@@ -1,167 +1,161 @@
 # OctoPrint-PiNozCam
-<div>
-  <img src="/assets/images/failure_detection1.jpg" width="40%" height="40%">
-  <img src="/assets/images/failure_detection_side.jpeg" width="48%" height="48%">
+
+<p align="center"><strong>🔎 Detect failures. 📱 Check your printer. ⏸️ Pause or stop from your phone.</strong></p>
+<p align="center">AI failure detection + phone monitoring &amp; control for OctoPrint —<br>
+all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. No cloud, no subscription.</p>
+
+<div align="center">
+  <img src="assets/images/failure_detection1.jpg" alt="PiNozCam detecting a print failure" width="40%">
+  <img src="assets/images/failure_detection_side.jpeg" alt="PiNozCam overview-camera detection" width="48%">
 </div>
 
-[![Join Discord](https://img.shields.io/discord/1158238902197424251.svg?label=Discord&logo=discord&logoColor=ffffff&color=7389D8&labelColor=555555)](https://discord.gg/gv4tKJ2ZKr)
+<p align="center">
+  <a href="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases"><img src="https://img.shields.io/badge/version-1.1.0rc1-orange.svg" alt="Version 1.1.0rc1"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License AGPL-3.0"></a>
+  <a href="#-supported-platforms"><img src="https://img.shields.io/badge/platform-Linux-lightgrey.svg" alt="Linux"></a>
+  <a href="https://discord.gg/gv4tKJ2ZKr"><img src="https://img.shields.io/discord/1158238902197424251.svg?label=Discord&amp;logo=discord&amp;logoColor=ffffff&amp;color=7389D8&amp;labelColor=555555" alt="Join Discord"></a>
+</p>
 
-## 🌉Introduction
+PiNozCam watches your OctoPrint camera, spots failures, and alerts you —
+or pauses or stops the print for you. Everything runs on your own machine,
+and camera frames never leave your network.
 
-Welcome to the future of 3D printing with PiNozCam!🎉 It brings free failure detection to your device using edge computing on Arm📟. You can also control your printer remotely using Telegram📱.
+| 🔎 **AI Failure Detection** | 📱 **Remote Printer Monitor & Control** |
+|---|---|
+| Watches your camera frames locally | Press **Check** in Telegram or Discord |
+| Shows every detection with boxes | See the camera and printer status anytime |
+| You decide how sensitive it is | Mute alerts, Pause or Resume the print |
+| Alert, Pause, or Stop — your call | Stop the print with one confirmation tap |
 
-**Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
-:-----:|:-----:
-Raspberry Pi 5|45
-Raspberry Pi 4|9
+## 📱 Your printer, in your pocket
 
-<details>
-  <summary>More Support Devices</summary>
-  
-  **Device (50% of All Cores for AI)**|**Detect Speed (images / minute)**
-  :-----:|:-----:
-  Raspberry Pi 3B|5 
-  PC with Intel i5 10600|260
-  OrangePi Zero 2/3|9
-  Raspberry Pi Zero 2 W|3
+Connect Telegram or Discord: AI failure alerts land on your phone, and you
+can see the camera, pause, or stop the print right from the chat. Don't
+wait for an alert — press **Check** whenever you're curious.
 
-  <sub>*The inference speed tests were conducted under the circumstance that 50% of the device's cores were allocated for AI processing, while the remaining 50% of the cores were dedicated to OctoPrint and printing processes.</sub>
-</details>
+| Telegram | Discord |
+|---|---|
+| <img src="assets/images/telegram_remote_control.jpg" alt="Telegram remote printer monitor and control" width="360"> | <img src="assets/images/discord_notification.jpg" alt="Discord remote printer monitor and control" width="360"> |
 
-Unlock advanced 3D printing monitoring with PiNozCam, your go-to solution for **AI-powered surveillance** — all **without any subscription or registration**. PiNozCam brings cutting-edge computing to your **Raspberry Pi** or any old PC/single board computer, ensuring **privacy** and providing instant failure alerts via **Telegram/Discord**. 
+- 🔍 **Check** — current camera view + printer status
+- 🔇 **Mute / Unmute** — quiet alerts for this print
+- ⏸️ **Pause / Resume** — step in from anywhere
+- ⏹️ **Stop** — cancel with a confirmation tap
+- 🚨 **Failure alert** — the analysed image, boxes included
+- 🖨️ **Multiple printers** — one chat, all your printers
 
-| | | |
-|:--|:--|:--|
-| **Fast Local Detection** | **Instant AI Failure Notifications** | **Privacy-Focused** |
-| **Remote Pause/Stop** | **No Ad/Credit Card/Subscriptions** | **Set Undetect Zone** |
+Setup guide: [docs/notifications.md](docs/notifications.md)
 
-<details>
-<summary>💻Support Platforms</summary>
-  Support RPi OS platform ([Don’t know❓](https://raspberrytips.com/which-raspberry-pi-os-is-running/)):
+## ✨ Why PiNozCam
 
-  **OS platform**|**Buster**|**Bullseye**|**Bookworm**
-  :-----:|:-----:|:-----:|:-----:
-  arm64 (x64)|✅|✅|✅
-  armhf (x32)|✅|✅|✅
+- **100% local AI** — no account, no cloud, no telemetry, no fee.
+- **Cheap hardware is enough** — a ~US$45 Raspberry Pi 5 with 1 GB RAM
+  runs it comfortably.
+- **CPU, NPU, and GPU support** — Raspberry Pi, x86, selected Rockchip and
+  Allwinner NPUs, and Jetson Orin.
+- **Works with your existing camera** — whatever OctoPrint already uses.
+- **Undetect Zones** — mask bed clips, cables, and logos that confuse the AI.
+- **Gentle on your printer** — cap CPU use and check rate so printing
+  always comes first.
 
-  ⚠️ This plugin supports the [OctoPi image](https://www.raspberrypi.com/tutorials/set-up-raspberry-pi-octoprint/) . However, I am still working on this plugin on [Octo4a](https://github.com/feelfreelinux/octo4a) and it may be supported in the future versions. 
+> [!IMPORTANT]
+> PiNozCam is a monitoring aid, not a safety system. Start with
+> **Alert only**, watch a few prints, then decide whether to allow automatic
+> Pause or Stop. Never leave a printer unattended just because monitoring
+> is on.
 
-  **RPi(Boardcom)**|**Intel/AMD CPU**|**AllWinner**|**RockChip**|**RAM**
-  :-----:|:-----:|:-----:|:-----:|:-----:
-  ✅|✅|✅|✅|>=1GB
-</details>
+## 🧩 Supported platforms
 
-<details>
-<summary>Plugin Setup</summary>
+Any Linux machine with Python 3.7+ — every Raspberry Pi from the Zero 2 W / Pi CM0
+up, any ARM64 or x86_64 PC, and NPU boards like the **Orange Pi 3B**,
+**BIQU CB2**, Radxa ROCK 4D, LubanCat-4 and Radxa A733, plus the Jetson
+Orin GPU. PiNozCam finds the fastest option your board has on its own, and
+falls back to the CPU when there is nothing faster. *(No Windows, macOS,
+FreeBSD, or Android/Octo4a.)*
 
-## Plugin Setup
+If an ARM board supports both operating systems, prefer **64-bit AArch64**:
+it is usually faster and is the recommended installation. The 32-bit ARMHF
+runtime remains supported for boards and OctoPi images that require it.
 
-Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
-or manually using this URL:
+### ⚡ How fast is it?
 
-    https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/master.zip
-    
-</details>
+| Device | AI images/min |
+|---|---:|
+| Raspberry Pi 5 | 221 |
+| BIQU CB2 / Orange Pi 3B (RK3566 NPU) | 203 |
+| Jetson Orin Nano Super | 335 |
+| Raspberry Pi 4 / CM4 | 23 |
+| Radxa A733 (Allwinner NPU) | 949 |
+| LubanCat-4 (RK3588 NPU) | 1,143 |
+| Raspberry Pi 3B+ | 14 |
 
-## 🚀One AI, Two Modes
+Even a few checks per minute is plenty to catch a failing print.
 
-| **Choose Mode and Set Correct Parameters:** | |
-|:--|:--|
-| **NozzleCam** | **WebCam** |
-| <img src="/assets/images/nozzle_cam_setup.jpg" width=60% height=60%> | <img src="/assets/images/side_camera_setup.jpg" width=40% height=40%> |
-| Boxes Display Threshold: 0.6<br>Image Sensitivity：0.05 (0.04-0.1)<br>Failure Scores Threshold: 0.75 (0.75-0.88) | Boxes Display Threshold: 0.75<br>Image Sensitivity：0.02 (0.02-0.04)<br>Failure Scores Threshold: 0.94 (0.94-0.99) |
+**And it's light on memory:** OctoPrint + PiNozCam together stay under
+**512 MB** — even a 512 MB Pi Zero 2 W / Pi CM0 works. A **1 GB Raspberry Pi 5
+(~US$45)** runs it comfortably. Full tables, 32-bit vs 64-bit numbers, and
+memory figures: [docs/performance.md](docs/performance.md). On a 512 MB Zero
+2 W / Pi CM0, an administrator should follow that guide's manual zram setup
+before production use so memory pressure uses compressed RAM before slow
+SD-card swap. PiNozCam cannot make system-level swap changes itself.
 
-❗ ***Choose the correct settings for your PiNozCam before use. The wrong mode setting can cause false alarms or missed failures.*** ❗
+## 📦 Install
 
-<details>
-<summary style="font-weight: bold;">Camera Setup</summary>
-  
-  ### **📷Camera Setup**
+Install **PiNozCam** from **Settings → Plugin Manager → Get More**, or by
+URL:
 
-  | **Endoscope** | **WebCam** |
-  |:--|:--|
-  | - NozzleCam kits: [StealthBurner](https://www.sliceengineering.com/products/stealthburner-nozzle-camera-kit), [3Do](https://kb-3d.com/store/electronics/779-3do-nozzle-camera-kit.html), etc.<br>- [Build](https://www.instructables.com/3D-Printer-Layer-Cam-Nozzle-Cam-Prusa-Mini/) yours from [Aliexpress](https://s.click.aliexpress.com/e/_AZAMf2) or [Amazon](https://www.amazon.com/dp/B09NVYXTG5?psc=1&ref=ppx_yo2ov_dt_b_product_details) or [Temu](https://www.temu.com/search_result.html?search_key=endoscope%20camera).<br>- Built-in LED **backlighting**.<br>- Positioned **5-10 cm** from the nozzle.<br>- Fixed Focus Lens | Logitech C920, C270 or other webcams<br>AutoFocus enabled<br>Desk Lamp to provide enough light <br>Positioned **>20 cm** from the nozzle.<br> Positioned front left/right corner of printing bed |
+```text
+https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc1.zip
+```
 
-  Ensure your camera:
-  - [30Hz frame rate, 16:9, >=480P❓](https://community.octoprint.org/t/how-can-i-change-mjpg-streamer-parameters-on-octopi/203)
+The installer picks the right build for your machine automatically. Restart
+OctoPrint, then follow the first-run wizard.
 
-  ⚠️ Cleaning the camera lens before EACH print is highly recommended for dust removal.
+## 🚀 First run — three decisions
 
-  ### Fixture
-  Search and print a camera fixture for your camera model from Thingiverse or Printables. 
-</details>
+1. **Camera** — PiNozCam checks the webcam OctoPrint already uses.
+2. **Sensitivity** — pick a preset; you can refine it later.
+3. **Action on Failure** — start with **Alert only**.
 
-### 📱Telegram/Discord Remote Control
+Tune it like this: stay on **Alert only**, start sensitive, and step down
+until false alerts stop bothering you. Full logic and preset tables:
+[docs/detection-and-tuning.md](docs/detection-and-tuning.md)
 
-To enable remote control, enter your [Telegram bot token and chat ID](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a)
-or [Discord Webhook url](https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/). Also, [setup your printer title](https://community.octoprint.org/t/how-do-i-change-the-web-interfaces-name/21662), you can check your 3D printer and control it from your Telegram chat. After setting up the Telegram bot, you can use these buttons. 
+## 📷 Camera tips
 
--🔍 Check: See a picture of your printer, its status, progress, temperatures, and file name.
+A rigid mount, even lighting, and a clean lens matter more than resolution.
+Point a nozzle camera 5–10 cm from the nozzle, or use an overview camera
+that keeps the whole part visible. MJPEG streams, HTTP snapshots, and local test
+images all work.
 
--🔇 Mute / 🔊 Unmute: Stop or start getting notifications about your printer. You can still use "Check" when muted.
+Placement photos and the full checklist: [docs/camera.md](docs/camera.md)
 
--⏸️ Pause / ▶️ Resume: Pause your print. Click again to continue printing.
+## 🔒 Private by default
 
--⏹️ Stop: Stop your print. The printer will start cooling down.
+Frames, results, and settings stay on your OctoPrint machine. Nothing leaves
+your network unless **you** connect Telegram or Discord — and then only the
+analysed image and print status go out. Keep bot tokens secret like
+passwords.
 
-Remote control by discord will be released soon.
+## 🖥️ OctoPrint interface
 
-<details>
-<summary>Remote Control UI</summary>
+PiNozCam adds its own OctoPrint status tab and keeps all detector controls
+together under **Settings → PiNozCam**.
 
-Upon configuration and clicking "Save". A welcome message confirms successful setup. An example failure notification will be sent like this:
+<p align="center">
+  <img src="assets/images/tab.jpg" alt="PiNozCam tab in OctoPrint" width="629">
+</p>
 
-| **Example:** | |
-|:--|:--|
-| **Telegram** | **Discord** |
-| <img src="/assets/images/telegram_remote_control.png" width=50% height=50%> | <img src="/assets/images/discord_notification.png" width=70% height=70%> |
+<p align="center">
+  <img src="assets/images/screenshot.jpg" alt="PiNozCam status panel in OctoPrint" width="520">
+</p>
 
-</details>
+## 📖 License
 
-### **💥Set Undetect Zone:**
-Open the dialog box to make a custom mask. This mask tells the AI which parts of the image to ignore when looking for print failures. Draw on the canvas to select the areas you don't want the AI to check. This lets you focus the AI on your print instead of unrelevant background.
+Open source under [AGPL-3.0](LICENSE). Third-party notices:
+[THIRD_PARTY_LICENSES/](THIRD_PARTY_LICENSES/).
 
-<img src="/assets/images/mask_background.png" width=20% height=20%>
+## 🤝 Support
 
-### **Parameters Adjustment**
-
-Navigate to the PiNozCam tab:
-
-<img src="/assets/images/tab.png" width=40% height=40%>
-
-The screenshot:
-
-<img src="/assets/images/screenshot.png" width=40% height=40%>
-
-**Key Parameters:**
-
-Initially, stick with the default settings and adjust them gradually to fine-tune performance.
-
-- **Action after Detection:** Specifies the action PiNozCam should take when a print failure is detected (e.g., notify only, pause print, stop print). Detected failures are displayed in this webpage for 5 seconds, allowing for immediate visual verification.
-- **Image Sensitivity:** Image sensitivity = (All bounding box areas 'higher than Failure Scores Threshold')/(Whole image area). A smaller number will find small failures or when a failure just starts. A bigger number will only find big, easy-to-see failures or failures that have been going on for a while and have gotten larger.
-- **Failure Scores Threshold:** Set the smallest score a box needs to count as a failure and make alerts or actions happen. You can see the score in the corner of each box. A higher number means the AI is more certain about failures but could miss some. A lower number means the AI will spot failures sooner but might also give false alarms.
-- **Max Failure Count:** Set the maximum number of failures allowed within the Failure Consider Time before PiNozCam pauses or stops the print as configured in Action after Detection. A value 2 or above is recommended to avoid false alarms.
-- **Failure Consider Time (s):** Set the time window in seconds that PiNozCam remembers and counts failures towards the **Max Failure Count**. Older failures outside this window are forgotten, like how an airplane's black box only records the last part of the flight.
-
-<details>
-<summary>Other Parameters</summary>
-
-- **Enable PiNozCam:** Turn the AI detection function of PiNozCam on or off.
-- **AI Start Delay (s):** Set how many seconds PiNozCam should wait after OctoPrint starts a print before it begins looking for failures. This delay gives time for the bed to level and other starting print steps to finish.
-- **Notify Mode:** Choose whether to send a notification for each failure detected or only after reaching the **Max Failure Count**.
-- **Custom Snapshot URL:** Provide a custom URL or IP camera URL for PiNozCam to fetch camera images from instead of the default snapshot URL. Examples: http://192.168.0.xxx/webcam/?action=snapshot. (RTSP protocol is not supported)
-- **CPU Speed Control:** Offers options for running the CPU at half or full speed. Half speed is recommended.
-- **Max Notification Count:** Set the maximum number of messages PiNozCam will send before it stops sending more until the print is finished or stopped. If you set it to 0, there will be no limit and it will keep sending messages.
-
-</details>
-
-## Customer Support
-
-For further discussion and support, please [**join our Discord channel**](https://discord.gg/gv4tKJ2ZKr).
-
-<details>
-<summary>Support my work</summary>
-
-I created this plugin in my spare time, so if you have enjoyed using it then please [support it’s development!](https://paypal.me/xingchen613)
-
-</details>
+- 💬 Questions: [PiNozCam Discord](https://discord.gg/gv4tKJ2ZKr)
+- 🐛 Bugs: [GitHub Issues](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/issues)

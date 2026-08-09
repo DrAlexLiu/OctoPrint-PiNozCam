@@ -1,21 +1,827 @@
-.radio-inline {
-    display: inline-block;
-    margin-right: 10px; 
-}
-
 #mask-dialog {
-    width: 90%;
-    max-width: 800px;
-    border: none;
-    border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    max-width: 95vw;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 16px;
 }
 
-.dialog-content {
-    padding: 20px;
+#mask-dialog .dialog-content h3 {
+    margin: 0 0 10px;
+}
+
+/* The canvas has a fixed 480p backing store; this only scales how it is
+   displayed, so a narrow screen shrinks the view without changing the
+   drawing resolution or the mask grid. */
+#mask-canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    cursor: crosshair;
+    border: 1px solid #999;
+    background: #222;
+}
+
+/* Centred, and the buttons are full-size .btn like Save/Clear below -- one
+   button size in the dialog rather than two. */
+.mask-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.mask-toolbar .btn.active {
+    background: #0088cc;
+    color: #fff;
+}
+
+.mask-brush {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#brush-size-label {
+    display: inline-block;
+    min-width: 1.6em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.mask-meta {
+    color: #777;
+    font-size: 12px;
 }
 
 .dialog-buttons {
-    text-align: right;
-    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* One line under the dialog's title, left-aligned with everything else in the
+   dialog.  No max-width and no centring: it is one short sentence, so a
+   measure would do nothing and centring would leave it floating away from the
+   title it belongs to. The longer explanation lives in the canvas's title=. */
+.dialog-intro {
+    margin: 0 0 12px;
+    color: #595959;
+}
+
+.ai-detail {
+    color: #777;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+
+
+/* Settings help ---------------------------------------------------------
+   The info icon opens a real block rather than a native tooltip: title= never
+   appears on a touchscreen, and this plugin is commonly operated from a
+   tablet beside the printer. */
+/* Control and its icon on one line. Needed because the number and text
+   inputs carry Bootstrap's input-block-level, i.e. display:block at full
+   width, which would otherwise push the icon onto the next row. */
+.pinozcam-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Every short control -- number, select, narrow text -- is exactly this wide.
+    box-sizing is the load-bearing part. Bootstrap's .input-medium is a bare
+   `width: 150px` and an <input> and a <select> do not render that as the same
+   box: both get `padding: 4px 6px` and a 1px border, a select additionally
+   carries `height: 30px` and a dropdown arrow, and how those combine is up to
+   the UA. With border-box the number IS the outer width for both.
+   14em fits the longest option text ("Medium -- recommended") plus the arrow;
+   the row then costs 180 + 196 + 24 = 400px of the ~780px available. */
+/*  A descendant selector, not `>`. The CPU Cores Used dropdown sits inside
+   an .input-append now, so a child selector stops reaching it -- and the
+   symptom is not "no width", it is a <select> that sizes to its currently
+   selected option, so the control changes width when you change the value.
+   The same trap is recorded for .pinozcam-append below. */
+.pinozcam-row .pinozcam-control {
+    box-sizing: border-box;
+    width: 14em;
+    /*  The height has to be stated once box-sizing is border-box, and
+       forgetting it is what made the number fields short and out of line with
+       their labels. Bootstrap gives the shared input rule `height: 20px` with
+       `padding: 4px 6px`, which as content-box totals 30px -- exactly the
+       `height: 30px` it gives <select> separately. Switching to border-box
+       turned that 20px into the OUTER height, so inputs became 20px tall
+       while selects stayed 30px. box-sizing and height are one decision. */
+    height: 30px;
+    line-height: 20px;
+    flex: 0 0 auto;
+}
+
+/* A wide field with a Test button attached. The pair fills the row exactly as
+   a wide field without one does, so the input gives up room to the button
+   rather than the row growing.
+
+    .pinozcam-append had no rule at all, which is why it did not line up:
+   the `flex: 1` that makes a wide input fill the row targets inputs that are
+   DIRECT children of the row, and wrapping the input in Bootstrap's
+   input-append made the span the child instead, so the span sized to its
+   content.
+
+    display:flex overrides Bootstrap's inline-block on .input-append. Its own
+   layout relies on inline-block plus white-space:nowrap, which cannot express
+   "the input takes the rest of the space after the button". */
+.pinozcam-row > .pinozcam-append {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
+.pinozcam-append > input {
+    flex: 1;
+    min-width: 0;
+    /* Restated because Bootstrap sets these through selectors that assume the
+       inline-block layout replaced above. */
+    margin-bottom: 0;
+}
+
+/* An append around a dropdown: sized by its content, not stretched. Without
+   this it inherits .pinozcam-append's `flex: 1` and the dropdown grows to fill
+   the row, which is right for a URL and wrong for four short options. */
+.pinozcam-row > .pinozcam-append-fixed {
+    flex: 0 0 auto;
+}
+
+/* Bootstrap applies this through selectors that assume the inline-block
+   layout .pinozcam-append replaces with flex. */
+.pinozcam-append > select {
+    margin-bottom: 0;
+}
+
+/* The control and its Test button are SEPARATE, not glued: both keep their
+   own rounded corners and a gap sits between them. Bootstrap's input-append
+   glues them, which is right for a unit suffix ("mm") and wrong for a
+   button that performs an action -- nothing about pressing Speed Test edits
+   the dropdown it was welded to.
+
+    The gap comes out of the CONTROL, not the row: the input keeps
+   `flex: 1` so a wider gap shortens the field rather than pushing the
+   button off a narrow dialog, and the dropdown's append is content-sized so
+   the row grows by 6px there and nothing shifts. */
+.pinozcam-append > input,
+.pinozcam-append > select {
+    border-radius: 3px;
+}
+
+/*  THE HEIGHT MUST BE STATED, and this is the second time this exact trap
+   has cost a misaligned control here (see .pinozcam-control above).
+   `.input-append .add-on` sets `height: 20px` with `padding: 4px 5px`, which
+   Bootstrap 2 wrote for content-box -- 20 + 8 + 2 = 30. Under the
+   border-box in force here that 20px becomes the OUTER height, so the
+   button rendered 20px against a 30px dropdown. Measured, not read: 30 vs
+   20 in headless Chrome, and the standalone Test buttons (plain `.btn`, no
+   `add-on`) are 30.
+
+   Specificity is deliberately three classes so this wins over
+   `.input-append .add-on` regardless of which stylesheet OctoPrint serves
+   first. */
+.pinozcam-row .pinozcam-append > .add-on {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 30px;
+    line-height: 20px;
+    border-radius: 3px;
+    margin-left: 6px;
+}
+
+.pinozcam-row > input.input-block-level {
+    /* Take whatever is left after the "?" button and no more. width:100% on a
+       flex item is a BASIS, not a cap: without flex-shrink it would resolve to
+       the full row width and push the button out. */
+    flex: 1;
+}
+
+.pinozcam-row > input {
+    /* min-width:0 lets a fixed-width input shrink inside the flex row rather
+       than overflowing it on a narrow dialog -- input-xxlarge is 530px, wider
+       than the settings pane gets on a tablet. Deliberately NOT applied to
+       <select>: this selector is more specific than .pinozcam-select, so
+       including selects here silently overrode their min-width and collapsed
+       them to the width of the current option. */
+    min-width: 0;
+}
+
+/* The help icon. Bootstrap's .text-info already gives it the colour and its
+   hover, and Font Awesome the glyph, so only its position in the row is set
+   here -- where a hand-rolled 18px round "?" needed its own border, size,
+   line-height and hover as well. */
+.pinozcam-help-icon {
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+/* Open. The round "?" this replaced filled itself white-on-blue; an icon has
+   no circle to fill, so the open one just stops being a link colour and picks
+   up the text colour, the way OctoPrint marks an active icon. Keyed off
+   aria-expanded so the visual state and the accessible state cannot disagree
+   -- there is no second flag to forget to update. */
+.pinozcam-help-icon[aria-expanded="true"] {
+    color: #333;
+}
+
+/* Everything below the Enable AI Detection checkbox, while it is unticked.
+   The controls are already disabled natively by `<fieldset disabled>`; this is
+   only the part the browser does not do -- saying so at a glance instead of
+   one greyed <select> at a time.
+
+    `pointer-events: none` is now a BACKSTOP, not the mechanism. Every .btn
+   in this fieldset is a real <button>, so the browser disables it natively --
+   which is what closes the hole this rule could not: pointer-events stops the
+   mouse and nothing else, and an <a href> stays in the tab order, so Tab then
+   Enter still ran the test. The rule stays for any future .btn that is not a
+   form control, where it is better than nothing.
+
+    The help icons are deliberately NOT in that rule and stay clickable.
+   Reading what a setting does before deciding to switch detection on is
+   exactly when the explanation is wanted; disabling the documentation of a
+   thing because the thing is off has it backwards. They do dim along with
+   everything else, and cannot be exempted from that: `opacity` composites the
+   whole subtree, so an `opacity: 1` on a descendant restores nothing -- which
+   is why there is no such rule here pretending to. */
+.pinozcam-gated {
+    opacity: 0.55;
+}
+
+.pinozcam-gated .btn {
+    pointer-events: none;
+}
+
+/* Collapsed until its icon is clicked.  [hidden] is stated explicitly
+   because an author-level display rule beats the UA stylesheet's
+   `[hidden] { display: none }`, and OctoPrint declares no [hidden] rule of its
+   own to fall back on -- so `.help-block`'s own `display: block`, two lines
+   below in the rule this one guards, once made all 23 of these render open at
+   the same time and turned the page into a wall of text. This rule is what
+   makes adding .help-block safe. */
+.pinozcam-help-text[hidden] {
+    display: none;
+}
+
+/* An expanded help block, tied to the field above it.
+
+   .help-block already supplies OctoPrint's colour (#595959), the body font
+   size and display:block, so only what ties the block to its field is set
+   here: a rule down the left edge and the indent that goes with it. */
+.pinozcam-help-text {
+    margin-top: 6px;
+    padding-left: 10px;
+    /* A readable measure.  This was once 62em = 868px at the 14px base,
+       wider than the ~780px the settings dialog gives its content, so it never
+       bound on anything -- a cap that cannot be reached is not a cap. 44em is
+       about 88 characters: long, but still trackable for a paragraph. */
+    max-width: 44em;
+    border-left: 3px solid #e5e5e5;
+    /* Help text quotes URLs (http://192.168.0.xxx/webcam/?action=snapshot).
+       A long unbroken token has no break opportunity, so without this it
+       pushes the block wider than its container and the dialog grows a
+       horizontal scrollbar. */
+    overflow-wrap: anywhere;
+}
+
+.pinozcam-help-text ul {
+    margin: 0;
+    padding-left: 1.2em;
+}
+
+.pinozcam-help-text li + li {
+    margin-top: 4px;
+}
+
+/* Dropdowns replace the radio rows: three CPU options and a growing list
+   of actions made the inline radios wrap awkwardly on a narrow screen.
+
+    No width here. Bootstrap's .input-medium supplies it, and the width:auto
+   this used to set is what made a dropdown resize with its selected option --
+   so "OFF" and "100% of cores" rendered at different widths and no two
+   controls lined up. */
+
+/* Status chips -----------------------------------------------------------
+   Five separate text lines were a wall of prose for information that is
+   glanceable. State is carried by colour as well as by the word, so it
+   still reads without relying on colour alone. */
+/* The chips have a full-width row to themselves now that the buttons moved up
+   to the heading, so this is plain spacing rather than an alignment
+   constraint. */
+.pinozcam-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    /* Takes the slack on its header row, so the buttons opposite stay on
+       the right edge however wide the live chip text becomes. */
+    flex: 1 1 auto;
+}
+
+/*  The height is STATED, not left to padding + line-height. These sit on
+   the same row as the buttons, and Bootstrap's .btn works out to exactly 30px
+   (4px padding + 20px line-height + 4px + a 1px border each side). A chip has
+   no border, so matching by padding alone means recomputing it every time the
+   font changes -- box-sizing and an explicit height make it 30px by
+   construction, the same decision as .pinozcam-control.
+   inline-flex + align-items:center is what keeps the text vertically centred
+   inside that fixed height. 12px read as fine print next to a 14px button. */
+.chip {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 15px;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+    background: #ececec;
+    color: #555;
+}
+
+/* The brand icon inside a chip. gap on .chip would also space a chip that has
+   no icon, so the margin lives on the icon. */
+.chip > i {
+    margin-right: 6px;
+    font-size: 15px;
+}
+
+.chip-on   { background: #dff3e0; color: #1e7a2e; }
+.chip-off  { background: #ececec; color: #777; }
+.chip-warm { background: #fdf0d5; color: #8a6100; }
+.chip-hot  { background: #fbe3e3; color: #a3282a; }
+
+/* Failure gauge ----------------------------------------------------------
+   The plugin's central number is now "what fraction of the recent window
+   looked worse than this scene's own baseline". A count told the user
+   nothing about how close they were to an action; a bar filling toward a
+   marked threshold does. */
+/* Bar and its reading on ONE line. The tab's job is to be glanceable, and
+   four stacked rows of status pushed the camera image down the page. */
+/* The tab's status panel: one column, so the bar can span it.
+
+   The head row holds the heading and chips on the left and the three controls
+   on the right.  `align-items: flex-end` is what puts the buttons at the
+   BOTTOM of that row rather than level with the heading -- they are taller than
+   a line of text, and aligned to the top they float above the chips with a gap
+   underneath. flex-wrap so a narrow tab stacks them instead of overflowing. */
+/*  align-items: center, not flex-end. The row is now the heading and the
+   three icon buttons, and a 17.5px heading against a 30px button looks wrong
+   sitting on a shared bottom edge -- centred is what reads as one row.
+   (flex-end was right when the right-hand block was a column of buttons
+   beside a block of chips.) */
+.pinozcam-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+/* The gap above the failure-ratio bar. It lives on the SECOND header row,
+   not on the chips or the buttons inside it: it used to be a
+   margin-bottom on each of those two, and splitting the header into two
+   rows dropped both, leaving the bar touching the chips.
+    Adjacent sibling, NOT :last-of-type. That pseudo-class matches by
+   element TYPE, so `.pinozcam-panel-head:last-of-type` asks for the last
+   <div> among its siblings -- and the gauge <div> comes after this one,
+   so it would match nothing at all and fail silently. */
+.pinozcam-panel-head + .pinozcam-panel-head {
+    margin-bottom: 14px;
+}
+
+.pinozcam-panel-title {
+    /* Takes the slack, so the controls are pushed to the right edge and stay
+       there as the chips change width (they carry live text). */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The three controls on one row.  align-items:center, not stretch: the
+   Discord link and the wrench are different natural heights from the
+   .btn-primary, and stretch would make the icon buttons as tall as whatever the
+   tallest is and put their glyphs off-centre. */
+/* A 2x2 grid, not a flex row: two columns is the LAYOUT, so say so once
+   here rather than relying on four items wrapping at whatever width the
+   container happens to have. Row 1 acts on the plugin (Undetect Zone,
+   Settings); row 2 leaves it (GitHub, Discord).
+
+   justify-items keeps each cell's button at its natural 30px square
+   instead of stretching it across the column. */
+/* The two controls on the right of a header row. A flex ROW now, not a
+   2x2 grid: the grid held all four, and they are split across the two
+   header rows so that each pair sits opposite the thing it belongs with --
+   Status opposite the controls that act on this plugin, the chips opposite
+   the links that leave it. */
+.pinozcam-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* Never squeezed by the chips, which carry live text and grow. */
+    flex: 0 0 auto;
+}
+
+/* Status heading. <h4> because OctoPrint uses h3/h4 for its own section
+   headings and this is a section of the tab, not a form fieldset. */
+/*  ONE declaration for both, not the same number written twice.
+   "Status" and "Failure ratio" head the two blocks of this panel and have
+   to look like each other; stating 17.5px in two places is how they stop
+   doing so. 17.5px is what Bootstrap gives an <h4>, which is what Status
+   is -- "Failure ratio" is a <span> because it shares a baseline row with
+   its own value. */
+.pinozcam-status-heading,
+.gauge-name {
+    font-size: 17.5px;
+}
+
+.pinozcam-status-heading {
+    /* No margin at all: it shares a row with the buttons, and the row's own
+       margin does the spacing. */
+    margin: 0;
+}
+
+/* The failure-ratio bar.
+    It used to be `flex: 0 0 14em` and 12px tall with its only label an
+   11px grey string beside it -- so "not running" appeared with nothing
+   saying what was not running, and the bar itself was too short to read a
+   position off. It is now a block: name and value on one row, a bar the
+   full width of the column under it, and what the number is made of below
+   that. */
+.pinozcam-gauge {
+    margin: 0 0 10px;
+    /*  No max-width. It was 52em, which was right while the bar shared a
+       row with a column of buttons; it is now the full width of the panel by
+       request -- one long strip -- and a cap would just leave a gap on the
+       right on any screen wider than 728px. */
+}
+
+.gauge-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.gauge-name {
+    /* Size comes from the shared rule above, beside .pinozcam-status-heading. */
+    font-weight: bold;
+    color: #333;
+}
+
+.gauge-value {
+    /* tabular-nums so the digits do not shuffle sideways as the value
+       changes once a second. */
+    font-variant-numeric: tabular-nums;
+    color: #333;
+}
+
+.gauge-track {
+    position: relative;
+    height: 20px;
+    border-radius: 3px;
+    background: #e8e8e8;
+    /* The ticks are inside, and a tick at 100% would otherwise hang over
+       the rounded end. */
+    overflow: hidden;
+}
+
+.gauge-fill {
+    height: 100%;
+    width: 0;
+    background: #0088cc;
+    /* Slower than the 1 s poll so the bar glides rather than stepping. */
+    transition: width 0.9s linear, background-color 0.3s;
+}
+
+.gauge-act  { background: #d9534f; }
+
+.gauge-mark {
+    position: absolute;
+    top: 0;
+    /* 3px at 20px tall reads as a tick; 2px on a 12px bar did not. */
+    width: 3px;
+    height: 100%;
+}
+
+.gauge-mark-act { background: rgba(120, 0, 0, 0.65); }
+
+.gauge-detail {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #595959;          /* OctoPrint's own help-block colour */
+    font-variant-numeric: tabular-nums;
+}
+
+/* Evidence strip ---------------------------------------------------------
+   These frames were already being kept in memory, ranked by sharpness, and
+   never shown. They answer the only question a user has after an alert:
+   was that real? */
+.evidence-strip {
+    margin-top: 12px;
+}
+
+.evidence-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.evidence-title .mask-meta {
+    font-weight: normal;
+    margin-left: 6px;
+}
+
+.evidence-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.evidence-card {
+    width: 220px;
+}
+
+.evidence-thumb {
+    width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: zoom-in;
+    background: #222;
+    min-height: 60px;
+}
+
+.evidence-meta {
+    font-size: 11px;
+    color: #777;
+    margin: 3px 0 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Discord link. Bigger than the 18 px it was: it was the only thing in the
+   right-hand column below the buttons and read as an artefact rather than a
+   link. */
+/* Brand button. Solid service colour, logo, verb -- the shape a "follow us"
+   button has everywhere, and the reason it is not a Bootstrap .btn: a grey
+   button sitting beside two other grey buttons reads as a third control of
+   the printer rather than an invitation.
+
+   #5865F2 is Discord's own brand colour; #4752C4 is the darker shade its
+   brand guidance uses for hover. */
+.pinozcam-brand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 7px 14px;
+    border: 0;
+    border-radius: 4px;
+    background: #5865F2;
+    color: #fff;
+    font-weight: bold;
+    line-height: 18px;
+    text-decoration: none;
+}
+
+/* Icon only. Without this the padding meant for "logo + label" leaves a wide
+   blurple pill around a lone 18px glyph. Squared up to the same 30px box
+   Bootstrap's .btn ends up as, so the three controls line up.  The margin-top
+   from .pinozcam-brand-btn is cancelled -- it existed to separate the button
+   from the one stacked above it, and there is nothing above it now. */
+/* GitHub's own mark is black on light and white on dark, so neither is a
+   safe fixed background here -- OctoPrint ships both themes. A neutral grey
+   with the mark in currentColor reads on either. */
+.pinozcam-brand-github {
+    background: #6e7781;
+}
+
+/*  ONE size for all four header buttons, and it is stated rather than
+   left to padding. Two of them are Bootstrap .btn (padding + line-height +
+   border) and two are brand links with their own padding, so they only
+   agreed by coincidence -- and did not, once they shared a row. A square
+   box makes them agree by construction.
+
+   30px is what Bootstrap's .btn works out to (4px padding + 20px
+   line-height + 4px + a 1px border each side), so the row height is
+   unchanged and the chips beside them still line up. */
+.pinozcam-icon-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    margin-top: 0;
+    padding: 0;
+    gap: 0;
+}
+
+.pinozcam-brand-btn:hover,
+.pinozcam-brand-btn:focus {
+    /* Both states, and colour restated: Bootstrap's `a:hover` sets its own
+       colour, which would turn the label blue on a blurple fill. */
+    background: #4752C4;
+    color: #fff;
+    text-decoration: none;
+}
+
+/* Field-level validation message. Replaces alert(), which blocked the page
+   and then discarded what the user had typed. */
+.pinozcam-field-error {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #b94a48;   /* Bootstrap 2's form-error colour */
+}
+
+/* Separate the consequence from the measurements that feed it. The Black
+   Box field belongs with Sensitivity; Action on Failure starts the next
+   decision group and should not look like a fifth threshold. */
+.pinozcam-action-gap {
+    padding-top: 14px;
+}
+
+/* Setup wizard. Two decisions and a working default behind everything
+   else -- a new user should not meet twenty fields with no indication of
+   which two are load bearing. */
+.pinozcam-wizard h3 {
+    margin: 14px 0 4px;
+}
+
+.pinozcam-wizard .wizard-note {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 4px 0 0;
+}
+
+.pinozcam-wizard .wizard-warn {
+    color: #8a6100;
+}
+
+/*  .pinozcam-settings-btn is gone, not renamed. It existed only for the
+   `margin-bottom` that separated it from the button stacked underneath, and the
+   controls are on one row now with the row's `gap` doing that job. Bootstrap's
+   .btn supplies the rest, and the icon inherits its size from the button's font
+   like every other OctoPrint icon button. */
+
+
+/* Sensitivity slider -----------------------------------------------------
+   Layout: a fixed-width track box holds the rail, the dots and the input,
+   all stacked. The input is on top and transparent, so it takes the pointer
+   and the keyboard while the visible bar is ordinary markup underneath.
+
+    Every vendor pseudo-element gets its OWN rule. Putting a -webkit- and a
+   -moz- selector in one comma list makes both browsers throw the whole rule
+   away, which is how the bar came to render as nothing at all. */
+.pinozcam-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pinozcam-slider-track {
+    position: relative;
+    width: 14em;                /* matches .pinozcam-control, so the column
+                                   of controls stays aligned */
+    height: 30px;
+}
+
+/* The rail: a 4px bar centred vertically. */
+.pinozcam-slider-rail {
+    position: absolute;
+    top: 13px;
+    left: 8px;
+    right: 8px;
+    height: 4px;
+    border-radius: 2px;
+    background: #d5d5d5;
+}
+
+/* The dots, spread by flexbox rather than by percentages, so their centres
+   land where the thumb's centre can actually reach. A range thumb travels
+   from half a thumb-width in to half a thumb-width from the end, which is
+   the 8px inset used here and on the rail. */
+.pinozcam-slider-dots {
+    position: absolute;
+    top: 9px;
+    left: 8px;
+    right: 8px;
+    height: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pinozcam-slider-dots > span {
+    width: 12px;
+    height: 12px;
+    margin: 0 -6px;             /* centre the end dots on the rail ends */
+    border-radius: 50%;
+    background: #d5d5d5;
+    box-shadow: 0 0 0 2px #fff; /* separates a dot from the rail behind it */
+}
+
+/* The input sits over all of that, invisible but hit-testable. */
+.pinozcam-range {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 100%;
+    height: 30px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.pinozcam-range::-webkit-slider-runnable-track {
+    height: 30px;
+    background: transparent;
+    border: 0;
+}
+
+.pinozcam-range::-moz-range-track {
+    height: 30px;
+    background: transparent;
+    border: 0;
+}
+
+.pinozcam-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 7px;            /* centres a 16px thumb on a 30px track */
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #0088cc;        /* OctoPrint's link colour */
+    box-shadow: 0 0 0 1px #0088cc;
+}
+
+.pinozcam-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #0088cc;
+    box-shadow: 0 0 0 1px #0088cc;
+}
+
+/*  outline:none removes the only indication a keyboard user has of where
+   focus is, so it is paired with a ring on the thumb. Separate rules again. */
+.pinozcam-range:focus {
+    outline: none;
+}
+
+.pinozcam-range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.4);
+}
+
+.pinozcam-range:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.4);
+}
+
+.pinozcam-slider-value {
+    /* Reserved so nothing shifts as the name changes length between
+       "Low" and "Highest". */
+    min-width: 5em;
+    /* Not bold. The name is the value of a control, not a heading, and
+       OctoPrint sets no weight on its own field values either. */
+    color: #333;
+}
+
+/* ---- Live view frame + detection overlay --------------------------- */
+
+#ai-image-wrap {
+    /* The anchor the canvas is positioned against. inline-block so the
+       wrapper shrinks to the image instead of spanning the tab, which
+       would strand the (left-aligned) canvas off the picture. */
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+#ai-image {
+    /* block, or the inline baseline gap leaves 4px of wrapper below the
+       image and the canvas overhangs it. */
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+#ai-overlay {
+    /* Sized in pixels by drawOverlay (pinozcam.js) to match the image's
+       displayed size; boxes are drawn in display coordinates. */
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* Clicks fall through to the image. */
+    pointer-events: none;
 }

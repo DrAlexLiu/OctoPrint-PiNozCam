@@ -1,8 +1,20 @@
-# Ignore the OctoPrint_PiNozCam.egg-info directory
-OctoPrint_PiNozCam.egg-info/
-
-# Ignore all __pycache__ directories
+# Python and package build output.
+*.egg-info/
 __pycache__/
-
-# Ignore all .pyc files
 *.pyc
+build/
+dist/
+
+# Native runners and model artifacts belong in release runtime Wheels, not Git.
+*.engine
+*.nb
+*.onnx
+*.plan
+*.pte
+*.rknn
+*.static
+octoprint_pinozcam/static/bin/
+octoprint_pinozcam/static/models/
+src/rockchip/nozcam_rockchip_daemon
+src/allwinner/nozcam_allwinner_daemon
+src/allwinner/.build/

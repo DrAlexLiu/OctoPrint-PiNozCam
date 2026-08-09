@@ -1,0 +1,18 @@
+# SHA-256 of the eight native runtime Wheels prepared for PiNozCam 1.1.0rc1.
+#
+# The GitHub source/tag archive intentionally contains no runner or model.
+# setup.py reads this file and appends the selected Wheel's digest to its
+# PEP 508 URL, so pip verifies the bytes while downloading the dependency.
+# Every Wheel also carries manifest.json with per-runner/model digests.
+#
+# Verify downloaded release assets from their directory with:
+#   sha256sum -c CHECKSUMS.txt
+
+f0b2cd244d5976810b0afb45e8ecfc3c3f0b8747091433c5a95b6db8757a68b4  pinozcam_runtime_aarch64-1.1.0rc1-py3-none-linux_aarch64.whl
+d19838955053dcbe0f06ddeff18d121863d64a83f62fd479118f2a3fdbf23819  pinozcam_runtime_a733-1.1.0rc1-py3-none-linux_aarch64.whl
+52c82da932f96669f108d90244f1970ea1631b223355c9468232f5b29ac57f3c  pinozcam_runtime_armhf-1.1.0rc1-py3-none-linux_armv7l.whl
+507de8464beffae4b893483bf5f639731d6c73daba3b0c7cb3f5b3dacdbbe228  pinozcam_runtime_jetson_orin-1.1.0rc1-py3-none-linux_aarch64.whl
+a2c0dd2593789aad44aa17f60653c331334589556fd928ae9cae0e51d1a1fd19  pinozcam_runtime_rknn3566-1.1.0rc1-py3-none-linux_aarch64.whl
+7ed74bf937b9fd796aa013c0cd85eb5602a229bee5d98db7130039cec62dc105  pinozcam_runtime_rknn3576-1.1.0rc1-py3-none-linux_aarch64.whl
+fe99636231f303b06e1e58e2f9cc9023d7486974dc6dacb7f32a1db87a444d2e  pinozcam_runtime_rknn3588-1.1.0rc1-py3-none-linux_aarch64.whl
+a05a753f382bb4a41d5670d685c66acb183fe02958f68389d867efe2d51c37af  pinozcam_runtime_x86_64-1.1.0rc1-py3-none-linux_x86_64.whl
