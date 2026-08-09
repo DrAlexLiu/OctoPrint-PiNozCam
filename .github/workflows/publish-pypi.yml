@@ -1,0 +1,236 @@
+name: Publish runtime Wheels to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub pre-release tag containing the eight runtime Wheels
+        required: true
+        default: 1.1.0rc5
+        type: string
+      runtime_target:
+        description: Upload one runtime project while bootstrapping, or all later
+        required: true
+        default: cpu
+        type: choice
+        options:
+          - cpu
+          - rknn3566
+          - rknn3576
+          - rknn3588
+          - a733
+          - jetson_orin
+          - all
+
+concurrency:
+  group: pypi-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Verify GitHub Release assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Download runtime Wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'pinozcam_runtime*.whl' \
+            --dir dist
+
+      - name: Verify release version, file set, and SHA-256
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import re
+          import zipfile
+
+          root = Path.cwd()
+          setup_text = (root / "setup.py").read_text(encoding="utf-8")
+          match = re.search(
+              r'^plugin_version\s*=\s*["\']([^"\']+)["\']',
+              setup_text,
+              re.MULTILINE,
+          )
+          if not match:
+              raise SystemExit("plugin_version is missing from setup.py")
+
+          release_tag = os.environ["RELEASE_TAG"]
+          version = match.group(1)
+          if release_tag != version:
+              raise SystemExit(
+                  "release tag {!r} does not match plugin version {!r}".format(
+                      release_tag, version
+                  )
+              )
+
+          expected = {}
+          for raw_line in (root / "CHECKSUMS.txt").read_text(
+              encoding="ascii"
+          ).splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              digest, filename = line.split(None, 1)
+              if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                  raise SystemExit("invalid SHA-256 entry: {!r}".format(raw_line))
+              if filename in expected:
+                  raise SystemExit("duplicate checksum entry: " + filename)
+              expected[filename] = digest
+
+          if len(expected) != 8:
+              raise SystemExit(
+                  "CHECKSUMS.txt describes {} Wheels, expected 8".format(
+                      len(expected)
+                  )
+              )
+          if any(
+              not name.startswith("pinozcam_runtime")
+              or not name.endswith(".whl")
+              for name in expected
+          ):
+              raise SystemExit("CHECKSUMS.txt contains a non-runtime artifact")
+
+          actual_paths = sorted((root / "dist").glob("*.whl"))
+          actual = {path.name: path for path in actual_paths}
+          missing = sorted(set(expected) - set(actual))
+          unexpected = sorted(set(actual) - set(expected))
+          if missing or unexpected:
+              raise SystemExit(
+                  "release asset set differs from CHECKSUMS.txt; "
+                  "missing={!r}, unexpected={!r}".format(missing, unexpected)
+              )
+
+          for filename in sorted(expected):
+              digest = hashlib.sha256(actual[filename].read_bytes()).hexdigest()
+              if digest != expected[filename]:
+                  raise SystemExit(
+                      "SHA-256 mismatch for {}: expected {}, got {}".format(
+                          filename, expected[filename], digest
+                      )
+                  )
+              platform_tag = filename[:-4].rsplit("-", 1)[-1]
+              if not re.fullmatch(
+                  r"manylinux(?:2014|_[0-9]+_[0-9]+)_"
+                  r"(?:armv7l|aarch64|x86_64)",
+                  platform_tag,
+              ):
+                  raise SystemExit(
+                      "unsupported public Linux Wheel tag in {}: {}".format(
+                          filename, platform_tag
+                      )
+                  )
+              with zipfile.ZipFile(actual[filename]) as archive:
+                  wheel_metadata = next(
+                      name for name in archive.namelist()
+                      if name.endswith(".dist-info/WHEEL")
+                  )
+                  core_metadata = next(
+                      name for name in archive.namelist()
+                      if name.endswith(".dist-info/METADATA")
+                  )
+                  wheel_text = archive.read(wheel_metadata).decode("utf-8")
+                  metadata_text = archive.read(core_metadata).decode("utf-8")
+              expected_tag = "Tag: py3-none-{}".format(platform_tag)
+              if expected_tag not in wheel_text:
+                  raise SystemExit(
+                      "filename/metadata tag mismatch in " + filename
+                  )
+              if "Project-URL: Source," not in metadata_text:
+                  raise SystemExit("source URL missing from " + filename)
+              if "Description-Content-Type:" not in metadata_text:
+                  raise SystemExit(
+                      "long-description metadata missing from " + filename
+                  )
+              print("{}  {}".format(digest, filename))
+          PY
+
+      - name: Select Wheels for this upload
+        env:
+          RUNTIME_TARGET: ${{ inputs.runtime_target }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import shutil
+
+          wheel_stems = {
+              "cpu": "pinozcam_runtime-",
+              "rknn3566": "pinozcam_runtime_rknn3566-",
+              "rknn3576": "pinozcam_runtime_rknn3576-",
+              "rknn3588": "pinozcam_runtime_rknn3588-",
+              "a733": "pinozcam_runtime_a733-",
+              "jetson_orin": "pinozcam_runtime_jetson_orin-",
+          }
+          source = Path("dist")
+          destination = Path("publish-dist")
+          destination.mkdir()
+          target = os.environ["RUNTIME_TARGET"]
+          wheels = sorted(source.glob("*.whl"))
+          if target != "all":
+              prefix = wheel_stems[target]
+              wheels = [path for path in wheels if path.name.startswith(prefix)]
+          expected_count = (
+              8 if target == "all" else 3 if target == "cpu" else 1
+          )
+          if len(wheels) != expected_count:
+              raise SystemExit(
+                  "target {!r} selected {} Wheels, expected {}".format(
+                      target, len(wheels), expected_count
+                  )
+              )
+          for wheel in wheels:
+              shutil.copy2(str(wheel), str(destination / wheel.name))
+              print("selected " + wheel.name)
+          PY
+
+      - name: Stage verified Wheels for publishing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-runtime-wheels
+          path: publish-dist/*.whl
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Upload to PyPI
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - name: Download verified Wheels
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-runtime-wheels
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/
