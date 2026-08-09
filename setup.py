@@ -11,8 +11,8 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc5"
-runtime_version = plugin_version
+plugin_version = "1.1.0rc6"
+runtime_version = "1.1.0rc5"
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
     "board. Requires Linux on ARM32, ARM64 or x86_64."
@@ -319,29 +319,18 @@ else:
                                    {"cpu_arch": None, "rknn_chip": None,
                                     "awnn": False, "vulkan": False})
 
-# The GitHub source archive contains only the plugin.  Let the *outer* pip
-# process resolve the target-native payload as a normal PEP 508 dependency;
-# never launch a nested ``pip install`` or perform an ad-hoc download from
-# setup.py.  This gives pip normal retry/error reporting and prevents a plugin
-# install from succeeding with a half-downloaded model.
+# The GitHub source archive contains only the plugin. Let the outer pip process
+# resolve the target-native payload from its configured package index, normally
+# PyPI. Never launch a nested pip install or perform an ad-hoc download here.
 _RUNTIME_REQUIREMENTS = {
-    "armhf": ("pinozcam-runtime", "pinozcam_runtime",
-              "manylinux2014_armv7l"),
-    "aarch64": ("pinozcam-runtime", "pinozcam_runtime",
-                "manylinux2014_aarch64"),
-    "x86_64": ("pinozcam-runtime", "pinozcam_runtime",
-               "manylinux2014_x86_64"),
-    "rknn3566": ("pinozcam-runtime-rknn3566",
-                 "pinozcam_runtime_rknn3566", "manylinux_2_29_aarch64"),
-    "rknn3576": ("pinozcam-runtime-rknn3576",
-                 "pinozcam_runtime_rknn3576", "manylinux_2_29_aarch64"),
-    "rknn3588": ("pinozcam-runtime-rknn3588",
-                 "pinozcam_runtime_rknn3588", "manylinux_2_29_aarch64"),
-    "awnn": ("pinozcam-runtime-a733", "pinozcam_runtime_a733",
-             "manylinux_2_29_aarch64"),
-    "vulkan": ("pinozcam-runtime-jetson-orin",
-               "pinozcam_runtime_jetson_orin",
-               "manylinux_2_38_aarch64"),
+    "armhf": "pinozcam-runtime",
+    "aarch64": "pinozcam-runtime",
+    "x86_64": "pinozcam-runtime",
+    "rknn3566": "pinozcam-runtime-rknn3566",
+    "rknn3576": "pinozcam-runtime-rknn3576",
+    "rknn3588": "pinozcam-runtime-rknn3588",
+    "awnn": "pinozcam-runtime-a733",
+    "vulkan": "pinozcam-runtime-jetson-orin",
 }
 
 if _content["rknn_chip"]:
@@ -356,28 +345,8 @@ else:
     _runtime_target = _content["cpu_arch"]
 
 if _runtime_target in _RUNTIME_REQUIREMENTS:
-    _dist, _wheel_stem, _wheel_plat = _RUNTIME_REQUIREMENTS[_runtime_target]
-    _runtime_base = os.environ.get(
-        "PINOZCAM_RUNTIME_BASE_URL",
-        "https://github.com/DrAlexLiu/OctoPrint-PiNozCAM/releases/download/%s"
-        % runtime_version).rstrip("/")
-    _runtime_filename = "%s-%s-py3-none-%s.whl" % (
-        _wheel_stem, runtime_version, _wheel_plat)
-    _runtime_sums_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "CHECKSUMS.txt")
-    _runtime_hashes = {}
-    with open(_runtime_sums_path, "r", encoding="ascii") as _handle:
-        for _line in _handle:
-            _parts = _line.strip().split(None, 1)
-            if len(_parts) == 2:
-                _runtime_hashes[_parts[1]] = _parts[0]
-    _runtime_sha256 = _runtime_hashes.get(_runtime_filename)
-    if not _runtime_sha256:
-        raise RuntimeError(
-            "no pinned SHA-256 for runtime Wheel %s" % _runtime_filename)
-    _runtime_requirement = "%s @ %s/%s#sha256=%s" % (
-        _dist, _runtime_base, _runtime_filename, _runtime_sha256)
+    _runtime_dist = _RUNTIME_REQUIREMENTS[_runtime_target]
+    _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
     print("PiNozCam runtime target: %s" % _runtime_target)

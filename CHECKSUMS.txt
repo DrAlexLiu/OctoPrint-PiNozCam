@@ -1,8 +1,7 @@
-# SHA-256 of the eight native runtime Wheels prepared for PiNozCam 1.1.0rc5.
+# SHA-256 of the eight 1.1.0rc5 runtime Wheels consumed by PiNozCam 1.1.0rc6.
 #
 # The GitHub source/tag archive intentionally contains no runner or model.
-# setup.py reads this file and appends the selected Wheel's digest to its
-# PEP 508 URL, so pip verifies the bytes while downloading the dependency.
+# setup.py pins the selected PyPI runtime distribution to this exact version.
 # Every Wheel also carries manifest.json with per-runner/model digests.
 #
 # Verify downloaded release assets from their directory with:

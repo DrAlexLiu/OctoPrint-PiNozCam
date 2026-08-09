@@ -8,8 +8,9 @@ already-published Wheel.
 ## Artifacts
 
 The GitHub tag archive contains the OctoPrint plugin and native runner source,
-but no runner binary or model. `setup.py` selects one SHA-256-pinned runtime
-Wheel from the matching GitHub Release.
+but no runner binary or model. `setup.py` selects one runtime distribution for
+the detected platform and pins its exact version. The outer pip process resolves
+that dependency from its configured package index, normally production PyPI.
 
 There are eight Wheels in six Python projects:
 
@@ -22,51 +23,62 @@ There are eight Wheels in six Python projects:
 | `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback |
 | `pinozcam-runtime-jetson-orin` | Jetson Orin Vulkan plus ARM CPU fallback |
 
-`CHECKSUMS.txt`, the GitHub Release assets, and the files uploaded to PyPI must
-describe exactly the same bytes.
+`CHECKSUMS.txt` records the eight files for the selected runtime version. Its
+digests must match the files published to PyPI and the runtime GitHub Release.
+The plugin and runtime versions are intentionally independent: a plugin-only
+fix can reuse an already published and verified runtime release.
 
 ## 1. Prepare the candidate
 
 1. Work on `release/1.1.0` and ensure the tree is clean.
-2. Set `plugin_version` and `runtime_version` in `setup.py` to the same value,
-   for example `1.1.0rc5`.
-3. Build all eight native Wheels for that exact version.
-4. Regenerate `CHECKSUMS.txt` and run `sha256sum -c CHECKSUMS.txt` in the
-   artifact directory.
-5. Confirm every Wheel contains its runtime manifest, licenses, source URL,
-   and the intended platform tag.
-6. Commit, then create and push an annotated tag on that commit:
+2. Set `plugin_version` to the new plugin version and `runtime_version` to the
+   exact runtime already published on PyPI. For the current candidate these are
+   `1.1.0rc6` and `1.1.0rc5`, respectively.
+3. If native payloads changed, build and publish all eight Wheels under a new
+   runtime version before preparing the plugin. If they did not change, do not
+   rebuild or re-upload them.
+4. Confirm `CHECKSUMS.txt` describes the selected runtime version. When a new
+   runtime was built, run `sha256sum -c CHECKSUMS.txt` in its artifact directory.
+5. Confirm every new Wheel contains its runtime manifest, licenses, source URL,
+   and intended platform tag.
+6. Run the packaging tests, commit, then create and push an annotated tag on
+   that commit:
 
 ```bash
-git tag -a 1.1.0rc5 -m "PiNozCam 1.1.0rc5"
+git tag -a 1.1.0rc6 -m "PiNozCam 1.1.0rc6"
 git push origin release/1.1.0
-git push origin 1.1.0rc5
+git push origin 1.1.0rc6
 ```
 
 ## 2. Create the GitHub pre-release
 
-Upload the eight Wheels and `CHECKSUMS.txt`; the source ZIP is generated from
-the tag automatically.
+The source ZIP is generated from the tag automatically. A plugin-only release
+attaches `CHECKSUMS.txt` for the runtime it consumes; it does not duplicate the
+unchanged runtime Wheels from the earlier runtime release.
 
 ```bash
-gh release create 1.1.0rc5 \
-  /path/to/runtime-artifacts/*.whl \
+gh release create 1.1.0rc6 \
   CHECKSUMS.txt \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
   --verify-tag \
   --prerelease \
-  --title "v1.1.0rc5" \
+  --title "v1.1.0rc6" \
   --notes "Release candidate for PiNozCam 1.1.0."
 ```
 
-Download the release into an empty directory and verify it independently:
+Download the release metadata into an empty directory and verify that the tag
+and recorded runtime version are the intended ones:
 
 ```bash
-gh release download 1.1.0rc5 \
+gh release download 1.1.0rc6 \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
-  --pattern '*.whl' --pattern CHECKSUMS.txt
-sha256sum -c CHECKSUMS.txt
+  --pattern CHECKSUMS.txt
+git show 1.1.0rc6:setup.py | grep -E 'plugin_version|runtime_version'
 ```
+
+When the runtime changes, its eight Wheels are attached to that runtime's
+GitHub pre-release before they are uploaded to either package index. Download
+those assets independently and run `sha256sum -c CHECKSUMS.txt` before upload.
 
 ## 3. Publish to TestPyPI
 
@@ -137,10 +149,10 @@ same filename, so verify the GitHub Release first and never reuse a version.
 
 The PyPI test above validates the package index. The following validates the
 actual OctoPrint install path, including `setup.py` hardware selection and the
-SHA-256-pinned GitHub dependency:
+exact PyPI runtime dependency:
 
 ```text
-https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc5.zip
+https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc6.zip
 ```
 
 For every target:
@@ -151,7 +163,9 @@ For every target:
 4. Uninstall `OctoPrint-PiNozCam` and every old/new `pinozcam-runtime*`
    distribution. This does not delete OctoPrint's `config.yaml`.
 5. Confirm no PiNozCam distribution remains in `pip list`.
-6. Install the tag ZIP with `--no-cache-dir --no-build-isolation`.
+6. Install the tag ZIP with `--no-cache-dir --no-build-isolation`. Preserve the
+   pip output as evidence that the exact `runtime_version` came from PyPI rather
+   than a GitHub asset URL.
 7. Restart OctoPrint and confirm the plugin version and selected runtime.
 8. Call `/plugin/pinozcam/check` and run one authenticated Speed Test.
 9. Require HTTP 200, `backendError=false`, and a successful inference.
@@ -167,10 +181,11 @@ userspace must be included because pip selects Wheels for the userspace ABI.
 
 Do not promote an RC artifact by renaming it. After the candidate passes:
 
-1. Set both versions to `1.1.0`.
-2. Rebuild all eight Wheels and regenerate `CHECKSUMS.txt`.
+1. Build all eight runtime Wheels as version `1.1.0`, regenerate
+   `CHECKSUMS.txt`, and publish them through the production workflow.
+2. Set `plugin_version` and `runtime_version` to `1.1.0`.
 3. Repeat the GitHub Release, checksum, clean-install, and inference checks.
-4. Publish through the production workflow. Its publish action must not set
+4. The production publish action must not set
    TestPyPI's `repository-url`.
 5. Manually merge the verified release commit to `master`, create the immutable
    `1.1.0` tag on that commit, and publish the non-prerelease GitHub Release.
