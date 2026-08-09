@@ -1,4 +1,4 @@
-# SHA-256 of the eight native runtime Wheels prepared for PiNozCam 1.1.0rc4.
+# SHA-256 of the eight native runtime Wheels prepared for PiNozCam 1.1.0rc5.
 #
 # The GitHub source/tag archive intentionally contains no runner or model.
 # setup.py reads this file and appends the selected Wheel's digest to its
@@ -8,11 +8,11 @@
 # Verify downloaded release assets from their directory with:
 #   sha256sum -c CHECKSUMS.txt
 
-6343fd4e31e89895cfa4ae34806a878880fa5f4a272e68ff8ffd29930614afe0  pinozcam_runtime-1.1.0rc4-py3-none-manylinux2014_aarch64.whl
-0dbafaedd2fe6d83c599e9680c6c0e3573fbed159e95d00c54a8ef0de670c9f1  pinozcam_runtime-1.1.0rc4-py3-none-manylinux2014_armv7l.whl
-6fa6b2e857bfaa26e9e4dde13e0e713c1f699e1c841697a040c71e808bf2cb54  pinozcam_runtime-1.1.0rc4-py3-none-manylinux2014_x86_64.whl
-3a35a93da6f46f4df441a2548aa7bef0ff2bda74658fbfe8650d59501cfcbde1  pinozcam_runtime_a733-1.1.0rc4-py3-none-manylinux_2_29_aarch64.whl
-4eea0346431237cc79bc4ebca4b2cff2741b8cda62477c175dacd19545f74867  pinozcam_runtime_jetson_orin-1.1.0rc4-py3-none-manylinux_2_38_aarch64.whl
-7160d1cb83d4e84254237fd7bdeddf03efbe119fbae7ff4590c902ad80a71415  pinozcam_runtime_rknn3566-1.1.0rc4-py3-none-manylinux_2_29_aarch64.whl
-0ee7cda694e961b87d033b2ee0bb3fc1c60dd72b19d0416d604cec2c1b77c30b  pinozcam_runtime_rknn3576-1.1.0rc4-py3-none-manylinux_2_29_aarch64.whl
-737f0a63626d2c65830810218dc3699a5c55eb003ee3093946a90ac3a69f500f  pinozcam_runtime_rknn3588-1.1.0rc4-py3-none-manylinux_2_29_aarch64.whl
+81a04c377fedcd01821769d1496fe7d4c519445788fbe72beca8b783aff37595  pinozcam_runtime-1.1.0rc5-py3-none-manylinux2014_aarch64.whl
+6dc9b5687a10bf9ea80e071aca9d7f1a6cd102d4f9da9fc427c8bd1b0ef583ec  pinozcam_runtime-1.1.0rc5-py3-none-manylinux2014_armv7l.whl
+4fb0c81936003043f8db1722adfc65841dd23b29510b5cfe00a082a20dbb6382  pinozcam_runtime-1.1.0rc5-py3-none-manylinux2014_x86_64.whl
+6fe4ef17b71be17c512bf3d993a6751898bc697d1bf093aae8a1f40c45840907  pinozcam_runtime_a733-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
+fa5022a37ddc1815ec31604b7a73a38ca491e424fb224504a5e31d3ee00ec052  pinozcam_runtime_jetson_orin-1.1.0rc5-py3-none-manylinux_2_38_aarch64.whl
+b08df012e6331f5b151bed71c4a0e58e78ef95f93793ab69858f336f7a220075  pinozcam_runtime_rknn3566-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
+9597328c96400523fb26d5468e6f914d62bb6d706a4c652433f8dfb17f440aac  pinozcam_runtime_rknn3576-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
+11ac73dc272f84e79c5c0990d28b21d43bd27c4ea0a598fd6888691a721786f3  pinozcam_runtime_rknn3588-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl

@@ -29,7 +29,7 @@ describe exactly the same bytes.
 
 1. Work on `release/1.1.0` and ensure the tree is clean.
 2. Set `plugin_version` and `runtime_version` in `setup.py` to the same value,
-   for example `1.1.0rc4`.
+   for example `1.1.0rc5`.
 3. Build all eight native Wheels for that exact version.
 4. Regenerate `CHECKSUMS.txt` and run `sha256sum -c CHECKSUMS.txt` in the
    artifact directory.
@@ -38,9 +38,9 @@ describe exactly the same bytes.
 6. Commit, then create and push an annotated tag on that commit:
 
 ```bash
-git tag -a 1.1.0rc4 -m "PiNozCam 1.1.0rc4"
+git tag -a 1.1.0rc5 -m "PiNozCam 1.1.0rc5"
 git push origin release/1.1.0
-git push origin 1.1.0rc4
+git push origin 1.1.0rc5
 ```
 
 ## 2. Create the GitHub pre-release
@@ -49,20 +49,20 @@ Upload the eight Wheels and `CHECKSUMS.txt`; the source ZIP is generated from
 the tag automatically.
 
 ```bash
-gh release create 1.1.0rc4 \
+gh release create 1.1.0rc5 \
   /path/to/runtime-artifacts/*.whl \
   CHECKSUMS.txt \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
   --verify-tag \
   --prerelease \
-  --title "v1.1.0rc4" \
+  --title "v1.1.0rc5" \
   --notes "Release candidate for PiNozCam 1.1.0."
 ```
 
 Download the release into an empty directory and verify it independently:
 
 ```bash
-gh release download 1.1.0rc4 \
+gh release download 1.1.0rc5 \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
   --pattern '*.whl' --pattern CHECKSUMS.txt
 sha256sum -c CHECKSUMS.txt
@@ -89,7 +89,7 @@ Run one target at a time while bootstrapping the projects:
 gh workflow run publish-testpypi.yml \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
   --ref release/1.1.0 \
-  -f release_tag=1.1.0rc4 \
+  -f release_tag=1.1.0rc5 \
   -f runtime_target=cpu
 ```
 
@@ -104,17 +104,43 @@ Test a published Wheel without altering an OctoPrint environment:
 python3 -m venv /tmp/pinozcam-wheel-test
 /tmp/pinozcam-wheel-test/bin/pip install \
   --index-url https://test.pypi.org/simple/ \
-  --no-deps pinozcam-runtime==1.1.0rc4
+  --no-deps pinozcam-runtime==1.1.0rc5
 ```
 
-## 4. End-to-end install test
+## 4. Publish a release candidate to production PyPI
+
+Production PyPI is a separate package index. Register a pending Trusted
+Publisher for each of the six project names, using:
+
+- owner: `DrAlexLiu`
+- repository: `OctoPrint-PiNozCam`
+- workflow: `publish-pypi.yml`
+- environment: `pypi`
+
+The GitHub `pypi` environment must require manual approval. Upload one project
+at a time while the pending publishers create the six projects:
+
+```bash
+gh workflow run publish-pypi.yml \
+  --repo DrAlexLiu/OctoPrint-PiNozCam \
+  --ref release/1.1.0 \
+  -f release_tag=1.1.0rc5 \
+  -f runtime_target=cpu
+```
+
+Repeat with `rknn3566`, `rknn3576`, `rknn3588`, `a733`, and `jetson_orin`.
+Review and approve each `pypi` deployment before upload. Production PyPI does
+not permit deleting a release file and uploading different bytes under the
+same filename, so verify the GitHub Release first and never reuse a version.
+
+## 5. End-to-end install test
 
 The PyPI test above validates the package index. The following validates the
 actual OctoPrint install path, including `setup.py` hardware selection and the
 SHA-256-pinned GitHub dependency:
 
 ```text
-https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc4.zip
+https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc5.zip
 ```
 
 For every target:
@@ -137,19 +163,17 @@ The minimum matrix is ARM 32-bit CPU, ARM 64-bit CPU, x86-64 CPU, RK3566,
 RK3576, RK3588, A733, and Jetson Orin. A 64-bit kernel with a 32-bit Python
 userspace must be included because pip selects Wheels for the userspace ABI.
 
-## 5. Promote to a stable release
+## 6. Promote to a stable release
 
 Do not promote an RC artifact by renaming it. After the candidate passes:
 
 1. Set both versions to `1.1.0`.
 2. Rebuild all eight Wheels and regenerate `CHECKSUMS.txt`.
 3. Repeat the GitHub Release, checksum, clean-install, and inference checks.
-4. Configure the six projects again on production `pypi.org`, using a separate
-   GitHub `pypi` environment with manual approval.
-5. Publish through a separate production workflow. Its publish action must not
-   set TestPyPI's `repository-url`.
-6. Merge the verified release commit to `master`, create the immutable `1.1.0`
-   tag on that commit, and publish the non-prerelease GitHub Release.
+4. Publish through the production workflow. Its publish action must not set
+   TestPyPI's `repository-url`.
+5. Manually merge the verified release commit to `master`, create the immutable
+   `1.1.0` tag on that commit, and publish the non-prerelease GitHub Release.
 
 ## 1.1.0rc3 validation record
 
