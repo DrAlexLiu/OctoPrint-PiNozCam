@@ -11,7 +11,7 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc3"
+plugin_version = "1.1.0rc4"
 runtime_version = plugin_version
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
@@ -300,7 +300,9 @@ if _TARGET_ARCH:
     _content = _TARGET_CONTENT[_TARGET_ARCH]
 elif _host_cpu_arch == "aarch64":
     _chip = _detect_rockchip_chip()
-    _rknn_target = "aarch64-rknn%s" % _chip if _chip else None
+    _rknn_target = ("aarch64-rknn%s" % (
+        _chip[2:] if _chip.startswith("rk") else _chip)
+        if _chip else None)
     if (_rknn_target in _TARGET_CONTENT and
             _rknn_runtime_present()):
         _content = _TARGET_CONTENT[_rknn_target]

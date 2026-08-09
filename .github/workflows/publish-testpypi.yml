@@ -6,7 +6,7 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the eight runtime Wheels
         required: true
-        default: 1.1.0rc3
+        default: 1.1.0rc4
         type: string
       runtime_target:
         description: Upload one runtime project while bootstrapping, or all later
