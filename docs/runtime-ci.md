@@ -15,9 +15,10 @@ and retain it as a GitHub Actions artifact for 14 days.
 The CPU fallback is built from the same pinned ExecuTorch source on Ubuntu
 22.04 ARM64. Rockchip uses one shared daemon executable and three different
 RKNN model files. Jetson builds both the CPU fallback and Vulkan executable;
-Mesa lavapipe provides a software Vulkan protocol smoke test in CI. A733 needs
-a real board because its AWNN/VIPLite build inputs are not available from a
-public, versioned download source.
+Mesa lavapipe provides a software Vulkan protocol smoke test in CI. A733 uses
+the pinned public `ZIFENG278/ai-sdk` input, but needs a real board for the final
+AWNN/VIPLite inference test. Its separate redistribution-license gate is
+documented in [`a733-ci.md`](a733-ci.md).
 
 ## Platform tags
 
@@ -28,8 +29,9 @@ and loads the board's Vulkan implementation at runtime.
 Rockchip and A733 executables intentionally depend on board-provided vendor
 libraries. Their CI Wheels therefore use the honest `linux_aarch64` tag rather
 than claiming manylinux compatibility. PyPI does not accept this tag; durable
-Rockchip and A733 binaries belong on the matching GitHub Release unless a
-future implementation removes or legally bundles those vendor dependencies.
+Rockchip and A733 binaries belong on the matching GitHub Release. Generic CPU
+and Jetson Wheels use PyPI only after their final package layout and ELF
+dependencies pass `auditwheel show`.
 
 ## What hosted CI proves
 
@@ -64,14 +66,16 @@ the separate image-set accuracy and CPU/accelerator parity qualification.
 
 Actions artifacts are temporary QA outputs, not release downloads. After
 hardware qualification, attach the verified Wheels and `SHA256SUMS` to the
-immutable GitHub runtime release. The release manifest links each executable
-to the exact PiNozCam commit used by CI.
+immutable GitHub runtime release. Rockchip and cleared A733 Wheels are
+distributed from that fixed release; compliant generic CPU and Jetson Wheels
+are distributed through PyPI. The release manifest links each executable to
+the exact PiNozCam commit used by CI.
 
 These workflows are intentionally manual (`workflow_dispatch`). GitHub only
 shows the Run workflow button after a workflow exists on the default branch.
 During development on a non-default branch, a temporary branch-only `push`
 trigger may be used for validation and must be removed from the final commit.
 
-The experimental workflows do not by themselves change `setup.py` or the
-current package-index install policy. Wiring GitHub Release URLs into plugin
-installation is a separate release decision.
+The workflows do not by themselves change `setup.py`. The selected installation
+contract, current integration gap, and immutable-asset rules are documented in
+[`runtime-release.md`](runtime-release.md).
