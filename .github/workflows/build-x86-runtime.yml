@@ -76,7 +76,7 @@ jobs:
           python3 src/executorch/smoke_test.py \
             --daemon "$module/bin/nozcam_daemon.x86_64.static" \
             --model "$module/models/nozcam-cpu.pte"
-          sha256sum --check dist/SHA256SUMS
+          (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Upload the verified runtime
         uses: actions/upload-artifact@v4
