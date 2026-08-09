@@ -11,7 +11,7 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc1"
+plugin_version = "1.1.0rc2"
 runtime_version = plugin_version
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
@@ -324,22 +324,22 @@ else:
 # install from succeeding with a half-downloaded model.
 _RUNTIME_REQUIREMENTS = {
     "armhf": ("pinozcam-runtime-armhf", "pinozcam_runtime_armhf",
-              "linux_armv7l"),
+              "manylinux2014_armv7l"),
     "aarch64": ("pinozcam-runtime-aarch64", "pinozcam_runtime_aarch64",
-                "linux_aarch64"),
+                "manylinux2014_aarch64"),
     "x86_64": ("pinozcam-runtime-x86-64", "pinozcam_runtime_x86_64",
-               "linux_x86_64"),
+               "manylinux2014_x86_64"),
     "rknn3566": ("pinozcam-runtime-rknn3566",
-                 "pinozcam_runtime_rknn3566", "linux_aarch64"),
+                 "pinozcam_runtime_rknn3566", "manylinux_2_29_aarch64"),
     "rknn3576": ("pinozcam-runtime-rknn3576",
-                 "pinozcam_runtime_rknn3576", "linux_aarch64"),
+                 "pinozcam_runtime_rknn3576", "manylinux_2_29_aarch64"),
     "rknn3588": ("pinozcam-runtime-rknn3588",
-                 "pinozcam_runtime_rknn3588", "linux_aarch64"),
+                 "pinozcam_runtime_rknn3588", "manylinux_2_29_aarch64"),
     "awnn": ("pinozcam-runtime-a733", "pinozcam_runtime_a733",
-             "linux_aarch64"),
+             "manylinux_2_29_aarch64"),
     "vulkan": ("pinozcam-runtime-jetson-orin",
                "pinozcam_runtime_jetson_orin",
-               "linux_aarch64"),
+               "manylinux_2_38_aarch64"),
 }
 
 if _content["rknn_chip"]:

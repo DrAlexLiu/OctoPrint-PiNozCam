@@ -6,7 +6,7 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the eight runtime Wheels
         required: true
-        default: 1.1.0rc1
+        default: 1.1.0rc2
         type: string
       runtime_target:
         description: Upload one target while bootstrapping projects, or all later
@@ -64,6 +64,7 @@ jobs:
           import os
           from pathlib import Path
           import re
+          import zipfile
 
           root = Path.cwd()
           setup_text = (root / "setup.py").read_text(encoding="utf-8")
@@ -128,6 +129,39 @@ jobs:
                       "SHA-256 mismatch for {}: expected {}, got {}".format(
                           filename, expected[filename], digest
                       )
+                  )
+              platform_tag = filename[:-4].rsplit("-", 1)[-1]
+              if not re.fullmatch(
+                  r"manylinux(?:2014|_[0-9]+_[0-9]+)_"
+                  r"(?:armv7l|aarch64|x86_64)",
+                  platform_tag,
+              ):
+                  raise SystemExit(
+                      "unsupported public Linux Wheel tag in {}: {}".format(
+                          filename, platform_tag
+                      )
+                  )
+              with zipfile.ZipFile(actual[filename]) as archive:
+                  wheel_metadata = next(
+                      name for name in archive.namelist()
+                      if name.endswith(".dist-info/WHEEL")
+                  )
+                  core_metadata = next(
+                      name for name in archive.namelist()
+                      if name.endswith(".dist-info/METADATA")
+                  )
+                  wheel_text = archive.read(wheel_metadata).decode("utf-8")
+                  metadata_text = archive.read(core_metadata).decode("utf-8")
+              expected_tag = "Tag: py3-none-{}".format(platform_tag)
+              if expected_tag not in wheel_text:
+                  raise SystemExit(
+                      "filename/metadata tag mismatch in " + filename
+                  )
+              if "Project-URL: Source," not in metadata_text:
+                  raise SystemExit("source URL missing from " + filename)
+              if "Description-Content-Type:" not in metadata_text:
+                  raise SystemExit(
+                      "long-description metadata missing from " + filename
                   )
               print("{}  {}".format(digest, filename))
           PY
