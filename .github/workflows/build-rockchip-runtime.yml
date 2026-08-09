@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-cpu-fallback:
     name: Build source-based AArch64 CPU fallback
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     env:
       CPU_WHEEL_URL: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5/pinozcam_runtime-1.1.0rc5-py3-none-manylinux2014_aarch64.whl
@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Check out PiNozCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install native ARM64 build tools
         run: |
@@ -56,7 +56,7 @@ jobs:
             --model runtime-artifacts/models/nozcam-cpu.pte --timeout 900
 
       - name: Upload CPU fallback for the packaging job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pinozcam-rockchip-cpu-${{ github.sha }}
           path: |
@@ -97,10 +97,10 @@ jobs:
             g++-aarch64-linux-gnu git python3 python3-pip unzip
 
       - name: Check out PiNozCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download source-built CPU fallback
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: pinozcam-rockchip-cpu-${{ github.sha }}
           path: runtime-artifacts
@@ -179,7 +179,7 @@ jobs:
           (cd dist && sha256sum --check --strict SHA256SUMS)
 
       - name: Upload verified Rockchip runtimes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pinozcam-runtime-rockchip-${{ github.sha }}
           path: |

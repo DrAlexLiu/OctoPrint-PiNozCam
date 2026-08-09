@@ -63,6 +63,24 @@ cmake -S "$ET_ROOT" -B "$ET_BUILD_DIR" \
   -DEXECUTORCH_BUILD_EXTENSION_DATA_LOADER=ON \
   -DEXECUTORCH_BUILD_EXTENSION_RUNNER_UTIL=ON \
   -DCMAKE_EXE_LINKER_FLAGS=-static
+
+# CMake on native Ubuntu ARM64 sometimes records the absolute shared libm.so
+# path in executor_runner's link command. That defeats the requested static
+# link even though the matching libm.a is installed. Preserve normal linker
+# selection by spelling this dependency as -lm, as the x86 configuration does.
+runner_link=$(find "$ET_BUILD_DIR" \
+  -path '*executor_runner.dir/link.txt' -print -quit)
+if [ -z "$runner_link" ]; then
+  echo "executor_runner link command was not generated" >&2
+  exit 1
+fi
+sed -i -E \
+  's#(^| )/[^ ]*/libm\.so( |$)#\1-lm\2#g' \
+  "$runner_link"
+if grep -Eq '(^| )/[^ ]*/libm\.so( |$)' "$runner_link"; then
+  echo "executor_runner still contains an absolute shared libm path" >&2
+  exit 1
+fi
 cmake --build "$ET_BUILD_DIR" --parallel "$JOBS" --target executor_runner
 
 ET_ROOT="$ET_ROOT" ET_BUILD_DIR="$ET_BUILD_DIR" \

@@ -11,21 +11,18 @@ on:
         description: Runtime wheel version
         required: true
         default: "1.1.0rc6.dev0"
-  push:
-    branches:
-      - ci/accelerator-runtime-builds
 
 permissions:
   contents: read
 
 jobs:
   build-cpu-fallback:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
 
     steps:
       - name: Check out PiNozCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install build tools
         run: |
@@ -39,7 +36,7 @@ jobs:
             "$GITHUB_WORKSPACE/runtime-artifacts"
 
       - name: Upload CPU fallback for the A733 job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: a733-cpu-fallback-${{ github.sha }}
           path: runtime-artifacts/bin/nozcam_daemon.aarch64.static
@@ -64,10 +61,10 @@ jobs:
 
     steps:
       - name: Check out PiNozCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Download the CPU fallback
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: a733-cpu-fallback-${{ github.sha }}
           path: runtime-artifacts/bin
@@ -166,7 +163,7 @@ jobs:
           (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Upload runtime artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pinozcam-runtime-a733-${{ github.sha }}
           path: |

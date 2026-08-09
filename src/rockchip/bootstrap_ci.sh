@@ -104,6 +104,7 @@ if "$READELF" -d "$daemon" | grep -Eq '\((RPATH|RUNPATH)\)'; then
 fi
 
 expected_dependencies=$(printf '%s\n' \
+  ld-linux-aarch64.so.1 \
   libc.so.6 \
   libgcc_s.so.1 \
   libm.so.6 \
