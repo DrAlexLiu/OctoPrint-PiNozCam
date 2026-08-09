@@ -1,0 +1,151 @@
+name: Publish runtime Wheels to TestPyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub pre-release tag containing the eight runtime Wheels
+        required: true
+        default: 1.1.0rc1
+        type: string
+
+concurrency:
+  group: testpypi-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Verify GitHub Release assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Download runtime Wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'pinozcam_runtime_*.whl' \
+            --dir dist
+
+      - name: Verify release version, file set, and SHA-256
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import re
+
+          root = Path.cwd()
+          setup_text = (root / "setup.py").read_text(encoding="utf-8")
+          match = re.search(
+              r'^plugin_version\s*=\s*["\']([^"\']+)["\']',
+              setup_text,
+              re.MULTILINE,
+          )
+          if not match:
+              raise SystemExit("plugin_version is missing from setup.py")
+
+          release_tag = os.environ["RELEASE_TAG"]
+          version = match.group(1)
+          if release_tag != version:
+              raise SystemExit(
+                  "release tag {!r} does not match plugin version {!r}".format(
+                      release_tag, version
+                  )
+              )
+
+          expected = {}
+          for raw_line in (root / "CHECKSUMS.txt").read_text(
+              encoding="ascii"
+          ).splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              digest, filename = line.split(None, 1)
+              if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                  raise SystemExit("invalid SHA-256 entry: {!r}".format(raw_line))
+              if filename in expected:
+                  raise SystemExit("duplicate checksum entry: " + filename)
+              expected[filename] = digest
+
+          if len(expected) != 8:
+              raise SystemExit(
+                  "CHECKSUMS.txt describes {} Wheels, expected 8".format(
+                      len(expected)
+                  )
+              )
+          if any(
+              not name.startswith("pinozcam_runtime_")
+              or not name.endswith(".whl")
+              for name in expected
+          ):
+              raise SystemExit("CHECKSUMS.txt contains a non-runtime artifact")
+
+          actual_paths = sorted((root / "dist").glob("*.whl"))
+          actual = {path.name: path for path in actual_paths}
+          missing = sorted(set(expected) - set(actual))
+          unexpected = sorted(set(actual) - set(expected))
+          if missing or unexpected:
+              raise SystemExit(
+                  "release asset set differs from CHECKSUMS.txt; "
+                  "missing={!r}, unexpected={!r}".format(missing, unexpected)
+              )
+
+          for filename in sorted(expected):
+              digest = hashlib.sha256(actual[filename].read_bytes()).hexdigest()
+              if digest != expected[filename]:
+                  raise SystemExit(
+                      "SHA-256 mismatch for {}: expected {}, got {}".format(
+                          filename, expected[filename], digest
+                      )
+                  )
+              print("{}  {}".format(digest, filename))
+          PY
+
+      - name: Stage verified Wheels for publishing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-runtime-wheels
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Upload to TestPyPI
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - name: Download verified Wheels
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-runtime-wheels
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/

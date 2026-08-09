@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 build/
 dist/
+*.whl
 
 # Native runners and model artifacts belong in release runtime Wheels, not Git.
 *.engine
