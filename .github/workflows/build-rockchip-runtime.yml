@@ -119,7 +119,7 @@ jobs:
             local filename=$1
             local digest=$2
             local destination="$RUNNER_TEMP/rc5-wheels/$filename"
-            curl --fail --location --retry 5 --retry-all-errors \
+            curl --fail --location --retry 5 --retry-connrefused \
               --output "$destination" "$RELEASE_BASE/$filename"
             echo "$digest  $destination" | sha256sum --check --strict
           }
