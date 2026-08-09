@@ -2,6 +2,9 @@ name: Build Jetson Orin Vulkan runtime
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ci/accelerator-runtime-builds
 
 permissions:
   contents: read
@@ -146,26 +149,29 @@ jobs:
 
       - name: Build the Jetson runtime Wheel
         run: |
-          python3 -m pip install --disable-pip-version-check --upgrade \
-            'setuptools==75.3.2' 'wheel==0.45.1'
+          python3 -m venv "$RUNNER_TEMP/runtime-package-venv"
+          runtime_python="$RUNNER_TEMP/runtime-package-venv/bin/python"
+          "$runtime_python" -m pip install --disable-pip-version-check \
+            'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
           version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
-          python3 src/runtime/package_accelerator_runtime.py \
+          "$runtime_python" src/runtime/package_accelerator_runtime.py \
             --target vulkan \
             --artifact-root runtime-artifacts \
             --output dist \
             --version "$version" \
             --revision "$GITHUB_SHA"
+          echo "RUNTIME_PYTHON=$runtime_python" >> "$GITHUB_ENV"
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
           wheels=(dist/*.whl)
           test "${#wheels[@]}" -eq 1
           wheel="${wheels[0]}"
-          python3 src/runtime/verify_runtime_wheel.py \
+          "$RUNTIME_PYTHON" src/runtime/verify_runtime_wheel.py \
             --target vulkan \
             --wheel "$wheel" \
             --revision "$GITHUB_SHA"
-          python3 -m pip install --disable-pip-version-check --no-deps \
+          "$RUNTIME_PYTHON" -m pip install --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" "$wheel"
           module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_jetson_orin"
           test -x "$module/bin/nozcam_daemon.aarch64.static"
@@ -181,7 +187,7 @@ jobs:
           cmp runtime-artifacts/models/nozcam-gpu.pte \
             "$module/models/nozcam-gpu.pte"
 
-          python3 src/executorch/smoke_test.py \
+          "$RUNTIME_PYTHON" src/executorch/smoke_test.py \
             --daemon "$module/bin/nozcam_daemon.aarch64.static" \
             --model "$module/models/nozcam-cpu.pte" \
             --timeout 600
@@ -196,7 +202,7 @@ jobs:
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 0700 "$XDG_RUNTIME_DIR"
           vulkaninfo --summary
-          python3 src/executorch/smoke_test.py \
+          "$RUNTIME_PYTHON" src/executorch/smoke_test.py \
             --daemon "$module/bin/nozcam_daemon.vulkan.aarch64" \
             --model "$module/models/nozcam-gpu.pte" \
             --timeout 900
