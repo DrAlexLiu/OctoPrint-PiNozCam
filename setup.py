@@ -11,7 +11,7 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc2"
+plugin_version = "1.1.0rc3"
 runtime_version = plugin_version
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
@@ -323,11 +323,11 @@ else:
 # setup.py.  This gives pip normal retry/error reporting and prevents a plugin
 # install from succeeding with a half-downloaded model.
 _RUNTIME_REQUIREMENTS = {
-    "armhf": ("pinozcam-runtime-armhf", "pinozcam_runtime_armhf",
+    "armhf": ("pinozcam-runtime", "pinozcam_runtime",
               "manylinux2014_armv7l"),
-    "aarch64": ("pinozcam-runtime-aarch64", "pinozcam_runtime_aarch64",
+    "aarch64": ("pinozcam-runtime", "pinozcam_runtime",
                 "manylinux2014_aarch64"),
-    "x86_64": ("pinozcam-runtime-x86-64", "pinozcam_runtime_x86_64",
+    "x86_64": ("pinozcam-runtime", "pinozcam_runtime",
                "manylinux2014_x86_64"),
     "rknn3566": ("pinozcam-runtime-rknn3566",
                  "pinozcam_runtime_rknn3566", "manylinux_2_29_aarch64"),
@@ -386,7 +386,7 @@ if _runtime_target in _RUNTIME_REQUIREMENTS:
 # while testing; they still must never leak into the plugin Wheel.
 _exclude = setup_parameters.setdefault(
     "exclude_package_data", {}).setdefault(plugin_package, [])
-# Runtime payloads belong exclusively to pinozcam-runtime-* Wheels.  Exclude
+# Runtime payloads belong exclusively to pinozcam-runtime Wheels. Exclude
 # every known native file even while the tracked copies remain in this branch
 # for the migration test; once validation passes they are removed from Git as
 # well, which is what makes GitHub's automatically generated tag ZIP small.

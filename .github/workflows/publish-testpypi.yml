@@ -6,17 +6,15 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the eight runtime Wheels
         required: true
-        default: 1.1.0rc2
+        default: 1.1.0rc3
         type: string
       runtime_target:
-        description: Upload one target while bootstrapping projects, or all later
+        description: Upload one runtime project while bootstrapping, or all later
         required: true
-        default: x86_64
+        default: cpu
         type: choice
         options:
-          - x86_64
-          - armhf
-          - aarch64
+          - cpu
           - rknn3566
           - rknn3576
           - rknn3588
@@ -52,7 +50,7 @@ jobs:
           mkdir dist
           gh release download "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern 'pinozcam_runtime_*.whl' \
+            --pattern 'pinozcam_runtime*.whl' \
             --dir dist
 
       - name: Verify release version, file set, and SHA-256
@@ -106,7 +104,7 @@ jobs:
                   )
               )
           if any(
-              not name.startswith("pinozcam_runtime_")
+              not name.startswith("pinozcam_runtime")
               or not name.endswith(".whl")
               for name in expected
           ):
@@ -176,9 +174,7 @@ jobs:
           import shutil
 
           wheel_stems = {
-              "x86_64": "pinozcam_runtime_x86_64-",
-              "armhf": "pinozcam_runtime_armhf-",
-              "aarch64": "pinozcam_runtime_aarch64-",
+              "cpu": "pinozcam_runtime-",
               "rknn3566": "pinozcam_runtime_rknn3566-",
               "rknn3576": "pinozcam_runtime_rknn3576-",
               "rknn3588": "pinozcam_runtime_rknn3588-",
@@ -193,7 +189,9 @@ jobs:
           if target != "all":
               prefix = wheel_stems[target]
               wheels = [path for path in wheels if path.name.startswith(prefix)]
-          expected_count = 8 if target == "all" else 1
+          expected_count = (
+              8 if target == "all" else 3 if target == "cpu" else 1
+          )
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(
