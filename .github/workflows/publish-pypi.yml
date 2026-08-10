@@ -9,17 +9,16 @@ on:
         default: 1.1.0rc7
         type: string
       runtime_target:
-        description: Upload CPU Wheels, both GPU Wheels, or all five
+        description: Upload the CPU Wheels or both GPU Wheels
         required: true
         default: cpu
         type: choice
         options:
           - cpu
           - gpu
-          - all
 
 concurrency:
-  group: pypi-${{ inputs.release_tag }}
+  group: pypi-${{ inputs.release_tag }}-${{ inputs.runtime_target }}
   cancel-in-progress: false
 
 permissions: {}
@@ -189,18 +188,11 @@ jobs:
           destination.mkdir()
           target = os.environ["RUNTIME_TARGET"]
           all_wheels = sorted(source.glob("*.whl"))
-          if target == "all":
-              wheels = [
-                  path for path in all_wheels
-                  if any(path.name.startswith(prefix)
-                         for prefix in wheel_stems.values())
-              ]
-          else:
-              prefix = wheel_stems[target]
-              wheels = [
-                  path for path in all_wheels if path.name.startswith(prefix)
-              ]
-          expected_count = 5 if target == "all" else 3 if target == "cpu" else 2
+          prefix = wheel_stems[target]
+          wheels = [
+              path for path in all_wheels if path.name.startswith(prefix)
+          ]
+          expected_count = 3 if target == "cpu" else 2
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(
@@ -226,7 +218,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: pypi-${{ inputs.runtime_target }}
       url: https://pypi.org/
     permissions:
       actions: read
