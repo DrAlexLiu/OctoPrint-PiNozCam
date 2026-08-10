@@ -178,8 +178,9 @@ jobs:
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
+          shopt -s nullglob
           cpu_wheels=(dist/pinozcam_runner-*.whl)
-          gpu_wheels=(dist/pinozcam_runner_gpu-*-aarch64.whl)
+          gpu_wheels=(dist/pinozcam_runner_gpu-*_aarch64.whl)
           test "${#cpu_wheels[@]}" -eq 1
           test "${#gpu_wheels[@]}" -eq 1
           cpu_wheel="${cpu_wheels[0]}"

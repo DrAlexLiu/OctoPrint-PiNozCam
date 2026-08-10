@@ -144,7 +144,8 @@ jobs:
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
-          wheels=(dist/pinozcam_runner_gpu-*-x86_64.whl)
+          shopt -s nullglob
+          wheels=(dist/pinozcam_runner_gpu-*_x86_64.whl)
           test "${#wheels[@]}" -eq 1
           wheel="${wheels[0]}"
           "$RUNTIME_PYTHON" src/runtime/verify_runtime_wheel.py \
