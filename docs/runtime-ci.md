@@ -9,7 +9,7 @@ and retain it as a GitHub Actions artifact for 14 days.
 | --- | --- | --- |
 | `build-x86-runtime.yml` | GitHub x86-64 | x86-64 CPU Wheel |
 | `build-rockchip-runtime.yml` | GitHub ARM64 plus a pinned Ubuntu 20.04 cross-build container | RK3566, RK3576, and RK3588 Wheels |
-| `build-jetson-runtime.yml` | GitHub Ubuntu 22.04 ARM64 | Jetson Orin Vulkan Wheel |
+| `build-jetson-runtime.yml` | GitHub Ubuntu 22.04 ARM64 | AArch64 Vulkan Wheel (current development name: Jetson Orin) |
 | `build-a733-runtime.yml` | GitHub ARM64 plus an ephemeral A733 self-hosted runner | A733 AWNN Wheel |
 
 The CPU fallback is built from the same pinned ExecuTorch source on Ubuntu
@@ -30,7 +30,7 @@ Rockchip and A733 executables intentionally depend on board-provided vendor
 libraries. Their CI Wheels therefore use the honest `linux_aarch64` tag rather
 than claiming manylinux compatibility. PyPI does not accept this tag; durable
 Rockchip and A733 binaries belong on the matching GitHub Release. Generic CPU
-and Jetson Wheels use PyPI only after their final package layout and ELF
+and AArch64 Vulkan Wheels use PyPI only after their final package layout and ELF
 dependencies pass `auditwheel show`.
 
 ## What hosted CI proves
@@ -67,9 +67,9 @@ the separate image-set accuracy and CPU/accelerator parity qualification.
 Actions artifacts are temporary QA outputs, not release downloads. After
 hardware qualification, attach the verified Wheels and `SHA256SUMS` to the
 immutable GitHub runtime release. Rockchip and cleared A733 Wheels are
-distributed from that fixed release; compliant generic CPU and Jetson Wheels
-are distributed through PyPI. The release manifest links each executable to
-the exact PiNozCam commit used by CI.
+distributed from that fixed release; compliant generic CPU and AArch64 Vulkan
+Wheels are distributed through PyPI. The release manifest links each executable
+to the exact PiNozCam commit used by CI.
 
 These workflows are intentionally manual (`workflow_dispatch`). GitHub only
 shows the Run workflow button after a workflow exists on the default branch.

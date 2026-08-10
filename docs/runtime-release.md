@@ -4,8 +4,8 @@
 
 PiNozCam uses a hybrid runtime distribution:
 
-- generic CPU Wheels and the Jetson Orin Vulkan Wheel use PyPI after passing a
-  real manylinux audit;
+- generic CPU Wheels and the AArch64 Vulkan Wheel use PyPI after passing a real
+  manylinux audit;
 - Rockchip and A733 Wheels use immutable GitHub Release assets because their
   honest platform tag is `linux_aarch64` and they depend on board-provided
   vendor libraries.
@@ -26,7 +26,7 @@ One runtime release contains:
 | RK3576 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
 | RK3588 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
 | A733 NPU with CPU fallback | `linux_aarch64` | GitHub Release, after license clearance |
-| Jetson Orin Vulkan with CPU fallback | `manylinux_2_35_aarch64` | PyPI |
+| AArch64 Vulkan GPU with CPU fallback | `manylinux_2_35_aarch64` | PyPI |
 
 The GitHub Release contains the three Rockchip Wheels, the cleared A733 Wheel,
 and `CHECKSUMS.txt`. GitHub attestations may be attached when the release
@@ -41,21 +41,21 @@ filename alone does not prove compliance; the final Wheel must pass
 
 The RC5 generic CPU Wheels were accepted by PyPI, but an independent
 `auditwheel show` check found their ELF executable under `.data/purelib` and
-rejected the Wheel as an invalid binary layout. The source-built Jetson Wheel
-has the same layout. Move the runtime packages to platlib and require
-`auditwheel show` to pass before the stable CPU or Jetson upload. PyPI accepting
-an upload is not a substitute for this check.
+rejected the Wheel as an invalid binary layout. The source-built AArch64 Vulkan
+Wheel, currently named for Jetson Orin, has the same layout. Move the runtime
+packages to platlib and require `auditwheel show` to pass before the stable CPU
+or Vulkan upload. PyPI accepting an upload is not a substitute for this check.
 
 ## Installation contract
 
 The plugin installer must select exactly one runtime from the detected Python
 ABI, CPU architecture, and SoC.
 
-For CPU and Jetson, it emits an exact package-index requirement:
+For CPU and AArch64 Vulkan, it emits an exact package-index requirement:
 
 ```text
 pinozcam-runtime==1.1.0
-pinozcam-runtime-jetson-orin==1.1.0
+pinozcam-runtime-vulkan-aarch64==1.1.0
 ```
 
 For Rockchip and A733, it emits one exact PEP 508 direct reference:
@@ -81,15 +81,18 @@ package-index requirements for every target. Hybrid installation is therefore
 the selected release design, not yet the end-to-end behavior of the plugin
 installer.
 
-Before the first GitHub-only release:
+Before the first hybrid release:
 
-1. Keep exact PyPI requirements for CPU and Jetson; use PEP 508 GitHub direct
-   references only for Rockchip and A733.
-2. Fix the CPU and Jetson platlib layout and add `auditwheel show` as a release
+1. Keep exact PyPI requirements for CPU and AArch64 Vulkan; use PEP 508 GitHub
+   direct references only for Rockchip and A733.
+2. Rename the current `pinozcam-runtime-jetson-orin` development package to
+   `pinozcam-runtime-vulkan-aarch64` in the packager, setup selection, workflow,
+   tests, and documentation.
+3. Fix the CPU and Vulkan platlib layout and add `auditwheel show` as a release
    gate.
-3. Add selection and checksum regression tests for all eight Wheels.
-4. Update the README and maintainer release checklist.
-5. Perform clean tag-ZIP installs on every supported ABI/SoC.
+4. Add selection and checksum regression tests for all eight Wheels.
+5. Update the README and maintainer release checklist.
+6. Perform clean tag-ZIP installs on every supported ABI/SoC.
 
 ## Build and qualification flow
 
@@ -107,14 +110,21 @@ checked-out source revision:
    runtime because the vendor toolchain and NPU are board-specific.
 6. Download the workflow artifacts independently, verify their SHA-256 values,
    then execute the production pipe protocol on the matching hardware.
-7. Upload compliant CPU and Jetson Wheels to PyPI. Attach only the verified
-   Rockchip and cleared A733 Wheels plus their checksum manifest to the
-   immutable GitHub Release.
+7. Upload compliant CPU and AArch64 Vulkan Wheels to PyPI. Attach only the
+   verified Rockchip and cleared A733 Wheels plus their checksum manifest to
+   the immutable GitHub Release.
 
 The current source-build workflows cover x86-64 and all accelerator Wheels.
 A dedicated source-build workflow for the generic ARMHF and AArch64 CPU Wheels
 is still required before claiming that all eight release files are rebuilt by
 GitHub Actions.
+
+The AArch64 Vulkan runner contains no Jetson-specific dependency. Jetson Orin
+is the currently qualified platform. Grace Hopper/GH200 and other AArch64
+Vulkan systems are candidates, but must not be listed as supported until their
+installed Vulkan ICD exposes the required Vulkan features and the production
+PTE completes a real inference. A missing or incompatible Vulkan backend must
+fall back to the generic AArch64 CPU runtime.
 
 The measured workflow runs and hardware qualification results are recorded in
 [`runtime-ci.md`](runtime-ci.md).

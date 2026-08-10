@@ -1,8 +1,8 @@
 # Releasing PiNozCam
 
-PiNozCam uses two immutable distribution channels: generic CPU and Jetson Orin
-Wheels use PyPI after a successful manylinux audit; Rockchip and A733 Wheels
-use fixed GitHub Release asset URLs.
+PiNozCam uses two immutable distribution channels: generic CPU and AArch64
+Vulkan Wheels use PyPI after a successful manylinux audit; Rockchip and A733
+Wheels use fixed GitHub Release asset URLs.
 
 A tag and its assets are immutable. If a release candidate has a packaging
 problem, fix it and create the next `rcN`; never move the old tag or replace an
@@ -24,7 +24,7 @@ but no model or runner binary. A complete release has eight runtime Wheels:
 | `pinozcam-runtime-rknn3576` | RK3576 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3588` | RK3588 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release after license clearance |
-| `pinozcam-runtime-jetson-orin` | Jetson Orin Vulkan plus ARM CPU fallback | PyPI |
+| `pinozcam-runtime-vulkan-aarch64` | AArch64 Vulkan plus ARM CPU fallback | PyPI |
 
 The GitHub Release also contains `CHECKSUMS.txt` for its hardware-specific
 assets. Every direct-reference digest in the plugin source must match the
@@ -37,7 +37,7 @@ immutable release asset selected by `setup.py`.
 3. Run each manual source-build workflow at the exact release commit.
 4. Download the Actions artifacts into a new empty directory.
 5. Verify filenames, Wheel metadata, ELF architecture, runtime manifests, and
-   SHA-256 values. Require `auditwheel show` to pass for every CPU and Jetson
+   SHA-256 values. Require `auditwheel show` to pass for every CPU and Vulkan
    Wheel; PyPI accepting a filename is not this check.
 6. Do not publish the A733 Wheel unless its runner redistribution permission
    has been confirmed in writing.
@@ -92,9 +92,10 @@ Download the public assets into another empty directory and run
 `sha256sum -c CHECKSUMS.txt`. This catches upload mistakes independently of the
 build workspace.
 
-Publish the audited generic CPU and Jetson Wheels through their production PyPI
-Trusted Publishers. PyPI and GitHub must contain the same version recorded by
-the plugin; never rebuild or replace a file under an existing version.
+Publish the audited generic CPU and AArch64 Vulkan Wheels through their
+production PyPI Trusted Publishers. PyPI and GitHub must contain the same
+version recorded by the plugin; never rebuild or replace a file under an
+existing version.
 
 ## 4. End-to-end clean-install test
 
@@ -112,7 +113,7 @@ For every target:
 4. Uninstall `OctoPrint-PiNozCam` and old `pinozcam-runtime*` distributions.
    This does not delete OctoPrint's `config.yaml`.
 5. Install the tag ZIP with `--no-cache-dir --no-build-isolation` and preserve
-   pip output. CPU/Jetson must resolve the exact PyPI version; Rockchip/A733
+   pip output. CPU/Vulkan must resolve the exact PyPI version; Rockchip/A733
    must download the fixed GitHub Release URL and verify its hash fragment.
 6. Restart OctoPrint and confirm the plugin version and selected backend.
 7. Call `/plugin/pinozcam/check` and run an authenticated Speed Test.
@@ -129,7 +130,7 @@ Do not rename RC artifacts. After the candidate passes:
    digests.
 4. Manually merge the verified release commit to `master`.
 5. Create the annotated `1.1.0` tag on that exact merged commit.
-6. Publish audited CPU and Jetson Wheels to PyPI.
+6. Publish audited CPU and AArch64 Vulkan Wheels to PyPI.
 7. Create the non-prerelease GitHub Release and upload the verified Rockchip
    Wheels, the cleared A733 Wheel, and `CHECKSUMS.txt`.
 8. Download the public stable assets and repeat the clean-install smoke test.
