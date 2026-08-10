@@ -11,7 +11,7 @@ on:
       version:
         description: Runtime Wheel version
         required: true
-        default: "1.1.0rc8"
+        default: "1.1.0rc9"
         type: string
 
 permissions:

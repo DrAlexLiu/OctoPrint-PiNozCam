@@ -11,7 +11,7 @@ on:
       version:
         description: Runtime Wheel version
         required: true
-        default: "1.1.0rc8"
+        default: "1.1.0rc9"
         type: string
 
 permissions:
@@ -179,8 +179,8 @@ jobs:
       - name: Verify the installed Wheel and run real PTE inference
         run: |
           shopt -s nullglob
-          cpu_wheels=(dist/pinozcam_runner-*.whl)
-          gpu_wheels=(dist/pinozcam_runner_gpu-*_aarch64.whl)
+          cpu_wheels=(dist/pinozcam_runtime-*.whl)
+          gpu_wheels=(dist/pinozcam_runtime_gpu-*_aarch64.whl)
           test "${#cpu_wheels[@]}" -eq 1
           test "${#gpu_wheels[@]}" -eq 1
           cpu_wheel="${cpu_wheels[0]}"

@@ -10,7 +10,7 @@ on:
       version:
         description: Runtime Wheel version
         required: true
-        default: "1.1.0rc8"
+        default: "1.1.0rc9"
         type: string
 
 permissions:
@@ -24,32 +24,32 @@ jobs:
   cpu-x86:
     uses: ./.github/workflows/build-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   cpu-armhf:
     uses: ./.github/workflows/build-armhf-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   gpu-aarch64:
     uses: ./.github/workflows/build-gpu-aarch64-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   gpu-x86:
     uses: ./.github/workflows/build-gpu-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   rockchip:
     uses: ./.github/workflows/build-rockchip-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   a733:
     uses: ./.github/workflows/build-a733-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
   bundle:
     name: Verify and assemble all nine Wheels
@@ -104,7 +104,7 @@ jobs:
 
       - name: Assemble release bundle and unified checksums
         env:
-          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc8' }}
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
         run: |
           python3 src/runtime/assemble_release.py \
             --artifact-root build-products \
