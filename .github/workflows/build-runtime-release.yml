@@ -2,8 +2,6 @@ name: Build nine-Wheel runtime release
 
 on:
   push:
-    branches:
-      - "ci/accelerator-runtime-builds"
     tags:
       - "1.1.0rc*"
       - "1.1.0"
