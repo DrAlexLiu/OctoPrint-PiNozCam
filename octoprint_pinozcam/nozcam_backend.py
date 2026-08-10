@@ -52,21 +52,25 @@ DEFAULT_MODEL = "nozcam-cpu.pte"
 # performs the authoritative feature/model warm-up before monitoring starts.
 _X86_VULKAN_GPU_VENDORS = frozenset(("0x1002", "0x10de", "0x8086"))
 
-# Native payloads live in target-specific runtime distributions. Distinct
-# package names prevent same-platform accelerators from sharing stale files.
+# Native payloads live in external platform Wheels. Generic CPU and GPU Wheels
+# share one module name per distribution; TARGET still identifies the platform.
 _RUNTIME_MODULES = {
-    "armhf": "pinozcam_runtime_armhf",
-    "aarch64": "pinozcam_runtime_aarch64",
-    "x86_64": "pinozcam_runtime_x86_64",
+    "armhf": ("pinozcam_runner", "pinozcam_runtime_armhf"),
+    "aarch64": ("pinozcam_runner", "pinozcam_runtime_aarch64"),
+    "x86_64": ("pinozcam_runner", "pinozcam_runtime_x86_64"),
     "rknn3566": "pinozcam_runtime_rknn3566",
     "rknn3576": "pinozcam_runtime_rknn3576",
     "rknn3588": "pinozcam_runtime_rknn3588",
     "awnn": "pinozcam_runtime_a733",
     "vulkan": (
+        "pinozcam_runner_gpu",
         "pinozcam_runtime_gpu_aarch64",
         "pinozcam_runtime_jetson_orin",
     ),
-    "vulkan_x86_64": "pinozcam_runtime_gpu_x86_64",
+    "vulkan_x86_64": (
+        "pinozcam_runner_gpu",
+        "pinozcam_runtime_gpu_x86_64",
+    ),
 }
 
 
@@ -205,11 +209,14 @@ def _detect_x86_vulkan_gpu():
 
 def _x86_vulkan_runtime_installed():
     """Return whether the architecture-specific x86 GPU package is present."""
-    try:
-        return importlib.util.find_spec(
-            "pinozcam_runtime_gpu_x86_64") is not None
-    except (AttributeError, ImportError, ValueError):
-        return False
+    for module_name in (
+            "pinozcam_runner_gpu", "pinozcam_runtime_gpu_x86_64"):
+        try:
+            if importlib.util.find_spec(module_name) is not None:
+                return True
+        except (AttributeError, ImportError, ValueError):
+            continue
+    return False
 
 
 def _resolve_backend(requested):

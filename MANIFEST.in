@@ -5,6 +5,5 @@ recursive-include octoprint_pinozcam/static *
 
 # Keep the daemon source and third-party notices in the source distribution.
 # Compiled runners and models are distributed only in platform runtime Wheels.
-include CHECKSUMS.txt
 recursive-include THIRD_PARTY_LICENSES *
 recursive-include src *

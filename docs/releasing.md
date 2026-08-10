@@ -1,16 +1,16 @@
 # Releasing PiNozCam
 
-PiNozCam uses two immutable distribution channels: generic CPU and Vulkan
-Wheels use PyPI after a successful manylinux audit; Rockchip and A733 Wheels
-use fixed GitHub Release asset URLs.
+PiNozCam RCs use one immutable distribution boundary: the GitHub Release holds
+all nine runtime Wheels and their checksum manifest. The five portable CPU and
+GPU Wheels may also be published to PyPI later through a separate approved
+workflow.
 
 A tag and its assets are immutable. If a release candidate has a packaging
 problem, fix it and create the next `rcN`; never move the old tag or replace an
 already-published Wheel.
 
 The installer contract and platform tags are defined in
-[`runtime-release.md`](runtime-release.md). Do not release while that document's
-`setup.py` direct-reference integration gap remains open.
+[`runtime-release.md`](runtime-release.md).
 
 ## Artifacts
 
@@ -19,17 +19,16 @@ but no model or runner binary. A complete release has nine runtime Wheels:
 
 | Distribution | Platform files | Channel |
 | --- | --- | --- |
-| `pinozcam-runtime` | ARM 32-bit, ARM 64-bit, x86-64 CPU | PyPI |
+| `pinozcam-runner` | ARM 32-bit, ARM 64-bit, x86-64 CPU | GitHub Release; PyPI later |
 | `pinozcam-runtime-rknn3566` | RK3566 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3576` | RK3576 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3588` | RK3588 NPU plus ARM CPU fallback | GitHub Release |
-| `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release after license clearance |
-| `pinozcam-runtime-gpu-aarch64` | AArch64 Vulkan plus ARM CPU fallback | PyPI |
-| `pinozcam-runtime-gpu-x86-64` | x86-64 Vulkan plus x86 CPU fallback | PyPI |
+| `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release |
+| `pinozcam-runner-gpu` | AArch64 and x86-64 Vulkan Wheels, each with its CPU fallback | GitHub Release; PyPI later |
 
-The GitHub Release also contains `CHECKSUMS.txt` for its hardware-specific
-assets. Every direct-reference digest in the plugin source must match the
-immutable release asset selected by `setup.py`.
+The GitHub Release also contains `CHECKSUMS.txt` for all nine assets. The
+release workflow verifies the exact filename, Wheel metadata, source revision,
+and digest before it creates the draft release.
 
 ## 1. Prepare a release candidate
 
@@ -40,9 +39,7 @@ immutable release asset selected by `setup.py`.
 5. Verify filenames, Wheel metadata, ELF architecture, runtime manifests, and
    SHA-256 values. Require `auditwheel show` to pass for every CPU and Vulkan
    Wheel; PyPI accepting a filename is not this check.
-6. Do not publish the A733 Wheel unless its runner redistribution permission
-   has been confirmed in writing.
-7. Generate one `CHECKSUMS.txt` covering every asset that will be public.
+6. Generate one `CHECKSUMS.txt` covering all nine Wheels.
 
 The build workflows and recorded qualification runs are described in
 [`runtime-ci.md`](runtime-ci.md).
@@ -59,7 +56,7 @@ The minimum matrix is:
 - x86-64 CPU;
 - x86-64 Vulkan on qualified NVIDIA and AMD drivers, plus provisional Intel;
 - RK3566, RK3576, and RK3588 NPU;
-- A733 NPU, subject to the redistribution gate;
+- A733 NPU;
 - AArch64 Vulkan on a qualified Jetson Orin.
 
 For each target, require PING, INFO, INFER, and SHUTDOWN through the production
@@ -77,12 +74,13 @@ git push origin release/1.1.0
 git push origin 1.1.0rcN
 ```
 
-Create a GitHub pre-release and attach the exact qualified Rockchip Wheels,
-the A733 Wheel only after license clearance, and their checksum manifest:
+The tag-triggered `Build nine-Wheel runtime release` workflow builds, verifies,
+and attaches all nine Wheels plus `CHECKSUMS.txt` to a draft pre-release. Do
+not manually substitute a local Wheel. For emergency manual recovery only:
 
 ```bash
 gh release create 1.1.0rcN \
-  dist/pinozcam_runtime_rknn*.whl CHECKSUMS.txt \
+  dist/*.whl CHECKSUMS.txt \
   --repo DrAlexLiu/OctoPrint-PiNozCam \
   --verify-tag \
   --prerelease \
@@ -94,10 +92,8 @@ Download the public assets into another empty directory and run
 `sha256sum -c CHECKSUMS.txt`. This catches upload mistakes independently of the
 build workspace.
 
-Publish the audited generic CPU and Vulkan Wheels through their
-production PyPI Trusted Publishers. PyPI and GitHub must contain the same
-version recorded by the plugin; never rebuild or replace a file under an
-existing version.
+PyPI publication is not part of RC7 creation. A later manual workflow may
+publish only the three `pinozcam-runner` and two `pinozcam-runner-gpu` Wheels.
 
 ## 4. End-to-end clean-install test
 
@@ -115,8 +111,8 @@ For every target:
 4. Uninstall `OctoPrint-PiNozCam` and old `pinozcam-runtime*` distributions.
    This does not delete OctoPrint's `config.yaml`.
 5. Install the tag ZIP with `--no-cache-dir --no-build-isolation` and preserve
-   pip output. CPU/Vulkan must resolve the exact PyPI version; Rockchip/A733
-   must download the fixed GitHub Release URL and verify its hash fragment.
+   pip output. Every target must download the exact fixed-tag GitHub Release
+   Wheel selected by `setup.py`.
 6. Restart OctoPrint and confirm the plugin version and selected backend.
 7. Call `/plugin/pinozcam/check` and run an authenticated Speed Test.
 8. Require HTTP 200, `backendError=false`, and a successful inference.
@@ -132,7 +128,8 @@ Do not rename RC artifacts. After the candidate passes:
    digests.
 4. Manually merge the verified release commit to `master`.
 5. Create the annotated `1.1.0` tag on that exact merged commit.
-6. Publish audited CPU and Vulkan Wheels to PyPI.
-7. Create the non-prerelease GitHub Release and upload the verified Rockchip
-   Wheels, the cleared A733 Wheel, and `CHECKSUMS.txt`.
+6. Create the non-prerelease GitHub Release containing all nine verified Wheels
+   and `CHECKSUMS.txt`.
+7. Optionally publish the five audited portable CPU/GPU Wheels to PyPI through
+   the separate manual Trusted Publishing workflow.
 8. Download the public stable assets and repeat the clean-install smoke test.

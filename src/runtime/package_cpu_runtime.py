@@ -15,17 +15,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 TARGETS = {
     "armhf": {
-        "module": "pinozcam_runtime_armhf",
+        "module": "pinozcam_runner",
         "platform": "manylinux2014_armv7l",
         "runner": "nozcam_daemon.armhf.static",
     },
     "aarch64": {
-        "module": "pinozcam_runtime_aarch64",
+        "module": "pinozcam_runner",
         "platform": "manylinux2014_aarch64",
         "runner": "nozcam_daemon.aarch64.static",
     },
     "x86_64": {
-        "module": "pinozcam_runtime_x86_64",
+        "module": "pinozcam_runner",
         "platform": "manylinux2014_x86_64",
         "runner": "nozcam_daemon.x86_64.static",
     },
@@ -93,7 +93,7 @@ def _stage(stage, artifacts, target, version, revision):
         "sha256": _sha256(license_path),
     }
     manifest = {
-        "distribution": "pinozcam-runtime",
+        "distribution": "pinozcam-runner",
         "files": files,
         "format": 2,
         "models": {
@@ -144,7 +144,7 @@ class bdist_wheel(_bdist_wheel):
 
 
 setup(
-    name="pinozcam-runtime",
+    name="pinozcam-runner",
     version={version!r},
     description="Native {target} CPU runner and model payload for PiNozCam",
     long_description=(
@@ -200,7 +200,7 @@ def main():
             check=True,
         )
 
-    filename = "pinozcam_runtime-%s-py3-none-%s.whl" % (
+    filename = "pinozcam_runner-%s-py3-none-%s.whl" % (
         args.version, TARGETS[args.target]["platform"])
     wheel = os.path.join(output, filename)
     if not os.path.isfile(wheel):

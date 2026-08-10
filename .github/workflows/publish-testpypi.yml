@@ -6,17 +6,16 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the nine runtime Wheels
         required: true
-        default: 1.1.0rc6
+        default: 1.1.0rc7
         type: string
       runtime_target:
-        description: Upload CPU, AArch64 GPU, x86-64 GPU, or all three
+        description: Upload CPU Wheels, both GPU Wheels, or all five
         required: true
         default: cpu
         type: choice
         options:
           - cpu
-          - gpu_aarch64
-          - gpu_x86_64
+          - gpu
           - all
 
 concurrency:
@@ -48,6 +47,8 @@ jobs:
           gh release download "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern 'pinozcam_runtime*.whl' \
+            --pattern 'pinozcam_runner*.whl' \
+            --pattern 'CHECKSUMS.txt' \
             --dir dist
 
       - name: Verify release version, file set, and SHA-256
@@ -81,7 +82,7 @@ jobs:
               )
 
           expected = {}
-          for raw_line in (root / "CHECKSUMS.txt").read_text(
+          for raw_line in (root / "dist" / "CHECKSUMS.txt").read_text(
               encoding="ascii"
           ).splitlines():
               line = raw_line.strip()
@@ -101,7 +102,7 @@ jobs:
                   )
               )
           if any(
-              not name.startswith("pinozcam_runtime")
+              not name.startswith(("pinozcam_runtime", "pinozcam_runner"))
               or not name.endswith(".whl")
               for name in expected
           ):
@@ -175,9 +176,8 @@ jobs:
           import shutil
 
           wheel_stems = {
-              "cpu": "pinozcam_runtime-",
-              "gpu_aarch64": "pinozcam_runtime_gpu_aarch64-",
-              "gpu_x86_64": "pinozcam_runtime_gpu_x86_64-",
+              "cpu": "pinozcam_runner-",
+              "gpu": "pinozcam_runner_gpu-",
           }
           source = Path("dist")
           destination = Path("publish-dist")
@@ -195,7 +195,7 @@ jobs:
               wheels = [
                   path for path in all_wheels if path.name.startswith(prefix)
               ]
-          expected_count = 5 if target == "all" else 3 if target == "cpu" else 1
+          expected_count = 5 if target == "all" else 3 if target == "cpu" else 2
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(

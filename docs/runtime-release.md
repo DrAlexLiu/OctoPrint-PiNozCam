@@ -2,13 +2,14 @@
 
 ## Decision
 
-PiNozCam uses a hybrid runtime distribution:
+Every PiNozCam runtime Wheel is attached to the matching immutable GitHub
+Release. This gives the tag archive, all nine native payloads, and one checksum
+manifest a single versioned release boundary.
 
-- generic CPU Wheels and the AArch64/x86-64 Vulkan Wheels use PyPI after
-  passing a real manylinux audit;
-- Rockchip and A733 Wheels use immutable GitHub Release assets because their
-  honest platform tag is `linux_aarch64` and they depend on board-provided
-  vendor libraries.
+The portable `pinozcam-runner` and `pinozcam-runner-gpu` distributions may also
+be published to PyPI later. Rockchip and A733 Wheels remain GitHub Release
+assets because their honest platform tag is `linux_aarch64` and they depend on
+board-provided vendor libraries.
 
 A Wheel remains the install format in both cases. PyPI or GitHub Release is
 only its download location.
@@ -19,20 +20,20 @@ One runtime release contains:
 
 | Runtime | Wheel platform tag | Production channel |
 | --- | --- | --- |
-| ARM 32-bit CPU | `manylinux2014_armv7l` | PyPI |
-| ARM 64-bit CPU | `manylinux2014_aarch64` | PyPI |
-| x86-64 CPU | `manylinux2014_x86_64` | PyPI |
+| ARM 32-bit CPU | `manylinux2014_armv7l` | GitHub Release; PyPI later |
+| ARM 64-bit CPU | `manylinux2014_aarch64` | GitHub Release; PyPI later |
+| x86-64 CPU | `manylinux2014_x86_64` | GitHub Release; PyPI later |
 | RK3566 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
 | RK3576 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
 | RK3588 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
-| A733 NPU with CPU fallback | `linux_aarch64` | GitHub Release, after license clearance |
-| AArch64 Vulkan GPU with CPU fallback | `manylinux_2_35_aarch64` | PyPI |
-| x86-64 Vulkan GPU with CPU fallback | `manylinux_2_35_x86_64` | PyPI |
+| A733 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
+| AArch64 Vulkan GPU with CPU fallback | `manylinux_2_35_aarch64` | GitHub Release; PyPI later |
+| x86-64 Vulkan GPU with CPU fallback | `manylinux_2_35_x86_64` | GitHub Release; PyPI later |
 
-The GitHub Release contains the three Rockchip Wheels, the cleared A733 Wheel,
-and `CHECKSUMS.txt`. GitHub attestations may be attached when the release
-workflow generates them, but documentation must not claim an attestation exists
-until the workflow has produced and verified it.
+The GitHub Release contains all nine Wheels and `CHECKSUMS.txt`. GitHub
+attestations may be attached when the release workflow generates them, but
+documentation must not claim an attestation exists until the workflow has
+produced and verified it.
 
 Hardware-specific Wheels use `linux_aarch64` when they intentionally depend on
 vendor libraries supplied by the board. Hosting a Wheel on GitHub does not make
@@ -51,59 +52,50 @@ upload remains insufficient without this gate.
 The plugin installer must select exactly one runtime from the detected Python
 ABI, CPU architecture, and SoC.
 
-For CPU and Vulkan, it emits an exact package-index requirement:
+For RC7, every target emits an exact PEP 508 direct reference. The portable CPU
+and GPU project names are shared across their platform Wheels:
 
 ```text
-pinozcam-runtime==1.1.0
-pinozcam-runtime-gpu-aarch64==1.1.0
-pinozcam-runtime-gpu-x86-64==1.1.0
+pinozcam-runner @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runner-1.1.0rc7-py3-none-manylinux2014_aarch64.whl
+pinozcam-runner-gpu @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runner_gpu-1.1.0rc7-py3-none-manylinux_2_35_aarch64.whl
 ```
 
-While the plugin still pins the immutable `1.1.0rc5` runtime set, setup keeps
-requesting its historical `pinozcam-runtime-jetson-orin` name and the loader
-accepts that module after trying the new canonical name. The compatibility
-entry must not be used for rc6 or stable artifacts.
-
-For Rockchip and A733, it emits one exact PEP 508 direct reference:
+Hardware-specific targets use the same fixed-tag form:
 
 ```text
-pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0/pinozcam_runtime_rknn3566-1.1.0-py3-none-linux_aarch64.whl#sha256=<digest>
+pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runtime_rknn3566-1.1.0rc7-py3-none-linux_aarch64.whl
 ```
 
-The URL must contain a fixed release tag and exact filename. The SHA-256
-fragment must match the local release manifest. Do not use `latest`, mutable
-branch archives, a nested `pip install`, or a custom downloader from
-`setup.py`. The outer pip process then owns download, caching, error reporting,
-and digest verification.
+The URL must contain a fixed release tag and exact filename. Do not use
+`latest`, mutable branch archives, a nested `pip install`, or a custom
+downloader from `setup.py`. The outer pip process owns download, caching, and
+error reporting.
 
-`CHECKSUMS.txt` is the source of truth for the expected filename and digest.
-Tests must cover every platform/SoC selection, the exact URL, the exact package
-name, and the digest fragment.
+`CHECKSUMS.txt` is generated from the nine verified Wheel bytes and is the
+source of truth for release-asset verification. The RC7 setup dependency uses a
+fixed tag and filename but does not embed the digest because the Wheel is built
+from that same tag. The release workflow and post-download checks enforce the
+digest set. Tests cover every platform/SoC selection, exact URL, package name,
+and filename.
 
-## Current integration gap
+## Release requirements
 
-At the time this decision was recorded, `setup.py` still emits ordinary pinned
-package-index requirements for every target. Hybrid installation is therefore
-the selected release design, not yet the end-to-end behavior of the plugin
-installer.
+Before publishing a candidate:
 
-Before the first hybrid release:
-
-1. Keep exact PyPI requirements for CPU and both Vulkan architectures; use
-   PEP 508 GitHub direct references only for Rockchip and A733.
-2. Keep the AArch64 Vulkan distribution named
-   `pinozcam-runtime-gpu-aarch64`; the backend remains Vulkan and Jetson Orin
-   is the first qualified device family.
+1. Keep all nine setup dependencies on the same fixed release tag as the
+   plugin.
+2. Keep all three CPU Wheels under `pinozcam-runner` and both Vulkan Wheels
+   under `pinozcam-runner-gpu`; Wheel platform tags select the host ABI while
+   the backend remains Vulkan.
 3. Keep native payloads in platlib and require `auditwheel show` as a release
    gate for every CPU and GPU Wheel.
-4. Add selection and checksum regression tests for all nine Wheels.
-5. Update the README and maintainer release checklist.
-6. Perform clean tag-ZIP installs on every supported ABI/SoC.
+4. Run selection and checksum regression tests for all nine Wheels.
+5. Perform clean tag-ZIP installs on every supported ABI/SoC.
 
 ## Build and qualification flow
 
-The runtime workflows are manual (`workflow_dispatch`) and build from the
-checked-out source revision:
+The platform workflows are reusable and manually dispatchable. The release
+workflow invokes all six from the tagged source revision:
 
 1. GitHub-hosted x86-64 builds the x86 CPU runtime.
 2. GitHub-hosted ARM64 builds the AArch64 CPU fallback used by the accelerator
@@ -119,9 +111,9 @@ checked-out source revision:
    runtime because the vendor toolchain and NPU are board-specific.
 7. Download the workflow artifacts independently, verify their SHA-256 values,
    then execute the production pipe protocol on the matching hardware.
-8. Upload compliant CPU and Vulkan Wheels to PyPI. Attach only the verified
-   Rockchip and cleared A733 Wheels plus their checksum manifest to the
-   immutable GitHub Release.
+8. Assemble all nine Wheels and their checksum manifest into one immutable
+   GitHub Release. Publishing the five portable CPU/GPU Wheels to PyPI is a
+   later, separately approved delivery step.
 
 The source-build definitions now cover all nine Wheels: x86-64 CPU/GPU and
 ARMHF on GitHub x86 hosts, generic AArch64 CPU/GPU on GitHub ARM64, Rockchip on
@@ -146,7 +138,7 @@ so Jetson Vulkan can be slower than a TensorRT-only engine.
 The measured workflow runs and hardware qualification results are recorded in
 [`runtime-ci.md`](runtime-ci.md).
 
-## A733 source and redistribution gate
+## A733 source and system-runtime boundary
 
 [Radxa's A733 documentation](https://docs.radxa.com/cubie/a7a/app-dev/npu-dev/cubie-vpm-run)
 identifies `vpm_run` as a VIPLite application, points to
@@ -160,14 +152,6 @@ make AI_SDK_PLATFORM=a733
 PiNozCam pins the reviewed SDK input to commit
 `fc90006d0f6569da2f6726c2d8395877686f5aca`. A moving branch must never be used
 as a release build input.
-
-The public repository solves source availability and reproducibility, but it
-does not by itself grant redistribution permission. At the reviewed commit the
-repository has no root license, and its VIPLite header contains proprietary and
-confidential-use language. Obtain an explicit license grant or written
-permission before publicly attaching an A733 runner Wheel. Until then, A733 CI
-may validate the private/self-hosted build, but the artifact is not a public
-release asset.
 
 The A733 Wheel must not bundle `libNBGlinker.so` or `libVIPhal.so`. The runner
 links to the board-provided copies, just as the Rockchip runner uses the

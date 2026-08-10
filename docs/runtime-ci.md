@@ -20,16 +20,17 @@ executable and three different
 RKNN model files. Jetson builds both the CPU fallback and Vulkan executable;
 Mesa lavapipe provides a software Vulkan protocol smoke test in CI. A733 uses
 the pinned public `ZIFENG278/ai-sdk` input, but needs a real board for the final
-AWNN/VIPLite inference test. Its separate redistribution-license gate is
-documented in [`a733-ci.md`](a733-ci.md).
+AWNN/VIPLite inference test. Its build boundary is documented in
+[`a733-ci.md`](a733-ci.md).
 
 ## Platform tags
 
 The generic CPU Wheels are self-contained. The AArch64 and x86-64 GPU
 executables use only the standard dynamic libraries permitted by their
 `manylinux_2_35` baselines and load the machine's Vulkan implementation at
-runtime. Both GPU packages carry the same `nozcam-gpu.pte`; only the runner and
-CPU fallback executable differ by architecture. The x86 runner uses the active
+runtime. Both platform Wheels belong to the one `pinozcam-runner-gpu`
+distribution and carry the same `nozcam-gpu.pte`; only the runner and CPU
+fallback executable differ by architecture. The x86 runner uses the active
 NVIDIA, AMD or Intel ICD. NVIDIA and AMD are hardware-qualified; Intel support
 is provisional until the same artifact completes the real-hardware matrix.
 
@@ -37,8 +38,8 @@ Rockchip and A733 executables intentionally depend on board-provided vendor
 libraries. Their CI Wheels therefore use the honest `linux_aarch64` tag rather
 than claiming manylinux compatibility. PyPI does not accept this tag; durable
 Rockchip and A733 binaries belong on the matching GitHub Release. Generic CPU
-and Vulkan Wheels use PyPI only after their final package layout and ELF
-dependencies pass `auditwheel show`.
+and Vulkan Wheels must still pass `auditwheel show`. All nine artifacts enter
+the GitHub Release; the five portable CPU/GPU Wheels may enter PyPI later.
 
 ## What hosted CI proves
 
@@ -92,16 +93,17 @@ qualification after the workflow's first branch run.
 
 Actions artifacts are temporary QA outputs, not release downloads. After
 hardware qualification, attach the verified Wheels and `SHA256SUMS` to the
-immutable GitHub runtime release. Rockchip and cleared A733 Wheels are
-distributed from that fixed release; compliant generic CPU and Vulkan Wheels
-are distributed through PyPI. The release manifest links each executable
-to the exact PiNozCam commit used by CI.
+immutable GitHub runtime release. All nine Wheels are distributed from that
+fixed release. Later PyPI publication can add the three `pinozcam-runner` and
+two `pinozcam-runner-gpu` platform Wheels without changing their distribution
+names. The release manifest links each executable to the exact PiNozCam commit
+used by CI.
 
-These workflows are intentionally manual (`workflow_dispatch`). GitHub only
-shows the Run workflow button after a workflow exists on the default branch.
-During development on a non-default branch, a temporary branch-only `push`
-trigger may be used for validation and must be removed from the final commit.
+Each platform workflow supports manual `workflow_dispatch` and reusable
+`workflow_call`. `build-runtime-release.yml` invokes all six when an RC or
+stable tag is pushed, verifies the nine-file set, and creates a draft Release.
+GitHub only shows the manual Run workflow button after a workflow exists on the
+default branch; tag-triggered runs use the workflow committed at that tag.
 
-The workflows do not by themselves change `setup.py`. The selected installation
-contract, current integration gap, and immutable-asset rules are documented in
+The selected installation contract and immutable-asset rules are documented in
 [`runtime-release.md`](runtime-release.md).

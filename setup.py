@@ -11,8 +11,8 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc6"
-runtime_version = "1.1.0rc5"
+plugin_version = "1.1.0rc7"
+runtime_version = "1.1.0rc7"
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
     "board. Requires Linux on ARM32, ARM64 or x86_64."
@@ -349,8 +349,8 @@ elif _host_cpu_arch == "aarch64":
         _content = _TARGET_CONTENT["aarch64-vulkan"]
     else:
         _content = _TARGET_CONTENT["aarch64"]
-elif (_host_cpu_arch == "x86_64" and runtime_version != "1.1.0rc5"
-      and _detect_x86_vulkan_gpu() and _vulkan_runtime_present()):
+elif (_host_cpu_arch == "x86_64" and _detect_x86_vulkan_gpu()
+      and _vulkan_runtime_present()):
     _content = _TARGET_CONTENT["x86_64-vulkan"]
 else:
     # An unrecognised host falls back to "ship nothing platform-specific"
@@ -359,23 +359,38 @@ else:
                                    {"cpu_arch": None, "rknn_chip": None,
                                     "awnn": False, "vulkan": False})
 
-# The GitHub source archive contains only the plugin. Let the outer pip process
-# resolve the target-native payload from its configured package index, normally
-# PyPI. Never launch a nested pip install or perform an ad-hoc download here.
+# The GitHub source archive contains only the plugin. The outer pip process
+# installs one immutable target Wheel from the matching GitHub Release. This is
+# a normal PEP 508 dependency, not a nested installer or custom downloader.
 _RUNTIME_REQUIREMENTS = {
-    "armhf": "pinozcam-runtime",
-    "aarch64": "pinozcam-runtime",
-    "x86_64": "pinozcam-runtime",
+    "armhf": "pinozcam-runner",
+    "aarch64": "pinozcam-runner",
+    "x86_64": "pinozcam-runner",
     "rknn3566": "pinozcam-runtime-rknn3566",
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
     "awnn": "pinozcam-runtime-a733",
-    "vulkan": "pinozcam-runtime-gpu-aarch64",
-    "vulkan_x86_64": "pinozcam-runtime-gpu-x86-64",
+    "vulkan": "pinozcam-runner-gpu",
+    "vulkan_x86_64": "pinozcam-runner-gpu",
 }
-_LEGACY_RUNTIME_REQUIREMENTS = {
-    ("vulkan", "1.1.0rc5"): "pinozcam-runtime-jetson-orin",
+_RUNTIME_WHEEL_NAMES = {
+    "armhf": "pinozcam_runner-%s-py3-none-manylinux2014_armv7l.whl",
+    "aarch64": "pinozcam_runner-%s-py3-none-manylinux2014_aarch64.whl",
+    "x86_64": "pinozcam_runner-%s-py3-none-manylinux2014_x86_64.whl",
+    "rknn3566": (
+        "pinozcam_runtime_rknn3566-%s-py3-none-linux_aarch64.whl"),
+    "rknn3576": (
+        "pinozcam_runtime_rknn3576-%s-py3-none-linux_aarch64.whl"),
+    "rknn3588": (
+        "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl"),
+    "awnn": "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
+    "vulkan": (
+        "pinozcam_runner_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
+    "vulkan_x86_64": (
+        "pinozcam_runner_gpu-%s-py3-none-manylinux_2_35_x86_64.whl"),
 }
+_RUNTIME_RELEASE_BASE = (
+    "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download")
 
 if _content["rknn_chip"]:
     _chip = _content["rknn_chip"]
@@ -392,11 +407,12 @@ else:
     _runtime_target = _content["cpu_arch"]
 
 if _runtime_target in _RUNTIME_REQUIREMENTS:
-    _runtime_dist = _LEGACY_RUNTIME_REQUIREMENTS.get(
-        (_runtime_target, runtime_version),
-        _RUNTIME_REQUIREMENTS[_runtime_target],
-    )
-    _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
+    _runtime_dist = _RUNTIME_REQUIREMENTS[_runtime_target]
+    _runtime_filename = (
+        _RUNTIME_WHEEL_NAMES[_runtime_target] % runtime_version)
+    _runtime_url = "%s/%s/%s" % (
+        _RUNTIME_RELEASE_BASE, runtime_version, _runtime_filename)
+    _runtime_requirement = "%s @ %s" % (_runtime_dist, _runtime_url)
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
     print("PiNozCam runtime target: %s" % _runtime_target)
@@ -407,7 +423,7 @@ if _runtime_target in _RUNTIME_REQUIREMENTS:
 # while testing; they still must never leak into the plugin Wheel.
 _exclude = setup_parameters.setdefault(
     "exclude_package_data", {}).setdefault(plugin_package, [])
-# Runtime payloads belong exclusively to pinozcam-runtime Wheels. Exclude
+# Runtime payloads belong exclusively to external runtime Wheels. Exclude
 # every known native file even while the tracked copies remain in this branch
 # for the migration test; once validation passes they are removed from Git as
 # well, which is what makes GitHub's automatically generated tag ZIP small.

@@ -1,7 +1,18 @@
 name: Build x86 CPU runtime
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0rc7"
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +32,7 @@ jobs:
 
     steps:
       - name: Check out PiNozCam
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install build tools
         run: |
@@ -55,13 +66,12 @@ jobs:
       - name: Build the runtime Wheel
         run: |
           python3 -m pip install --disable-pip-version-check --upgrade \
-            'auditwheel==6.4.2' setuptools wheel
-          version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
+            'auditwheel==6.4.2' 'setuptools==75.3.2' 'wheel==0.45.1'
           python3 src/runtime/package_cpu_runtime.py \
             --artifact-root runtime-artifacts \
             --output dist \
             --target x86_64 \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
 
       - name: Verify the installed Wheel payload
@@ -70,7 +80,7 @@ jobs:
             --architecture x86_64 --max-glibc-minor 17 dist/*.whl
           python3 -m pip install --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" dist/*.whl
-          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_x86_64"
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runner"
           test -x "$module/bin/nozcam_daemon.x86_64.static"
           test -f "$module/models/nozcam-cpu.pte"
           python3 src/executorch/smoke_test.py \
@@ -79,9 +89,9 @@ jobs:
           (cd dist && sha256sum --check SHA256SUMS)
 
       - name: Upload the verified runtime
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pinozcam-runtime-x86-${{ github.sha }}
+          name: pinozcam-runner-x86-${{ github.sha }}
           path: |
             dist/*.whl
             dist/SHA256SUMS

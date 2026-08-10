@@ -1,7 +1,18 @@
 name: Build x86-64 Vulkan GPU runtime
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0rc7"
+        type: string
 
 permissions:
   contents: read
@@ -123,18 +134,17 @@ jobs:
           "$runtime_python" -m pip install --disable-pip-version-check \
             'auditwheel==6.4.2' 'packaging==24.2' \
             'setuptools==75.3.2' 'wheel==0.45.1'
-          version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
           "$runtime_python" src/runtime/package_accelerator_runtime.py \
             --target vulkan_x86_64 \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
           echo "RUNTIME_PYTHON=$runtime_python" >> "$GITHUB_ENV"
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
-          wheels=(dist/pinozcam_runtime_gpu_x86_64-*.whl)
+          wheels=(dist/pinozcam_runner_gpu-*-x86_64.whl)
           test "${#wheels[@]}" -eq 1
           wheel="${wheels[0]}"
           "$RUNTIME_PYTHON" src/runtime/verify_runtime_wheel.py \
@@ -145,7 +155,7 @@ jobs:
             --architecture x86_64 --max-glibc-minor 35 "$wheel"
           "$RUNTIME_PYTHON" -m pip install --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" "$wheel"
-          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_gpu_x86_64"
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runner_gpu"
           test -x "$module/bin/nozcam_daemon.x86_64.static"
           test -x "$module/bin/nozcam_daemon.vulkan.x86_64"
           test -f "$module/models/nozcam-cpu.pte"
@@ -178,7 +188,7 @@ jobs:
       - name: Upload the verified x86-64 GPU runtime
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pinozcam-runtime-gpu-x86-64-${{ github.sha }}
+          name: pinozcam-runner-gpu-x86-64-${{ github.sha }}
           path: |
             dist/*.whl
             dist/SHA256SUMS

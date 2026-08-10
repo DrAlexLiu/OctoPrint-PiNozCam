@@ -1,7 +1,18 @@
 name: Build Rockchip RKNN runtimes
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0rc7"
+        type: string
 
 permissions:
   contents: read
@@ -143,29 +154,28 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check --upgrade \
             'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
-          version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
           python3 src/runtime/package_accelerator_runtime.py \
             --target rknn3566 \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
           python3 src/runtime/package_accelerator_runtime.py \
             --target rknn3576 \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
           python3 src/runtime/package_accelerator_runtime.py \
             --target rknn3588 \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
 
       - name: Verify Wheel payloads without Rockchip NPU execution
         run: |
-          version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
+          version="${{ inputs.version }}"
           for target in rknn3566 rknn3576 rknn3588; do
             wheel="dist/pinozcam_runtime_${target}-${version}-py3-none-linux_aarch64.whl"
             python3 src/runtime/verify_runtime_wheel.py \

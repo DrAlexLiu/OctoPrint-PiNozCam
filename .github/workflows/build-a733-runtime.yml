@@ -1,6 +1,15 @@
 name: Build A733 AWNN runtime
 
 on:
+  workflow_call:
+    inputs:
+      awnn_sdk_dir:
+        required: false
+        default: "/home/radxa/npu_test/examples/libawnn_viplite"
+        type: string
+      version:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       awnn_sdk_dir:
@@ -10,7 +19,7 @@ on:
       version:
         description: Runtime wheel version
         required: true
-        default: "1.1.0rc6.dev0"
+        default: "1.1.0rc7"
 
 permissions:
   contents: read
@@ -57,7 +66,7 @@ jobs:
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
       AWNN_MODEL_SHA256: 0000bb6d454ee6d3f80e5b13df8a2622e800444a769f6a744db39c47a7a90334
       AWNN_SDK_DIR: ${{ inputs.awnn_sdk_dir || '/home/radxa/npu_test/examples/libawnn_viplite' }}
-      VERSION: ${{ inputs.version || format('1.1.0rc6.dev{0}', github.run_number) }}
+      VERSION: ${{ inputs.version }}
 
     steps:
       - name: Check out PiNozCam

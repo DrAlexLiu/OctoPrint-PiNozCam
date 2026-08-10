@@ -1,7 +1,18 @@
 name: Build AArch64 GPU runtime
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0rc7"
+        type: string
 
 permissions:
   contents: read
@@ -151,25 +162,24 @@ jobs:
           "$runtime_python" -m pip install --disable-pip-version-check \
             'auditwheel==6.4.2' 'packaging==24.2' \
             'setuptools==75.3.2' 'wheel==0.45.1'
-          version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
           "$runtime_python" src/runtime/package_cpu_runtime.py \
             --target aarch64 \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
           "$runtime_python" src/runtime/package_accelerator_runtime.py \
             --target vulkan \
             --artifact-root runtime-artifacts \
             --output dist \
-            --version "$version" \
+            --version "${{ inputs.version }}" \
             --revision "$GITHUB_SHA"
           echo "RUNTIME_PYTHON=$runtime_python" >> "$GITHUB_ENV"
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
-          cpu_wheels=(dist/pinozcam_runtime-*.whl)
-          gpu_wheels=(dist/pinozcam_runtime_gpu_aarch64-*.whl)
+          cpu_wheels=(dist/pinozcam_runner-*.whl)
+          gpu_wheels=(dist/pinozcam_runner_gpu-*-aarch64.whl)
           test "${#cpu_wheels[@]}" -eq 1
           test "${#gpu_wheels[@]}" -eq 1
           cpu_wheel="${cpu_wheels[0]}"
@@ -184,8 +194,8 @@ jobs:
             --architecture aarch64 --max-glibc-minor 35 "$gpu_wheel"
           "$RUNTIME_PYTHON" -m pip install --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" "$cpu_wheel" "$gpu_wheel"
-          cpu_module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_aarch64"
-          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_gpu_aarch64"
+          cpu_module="$RUNNER_TEMP/wheel-install/pinozcam_runner"
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runner_gpu"
           test -x "$cpu_module/bin/nozcam_daemon.aarch64.static"
           test -f "$cpu_module/models/nozcam-cpu.pte"
           test -x "$module/bin/nozcam_daemon.aarch64.static"
@@ -225,7 +235,7 @@ jobs:
       - name: Upload the verified AArch64 GPU runtime
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pinozcam-runtime-gpu-aarch64-${{ github.sha }}
+          name: pinozcam-runner-gpu-aarch64-${{ github.sha }}
           path: |
             dist/*.whl
             dist/SHA256SUMS
