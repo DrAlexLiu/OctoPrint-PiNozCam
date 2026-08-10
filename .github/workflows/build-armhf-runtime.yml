@@ -84,6 +84,7 @@ jobs:
       - name: Exercise the installed Wheel through QEMU
         run: |
           "$RUNTIME_PYTHON" -m pip install --disable-pip-version-check --no-deps \
+            --only-binary=:all: --platform manylinux2014_armv7l \
             --target "$RUNNER_TEMP/wheel-install" dist/*.whl
           module="$RUNNER_TEMP/wheel-install/pinozcam_runner"
           test -x "$module/bin/nozcam_daemon.armhf.static"
