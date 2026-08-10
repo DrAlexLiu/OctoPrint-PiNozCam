@@ -77,6 +77,7 @@ _RUNNABLE_ARCHES = {
 # Map platform tags to CPU ABI; accelerator type is detected separately.
 _HOST_CPU_ARCH = {"linux_armv7l": "armhf", "linux_aarch64": "aarch64",
                   "linux_x86_64": "x86_64"}
+_X86_VULKAN_GPU_VENDORS = frozenset(("0x1002", "0x10de", "0x8086"))
 
 _host = sysconfig.get_platform().replace("-", "_").replace(".", "_")
 _host_cpu_arch = _HOST_CPU_ARCH.get(_host)
@@ -173,7 +174,7 @@ def _vulkan_runtime_present():
 
 
 def _detect_x86_vulkan_gpu():
-    """Return whether x86 PCI data shows an AMD or NVIDIA display GPU."""
+    """Return whether x86 PCI data shows a supported display GPU vendor."""
     if _host_cpu_arch != "x86_64":
         return False
     for device in glob.glob("/sys/bus/pci/devices/*"):
@@ -184,7 +185,8 @@ def _detect_x86_vulkan_gpu():
                 vendor = handle.read().strip().lower()
         except (IOError, OSError):
             continue
-        if pci_class.startswith("0x03") and vendor in ("0x1002", "0x10de"):
+        if (pci_class.startswith("0x03")
+                and vendor in _X86_VULKAN_GPU_VENDORS):
             return True
     return False
 

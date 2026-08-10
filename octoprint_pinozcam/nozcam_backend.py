@@ -48,6 +48,10 @@ _CMD_SHUTDOWN = 4
 # CPU model calibrated for the fixed fit preprocessing path.
 DEFAULT_MODEL = "nozcam-cpu.pte"
 
+# PCI vendor IDs for AMD, NVIDIA and Intel display devices. The Vulkan daemon
+# performs the authoritative feature/model warm-up before monitoring starts.
+_X86_VULKAN_GPU_VENDORS = frozenset(("0x1002", "0x10de", "0x8086"))
+
 # Native payloads live in target-specific runtime distributions. Distinct
 # package names prevent same-platform accelerators from sharing stale files.
 _RUNTIME_MODULES = {
@@ -173,7 +177,7 @@ def _vulkan_runtime_present():
 
 
 def _detect_x86_vulkan_gpu():
-    """Return whether x86 PCI data shows an AMD or NVIDIA display GPU."""
+    """Return whether x86 PCI data shows a supported display GPU vendor."""
     try:
         if _machine_tag() != "x86_64":
             return False
@@ -193,7 +197,8 @@ def _detect_x86_vulkan_gpu():
                 vendor = handle.read().strip().lower()
         except (IOError, OSError):
             continue
-        if pci_class.startswith("0x03") and vendor in ("0x1002", "0x10de"):
+        if (pci_class.startswith("0x03")
+                and vendor in _X86_VULKAN_GPU_VENDORS):
             return True
     return False
 

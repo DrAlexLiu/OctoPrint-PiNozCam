@@ -29,7 +29,9 @@ The generic CPU Wheels are self-contained. The AArch64 and x86-64 GPU
 executables use only the standard dynamic libraries permitted by their
 `manylinux_2_35` baselines and load the machine's Vulkan implementation at
 runtime. Both GPU packages carry the same `nozcam-gpu.pte`; only the runner and
-CPU fallback executable differ by architecture.
+CPU fallback executable differ by architecture. The x86 runner uses the active
+NVIDIA, AMD or Intel ICD. NVIDIA and AMD are hardware-qualified; Intel support
+is provisional until the same artifact completes the real-hardware matrix.
 
 Rockchip and A733 executables intentionally depend on board-provided vendor
 libraries. Their CI Wheels therefore use the honest `linux_aarch64` tag rather

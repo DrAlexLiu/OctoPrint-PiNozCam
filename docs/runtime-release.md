@@ -113,7 +113,8 @@ checked-out source revision:
 4. GitHub-hosted ARM64 builds the AArch64 Vulkan runner; real Orin hardware
    performs the final GPU qualification.
 5. GitHub-hosted x86-64 builds the x86 Vulkan runner; the same artifact is
-   qualified with NVIDIA and AMD ICDs.
+   qualified with NVIDIA and AMD ICDs. Intel uses the same artifact but remains
+   provisional until it completes the hardware matrix.
 6. An ephemeral A733 self-hosted runner builds and tests the AWNN/VIPLite
    runtime because the vendor toolchain and NPU are board-specific.
 7. Download the workflow artifacts independently, verify their SHA-256 values,
@@ -136,10 +137,11 @@ PTE completes a real inference. A missing or incompatible Vulkan backend must
 fall back to the generic AArch64 CPU runtime.
 
 The x86-64 Vulkan runner is likewise vendor-neutral and uses the same Vulkan
-PTE on supported NVIDIA and AMD drivers. This portability does not add an AMD
-code path to NVIDIA execution. Its performance tradeoff is instead that the
-delegate cannot use TensorRT/CUDA-specific graph fusion, kernel selection, or
-memory planning, so Jetson Vulkan can be slower than a TensorRT-only engine.
+PTE on compatible NVIDIA, AMD and Intel drivers. NVIDIA and AMD are qualified;
+Intel is provisional. This portability does not add AMD or Intel code paths to
+NVIDIA execution. Its performance tradeoff is instead that the delegate cannot
+use TensorRT/CUDA-specific graph fusion, kernel selection, or memory planning,
+so Jetson Vulkan can be slower than a TensorRT-only engine.
 
 The measured workflow runs and hardware qualification results are recorded in
 [`runtime-ci.md`](runtime-ci.md).

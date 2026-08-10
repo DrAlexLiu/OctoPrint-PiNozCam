@@ -57,7 +57,7 @@ The minimum matrix is:
 - ARM 32-bit CPU, including a 64-bit kernel with 32-bit Python userspace;
 - ARM 64-bit CPU;
 - x86-64 CPU;
-- x86-64 Vulkan on qualified NVIDIA and AMD drivers;
+- x86-64 Vulkan on qualified NVIDIA and AMD drivers, plus provisional Intel;
 - RK3566, RK3576, and RK3588 NPU;
 - A733 NPU, subject to the redistribution gate;
 - AArch64 Vulkan on a qualified Jetson Orin.

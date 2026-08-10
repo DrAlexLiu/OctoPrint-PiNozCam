@@ -69,9 +69,11 @@ Setup guide: [docs/notifications.md](docs/notifications.md)
 Any Linux machine with Python 3.7+ — every Raspberry Pi from the Zero 2 W / Pi CM0
 up, any ARM64 or x86_64 PC, and NPU boards like the **Orange Pi 3B**,
 **BIQU CB2**, Radxa ROCK 4D, LubanCat-4 and Radxa A733, plus Jetson Orin and
-qualified x86-64 NVIDIA/AMD Vulkan GPUs. PiNozCam finds the fastest option
-your board has on its own, and falls back to the CPU when there is nothing
-faster. *(No Windows, macOS, FreeBSD, or Android/Octo4a.)*
+x86-64 Vulkan GPUs. NVIDIA and AMD have been hardware-qualified; Intel uses
+the same vendor-neutral runner but remains provisional until it has completed
+the hardware qualification matrix. PiNozCam finds the fastest option your
+board has on its own, and falls back to the CPU when there is nothing faster.
+*(No Windows, macOS, FreeBSD, or Android/Octo4a.)*
 
 Rockchip users can verify the driver, runtime library and OctoPrint service
 permissions with the [Rockchip NPU setup checklist](docs/rockchip-npu.md).
