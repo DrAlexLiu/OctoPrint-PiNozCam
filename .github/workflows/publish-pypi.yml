@@ -6,7 +6,7 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the nine runtime Wheels
         required: true
-        default: 1.1.0rc7
+        default: 1.1.0rc8
         type: string
       runtime_target:
         description: Upload the CPU Wheels or both GPU Wheels
@@ -106,7 +106,7 @@ jobs:
                   )
               )
           if any(
-              not name.startswith(("pinozcam_runtime", "pinozcam_runner"))
+              not name.startswith("pinozcam_runtime")
               or not name.endswith(".whl")
               for name in expected
           ):
@@ -180,8 +180,8 @@ jobs:
           import shutil
 
           wheel_stems = {
-              "cpu": "pinozcam_runner-",
-              "gpu": "pinozcam_runner_gpu-",
+              "cpu": "pinozcam_runtime-",
+              "gpu": "pinozcam_runtime_gpu-",
           }
           source = Path("dist")
           destination = Path("publish-dist")

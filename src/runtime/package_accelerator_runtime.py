@@ -56,7 +56,7 @@ TARGETS = {
         "models": ("nozcam-cpu.pte", "nozcam-a733.nb"),
     },
     "vulkan": {
-        "dist": "pinozcam-runner-gpu",
+        "dist": "pinozcam-runtime-gpu",
         "module": "pinozcam_runner_gpu",
         "platform": "manylinux_2_35_aarch64",
         "bins": (
@@ -66,7 +66,7 @@ TARGETS = {
         "models": ("nozcam-cpu.pte", "nozcam-gpu.pte"),
     },
     "vulkan_x86_64": {
-        "dist": "pinozcam-runner-gpu",
+        "dist": "pinozcam-runtime-gpu",
         "module": "pinozcam_runner_gpu",
         "platform": "manylinux_2_35_x86_64",
         "bins": (

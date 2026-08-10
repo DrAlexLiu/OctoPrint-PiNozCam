@@ -6,7 +6,7 @@ Every PiNozCam runtime Wheel is attached to the matching immutable GitHub
 Release. This gives the tag archive, all nine native payloads, and one checksum
 manifest a single versioned release boundary.
 
-The portable `pinozcam-runner` and `pinozcam-runner-gpu` distributions may also
+The portable `pinozcam-runtime` and `pinozcam-runtime-gpu` distributions may also
 be published to PyPI later. Rockchip and A733 Wheels remain GitHub Release
 assets because their honest platform tag is `linux_aarch64` and they depend on
 board-provided vendor libraries.
@@ -56,14 +56,14 @@ For RC7, every target emits an exact PEP 508 direct reference. The portable CPU
 and GPU project names are shared across their platform Wheels:
 
 ```text
-pinozcam-runner @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runner-1.1.0rc7-py3-none-manylinux2014_aarch64.whl
-pinozcam-runner-gpu @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runner_gpu-1.1.0rc7-py3-none-manylinux_2_35_aarch64.whl
+pinozcam-runtime @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc8/pinozcam_runtime-1.1.0rc8-py3-none-manylinux2014_aarch64.whl
+pinozcam-runtime-gpu @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc8/pinozcam_runtime_gpu-1.1.0rc8-py3-none-manylinux_2_35_aarch64.whl
 ```
 
 Hardware-specific targets use the same fixed-tag form:
 
 ```text
-pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc7/pinozcam_runtime_rknn3566-1.1.0rc7-py3-none-linux_aarch64.whl
+pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc8/pinozcam_runtime_rknn3566-1.1.0rc8-py3-none-linux_aarch64.whl
 ```
 
 The URL must contain a fixed release tag and exact filename. Do not use
@@ -84,8 +84,8 @@ Before publishing a candidate:
 
 1. Keep all nine setup dependencies on the same fixed release tag as the
    plugin.
-2. Keep all three CPU Wheels under `pinozcam-runner` and both Vulkan Wheels
-   under `pinozcam-runner-gpu`; Wheel platform tags select the host ABI while
+2. Keep all three CPU Wheels under `pinozcam-runtime` and both Vulkan Wheels
+   under `pinozcam-runtime-gpu`; Wheel platform tags select the host ABI while
    the backend remains Vulkan.
 3. Keep native payloads in platlib and require `auditwheel show` as a release
    gate for every CPU and GPU Wheel.
@@ -107,8 +107,9 @@ workflow invokes all six from the tagged source revision:
 5. GitHub-hosted x86-64 builds the x86 Vulkan runner; the same artifact is
    qualified with NVIDIA and AMD ICDs. Intel uses the same artifact but remains
    provisional until it completes the hardware matrix.
-6. An ephemeral A733 self-hosted runner builds and tests the AWNN/VIPLite
-   runtime because the vendor toolchain and NPU are board-specific.
+6. GitHub-hosted ARM64 fetches the pinned public A733 SDK inputs, builds the
+   AWNN/VIPLite daemon in a manylinux 2.28 container, and performs static,
+   dependency, packaging, and CPU-fallback protocol checks.
 7. Download the workflow artifacts independently, verify their SHA-256 values,
    then execute the production pipe protocol on the matching hardware.
 8. Assemble all nine Wheels and their checksum manifest into one immutable
@@ -117,7 +118,8 @@ workflow invokes all six from the tagged source revision:
 
 The source-build definitions now cover all nine Wheels: x86-64 CPU/GPU and
 ARMHF on GitHub x86 hosts, generic AArch64 CPU/GPU on GitHub ARM64, Rockchip on
-a GitHub ARM64/cross-build pair, and A733 with its ephemeral self-hosted board.
+a GitHub ARM64/cross-build pair, and A733 on GitHub ARM64 with a pinned
+manylinux container.
 The new ARMHF workflow must complete its first hosted run and its exact output
 must pass the real-board qualification before this becomes release evidence.
 
@@ -157,6 +159,7 @@ The A733 Wheel must not bundle `libNBGlinker.so` or `libVIPhal.so`. The runner
 links to the board-provided copies, just as the Rockchip runner uses the
 board-provided `librknnrt.so`. `libVIPhal.so` is the user-space HAL that talks
 to `/dev/vipcore`, so replacing it with a Wheel-bundled copy can create a
-user-space/kernel-driver ABI mismatch. Release qualification must verify the
-device node, load the system libraries, and execute a real inference; failure
-falls back to the CPU runtime.
+user-space/kernel-driver ABI mismatch. The hosted release workflow does not
+access a device node or execute an AWNN inference. On an installed board,
+failure to load the system runtime or initialize the NPU falls back to the CPU
+runtime.

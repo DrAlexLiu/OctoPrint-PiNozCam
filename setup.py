@@ -11,8 +11,8 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc7"
-runtime_version = "1.1.0rc7"
+plugin_version = "1.1.0rc8"
+runtime_version = "1.1.0rc8"
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
     "board. Requires Linux on ARM32, ARM64 or x86_64."
@@ -363,20 +363,20 @@ else:
 # installs one immutable target Wheel from the matching GitHub Release. This is
 # a normal PEP 508 dependency, not a nested installer or custom downloader.
 _RUNTIME_REQUIREMENTS = {
-    "armhf": "pinozcam-runner",
-    "aarch64": "pinozcam-runner",
-    "x86_64": "pinozcam-runner",
+    "armhf": "pinozcam-runtime",
+    "aarch64": "pinozcam-runtime",
+    "x86_64": "pinozcam-runtime",
     "rknn3566": "pinozcam-runtime-rknn3566",
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
     "awnn": "pinozcam-runtime-a733",
-    "vulkan": "pinozcam-runner-gpu",
-    "vulkan_x86_64": "pinozcam-runner-gpu",
+    "vulkan": "pinozcam-runtime-gpu",
+    "vulkan_x86_64": "pinozcam-runtime-gpu",
 }
 _RUNTIME_WHEEL_NAMES = {
-    "armhf": "pinozcam_runner-%s-py3-none-manylinux2014_armv7l.whl",
-    "aarch64": "pinozcam_runner-%s-py3-none-manylinux2014_aarch64.whl",
-    "x86_64": "pinozcam_runner-%s-py3-none-manylinux2014_x86_64.whl",
+    "armhf": "pinozcam_runtime-%s-py3-none-manylinux2014_armv7l.whl",
+    "aarch64": "pinozcam_runtime-%s-py3-none-manylinux2014_aarch64.whl",
+    "x86_64": "pinozcam_runtime-%s-py3-none-manylinux2014_x86_64.whl",
     "rknn3566": (
         "pinozcam_runtime_rknn3566-%s-py3-none-linux_aarch64.whl"),
     "rknn3576": (
@@ -385,9 +385,9 @@ _RUNTIME_WHEEL_NAMES = {
         "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl"),
     "awnn": "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
     "vulkan": (
-        "pinozcam_runner_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
+        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
     "vulkan_x86_64": (
-        "pinozcam_runner_gpu-%s-py3-none-manylinux_2_35_x86_64.whl"),
+        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_x86_64.whl"),
 }
 _RUNTIME_RELEASE_BASE = (
     "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download")

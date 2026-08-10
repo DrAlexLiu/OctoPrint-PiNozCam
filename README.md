@@ -10,7 +10,7 @@ all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. No cloud, no subsc
 </div>
 
 <p align="center">
-  <a href="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases"><img src="https://img.shields.io/badge/version-1.1.0rc7-orange.svg" alt="Version 1.1.0rc7"></a>
+  <a href="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases"><img src="https://img.shields.io/badge/version-1.1.0rc8-orange.svg" alt="Version 1.1.0rc8"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License AGPL-3.0"></a>
   <a href="#-supported-platforms"><img src="https://img.shields.io/badge/platform-Linux-lightgrey.svg" alt="Linux"></a>
   <a href="https://discord.gg/gv4tKJ2ZKr"><img src="https://img.shields.io/discord/1158238902197424251.svg?label=Discord&amp;logo=discord&amp;logoColor=ffffff&amp;color=7389D8&amp;labelColor=555555" alt="Join Discord"></a>
@@ -110,7 +110,7 @@ Install **PiNozCam** from **Settings → Plugin Manager → Get More**, or by
 URL:
 
 ```text
-https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc7.zip
+https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc8.zip
 ```
 
 The installer picks the right build for your machine automatically and asks

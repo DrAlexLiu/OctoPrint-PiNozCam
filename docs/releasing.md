@@ -19,12 +19,12 @@ but no model or runner binary. A complete release has nine runtime Wheels:
 
 | Distribution | Platform files | Channel |
 | --- | --- | --- |
-| `pinozcam-runner` | ARM 32-bit, ARM 64-bit, x86-64 CPU | GitHub Release; PyPI later |
+| `pinozcam-runtime` | ARM 32-bit, ARM 64-bit, x86-64 CPU | GitHub Release and PyPI |
 | `pinozcam-runtime-rknn3566` | RK3566 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3576` | RK3576 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3588` | RK3588 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release |
-| `pinozcam-runner-gpu` | AArch64 and x86-64 Vulkan Wheels, each with its CPU fallback | GitHub Release; PyPI later |
+| `pinozcam-runtime-gpu` | AArch64 and x86-64 Vulkan Wheels, each with its CPU fallback | GitHub Release and PyPI |
 
 The GitHub Release also contains `CHECKSUMS.txt` for all nine assets. The
 release workflow verifies the exact filename, Wheel metadata, source revision,
@@ -56,12 +56,14 @@ The minimum matrix is:
 - x86-64 CPU;
 - x86-64 Vulkan on qualified NVIDIA and AMD drivers, plus provisional Intel;
 - RK3566, RK3576, and RK3588 NPU;
-- A733 NPU;
+- A733 hosted build, ELF/dependency checks, Wheel verification, and CPU
+  fallback protocol inference;
 - AArch64 Vulkan on a qualified Jetson Orin.
 
-For each target, require PING, INFO, INFER, and SHUTDOWN through the production
-binary pipe protocol. Accelerator targets must execute on the real device, not
-only a hosted build runner or software Vulkan implementation.
+For each hardware-qualified target, require PING, INFO, INFER, and SHUTDOWN
+through the production binary pipe protocol. The A733 exception is documented
+in [`a733-ci.md`](a733-ci.md): its release workflow does not execute the AWNN
+runner on a real device.
 
 ## 3. Create the pre-release
 
@@ -93,7 +95,7 @@ Download the public assets into another empty directory and run
 build workspace.
 
 PyPI publication is not part of RC7 creation. A later manual workflow may
-publish only the three `pinozcam-runner` and two `pinozcam-runner-gpu` Wheels.
+publish only the three `pinozcam-runtime` and two `pinozcam-runtime-gpu` Wheels.
 
 ## 4. End-to-end clean-install test
 

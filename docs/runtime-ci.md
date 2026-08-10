@@ -12,15 +12,15 @@ and retain it as a GitHub Actions artifact for 14 days.
 | `build-armhf-runtime.yml` | GitHub x86-64 cross-build plus QEMU | ARMHF CPU Wheel |
 | `build-rockchip-runtime.yml` | GitHub ARM64 plus a pinned Ubuntu 20.04 cross-build container | RK3566, RK3576, and RK3588 Wheels |
 | `build-gpu-aarch64-runtime.yml` | GitHub Ubuntu 22.04 ARM64 | Generic AArch64 CPU and AArch64 Vulkan GPU Wheels |
-| `build-a733-runtime.yml` | GitHub ARM64 plus an ephemeral A733 self-hosted runner | A733 AWNN Wheel |
+| `build-a733-runtime.yml` | GitHub ARM64 with a pinned manylinux 2.28 container | A733 AWNN Wheel |
 
 The generic AArch64 CPU Wheel and GPU fallback are built from the same pinned
 ExecuTorch source on Ubuntu 22.04 ARM64. Rockchip uses one shared daemon
 executable and three different
 RKNN model files. Jetson builds both the CPU fallback and Vulkan executable;
 Mesa lavapipe provides a software Vulkan protocol smoke test in CI. A733 uses
-the pinned public `ZIFENG278/ai-sdk` input, but needs a real board for the final
-AWNN/VIPLite inference test. Its build boundary is documented in
+the pinned public `ZIFENG278/ai-sdk` input and has no self-hosted hardware job.
+Its hosted-build boundary is documented in
 [`a733-ci.md`](a733-ci.md).
 
 ## Platform tags
@@ -28,7 +28,7 @@ AWNN/VIPLite inference test. Its build boundary is documented in
 The generic CPU Wheels are self-contained. The AArch64 and x86-64 GPU
 executables use only the standard dynamic libraries permitted by their
 `manylinux_2_35` baselines and load the machine's Vulkan implementation at
-runtime. Both platform Wheels belong to the one `pinozcam-runner-gpu`
+runtime. Both platform Wheels belong to the one `pinozcam-runtime-gpu`
 distribution and carry the same `nozcam-gpu.pte`; only the runner and CPU
 fallback executable differ by architecture. The x86 runner uses the active
 NVIDIA, AMD or Intel ICD. NVIDIA and AMD are hardware-qualified; Intel support
@@ -50,8 +50,9 @@ real PTE inference through the production pipe protocol.
 
 Hosted runners do not contain Rockchip or NVIDIA hardware. Before a release,
 download the Actions artifact and run the same Wheel on RK3566, RK3576,
-RK3588, and Jetson Orin hardware. The A733 workflow performs its AWNN inference
-on the self-hosted board as part of the workflow itself.
+RK3588, and Jetson Orin hardware. The A733 release path intentionally stops at
+hosted compilation, ELF/dependency checks, Wheel verification, and CPU-fallback
+protocol inference; it does not execute AWNN inference on every release.
 
 ## Validation record
 
@@ -63,7 +64,7 @@ artifacts with development version numbers, not release assets.
 | x86-64 CPU | [31337036007](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31337036007) | Installed artifact completed PING/INFO/INFER/SHUTDOWN with the production PTE on x86-64 |
 | x86-64 Vulkan GPU | Pending first run of `build-gpu-x86-runtime.yml` | The production daemon and shared PTE completed the 34-image set on an RTX 4090 and Radeon R9700: box counts 34/34 identical, maximum score difference `1.1920929e-7`, box/severity/area differences zero. The exact Actions artifact still needs download-and-run qualification |
 | ARMHF CPU | Pending first run of `build-armhf-runtime.yml` | Previously qualified local runner; the new source-built Actions artifact still needs exact-byte board qualification |
-| A733 AWNN | [31339370137](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31339370137) | The ephemeral self-hosted A733 job built the runner and completed real AWNN inference |
+| A733 AWNN | Historical: [31339370137](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31339370137) | An earlier self-hosted workflow completed real AWNN inference; current releases use hosted build verification only |
 | RK3566/RK3576/RK3588 | [31340003668](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340003668) | The exact three downloaded Wheels completed real NPU inference on one board of each SoC family |
 | Jetson Orin Vulkan | [31340384861](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340384861) | The exact downloaded Wheel completed Vulkan inference on an NVIDIA Tegra Orin after the hosted lavapipe check |
 
@@ -94,8 +95,8 @@ qualification after the workflow's first branch run.
 Actions artifacts are temporary QA outputs, not release downloads. After
 hardware qualification, attach the verified Wheels and `SHA256SUMS` to the
 immutable GitHub runtime release. All nine Wheels are distributed from that
-fixed release. Later PyPI publication can add the three `pinozcam-runner` and
-two `pinozcam-runner-gpu` platform Wheels without changing their distribution
+fixed release. PyPI publication adds the three `pinozcam-runtime` and
+two `pinozcam-runtime-gpu` platform Wheels without changing their distribution
 names. The release manifest links each executable to the exact PiNozCam commit
 used by CI.
 

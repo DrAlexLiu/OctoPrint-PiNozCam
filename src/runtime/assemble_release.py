@@ -10,16 +10,16 @@ import zipfile
 
 
 TARGETS = {
-    "armhf": ("pinozcam_runner", "pinozcam-runner",
+    "armhf": ("pinozcam_runtime", "pinozcam-runtime",
               "pinozcam_runner", "manylinux2014_armv7l"),
-    "aarch64": ("pinozcam_runner", "pinozcam-runner",
+    "aarch64": ("pinozcam_runtime", "pinozcam-runtime",
                 "pinozcam_runner", "manylinux2014_aarch64"),
-    "x86_64": ("pinozcam_runner", "pinozcam-runner",
+    "x86_64": ("pinozcam_runtime", "pinozcam-runtime",
                "pinozcam_runner", "manylinux2014_x86_64"),
-    "vulkan": ("pinozcam_runner_gpu", "pinozcam-runner-gpu",
+    "vulkan": ("pinozcam_runtime_gpu", "pinozcam-runtime-gpu",
                "pinozcam_runner_gpu", "manylinux_2_35_aarch64"),
     "vulkan_x86_64": (
-        "pinozcam_runner_gpu", "pinozcam-runner-gpu",
+        "pinozcam_runtime_gpu", "pinozcam-runtime-gpu",
         "pinozcam_runner_gpu", "manylinux_2_35_x86_64"),
     "rknn3566": (
         "pinozcam_runtime_rknn3566", "pinozcam-runtime-rknn3566",

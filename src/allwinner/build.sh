@@ -5,6 +5,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 AWNN_SDK_DIR=${AWNN_SDK_DIR:?set AWNN_SDK_DIR to the vendor libawnn_viplite directory}
 VIP_INCLUDE_DIR=${VIP_INCLUDE_DIR:-/usr/local/include/viplite}
 VIP_LIB_DIR=${VIP_LIB_DIR:-/usr/local/lib}
+VIP_RUNTIME_LIB_DIR=${VIP_RUNTIME_LIB_DIR:-$VIP_LIB_DIR}
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
 OUT=${OUT:-$HERE/nozcam_allwinner_daemon}
@@ -49,7 +50,7 @@ mkdir -p "$OBJ_DIR"
 
 "$CXX" "$OBJ_DIR/daemon.o" "$OBJ_DIR/postprocess.o" \
   "$OBJ_DIR/awnn_lib.o" "$OBJ_DIR/awnn_quantize.o" \
-  -L"$VIP_LIB_DIR" -Wl,-rpath,"$VIP_LIB_DIR" \
+  -L"$VIP_LIB_DIR" -Wl,-rpath,"$VIP_RUNTIME_LIB_DIR" \
   -lNBGlinker -lVIPhal -lpthread -lm -Wl,-z,noexecstack -o "$OUT"
 
 echo "built: $OUT"

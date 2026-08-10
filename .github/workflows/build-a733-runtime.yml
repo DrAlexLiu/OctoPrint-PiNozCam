@@ -3,23 +3,15 @@ name: Build A733 AWNN runtime
 on:
   workflow_call:
     inputs:
-      awnn_sdk_dir:
-        required: false
-        default: "/home/radxa/npu_test/examples/libawnn_viplite"
-        type: string
       version:
         required: true
         type: string
   workflow_dispatch:
     inputs:
-      awnn_sdk_dir:
-        description: AWNN SDK root containing libawnn_viplite
-        required: true
-        default: "/home/radxa/npu_test/examples/libawnn_viplite"
       version:
         description: Runtime wheel version
         required: true
-        default: "1.1.0rc7"
+        default: "1.1.0rc8"
 
 permissions:
   contents: read
@@ -54,18 +46,22 @@ jobs:
 
   build-a733-runtime:
     needs: build-cpu-fallback
-    runs-on:
-      - self-hosted
-      - linux
-      - ARM64
-      - a733
+    runs-on: ubuntu-22.04-arm
+    container:
+      image: quay.io/pypa/manylinux_2_28_aarch64@sha256:b9dd5b2d6885fae144119ac934978003bcc413087ea08f602a960257205ec246
     timeout-minutes: 120
     env:
+      AI_SDK_REPOSITORY: https://github.com/ZIFENG278/ai-sdk.git
+      AI_SDK_COMMIT: fc90006d0f6569da2f6726c2d8395877686f5aca
       MODEL_WHEEL_URL: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5/pinozcam_runtime_a733-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
       MODEL_WHEEL_SHA256: 6fe4ef17b71be17c512bf3d993a6751898bc697d1bf093aae8a1f40c45840907
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
       AWNN_MODEL_SHA256: 0000bb6d454ee6d3f80e5b13df8a2622e800444a769f6a744db39c47a7a90334
-      AWNN_SDK_DIR: ${{ inputs.awnn_sdk_dir || '/home/radxa/npu_test/examples/libawnn_viplite' }}
+      AWNN_SDK_DIR: ${{ github.workspace }}/vendor/ai-sdk/examples/libawnn_viplite
+      VIP_INCLUDE_DIR: ${{ github.workspace }}/vendor/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0/inc
+      VIP_LIB_DIR: ${{ github.workspace }}/vendor/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
+      VIP_RUNTIME_LIB_DIR: /usr/local/lib
+      PACKAGE_PYTHON: /opt/python/cp39-cp39/bin/python
       VERSION: ${{ inputs.version }}
 
     steps:
@@ -77,6 +73,15 @@ jobs:
         with:
           name: a733-cpu-fallback-${{ github.sha }}
           path: runtime-artifacts/bin
+
+      - name: Fetch the pinned public A733 SDK inputs
+        run: |
+          mkdir -p vendor/ai-sdk
+          git -C vendor/ai-sdk init
+          git -C vendor/ai-sdk remote add origin "$AI_SDK_REPOSITORY"
+          git -C vendor/ai-sdk fetch --depth=1 origin "$AI_SDK_COMMIT"
+          git -C vendor/ai-sdk checkout --detach FETCH_HEAD
+          test "$(git -C vendor/ai-sdk rev-parse HEAD)" = "$AI_SDK_COMMIT"
 
       - name: Fetch pinned model inputs
         run: |
@@ -109,7 +114,7 @@ jobs:
           echo "$AWNN_MODEL_SHA256  runtime-artifacts/models/nozcam-a733.nb" \
             | sha256sum --check
 
-      - name: Validate manual-host inputs
+      - name: Validate hosted build inputs
         run: |
           if [ ! -d "$AWNN_SDK_DIR" ]; then
             echo "AWNN SDK path is missing: $AWNN_SDK_DIR"
@@ -125,7 +130,7 @@ jobs:
           ARTIFACT_ROOT: runtime-artifacts
         run: |
           chmod +x src/allwinner/bootstrap_ci.sh
-          python3 -m venv "$RUNNER_TEMP/package-venv"
+          "$PACKAGE_PYTHON" -m venv "$RUNNER_TEMP/package-venv"
           "$RUNNER_TEMP/package-venv/bin/python" -m pip install \
             --disable-pip-version-check \
             'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
@@ -146,8 +151,27 @@ jobs:
             runtime-artifacts/bin/nozcam_daemon.awnn.aarch64 \
             | grep -Eo 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' \
             | sort -Vu | tail -n 1)
-          if [ "$(printf '%s\n' "$max_glibc" 2.29 | sort -V | tail -n 1)" != 2.29 ]; then
-            echo "A733 daemon requires GLIBC_$max_glibc, above Wheel tag 2.29"
+          if [ "$(printf '%s\n' "$max_glibc" 2.28 | sort -V | tail -n 1)" != 2.28 ]; then
+            echo "A733 daemon requires GLIBC_$max_glibc, above the 2.28 build ceiling"
+            exit 1
+          fi
+          readelf --dynamic runtime-artifacts/bin/nozcam_daemon.awnn.aarch64 \
+            > "$RUNNER_TEMP/a733.dynamic"
+          grep -F 'Shared library: [libNBGlinker.so]' \
+            "$RUNNER_TEMP/a733.dynamic"
+          grep -F 'Shared library: [libVIPhal.so]' \
+            "$RUNNER_TEMP/a733.dynamic"
+          grep -E '(RPATH|RUNPATH).*/usr/local/lib' \
+            "$RUNNER_TEMP/a733.dynamic"
+          if grep -F "$RUNNER_TEMP" "$RUNNER_TEMP/a733.dynamic"; then
+            echo "A733 daemon records an ephemeral CI library path"
+            exit 1
+          fi
+          LD_LIBRARY_PATH="$VIP_LIB_DIR" \
+            ldd runtime-artifacts/bin/nozcam_daemon.awnn.aarch64 \
+            > "$RUNNER_TEMP/a733.ldd"
+          if grep -F 'not found' "$RUNNER_TEMP/a733.ldd"; then
+            cat "$RUNNER_TEMP/a733.ldd"
             exit 1
           fi
           file dist/*.whl
@@ -162,12 +186,14 @@ jobs:
           "$RUNNER_TEMP/package-venv/bin/python" \
             src/runtime/verify_runtime_wheel.py \
             --target awnn --wheel dist/*.whl --revision "$GITHUB_SHA"
-          python3 src/executorch/smoke_test.py \
+          "$PACKAGE_PYTHON" src/executorch/smoke_test.py \
             --daemon "$module/bin/nozcam_daemon.aarch64.static" \
             --model "$module/models/nozcam-cpu.pte" --timeout 900
-          python3 src/executorch/smoke_test.py \
-            --daemon "$module/bin/nozcam_daemon.awnn.aarch64" \
-            --model "$module/models/nozcam-a733.nb" --timeout 300
+          if unzip -l dist/*.whl \
+              | grep -E 'lib(NBGlinker|VIPhal)\.so'; then
+            echo "A733 Wheel must not bundle board runtime libraries"
+            exit 1
+          fi
           test -f dist/SHA256SUMS
           (cd dist && sha256sum --check SHA256SUMS)
 

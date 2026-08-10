@@ -39,8 +39,8 @@ check_digest() {
   echo "$expected  $path" | sha256sum --check --strict
 }
 
-# The vendor inputs are not public repository files. Pin their exact bytes so
-# a self-hosted runner upgrade cannot silently change a release artifact.
+# Pin the exact bytes fetched from the public SDK commit so an upstream change
+# cannot silently alter a release artifact.
 check_digest cd5887d5ed7a46235c7ad79366ad83ec0aa2368bc487848c57e1726b220b7e30 \
   "$AWNN_SDK_DIR/awnn_lib.c"
 check_digest 5f59b1ee572ca445b9b8d2f9abbb96ce50b352c653cd59841c2c4feb78b02624 \

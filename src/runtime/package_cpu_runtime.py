@@ -93,7 +93,7 @@ def _stage(stage, artifacts, target, version, revision):
         "sha256": _sha256(license_path),
     }
     manifest = {
-        "distribution": "pinozcam-runner",
+        "distribution": "pinozcam-runtime",
         "files": files,
         "format": 2,
         "models": {
@@ -144,7 +144,7 @@ class bdist_wheel(_bdist_wheel):
 
 
 setup(
-    name="pinozcam-runner",
+    name="pinozcam-runtime",
     version={version!r},
     description="Native {target} CPU runner and model payload for PiNozCam",
     long_description=(
@@ -200,7 +200,7 @@ def main():
             check=True,
         )
 
-    filename = "pinozcam_runner-%s-py3-none-%s.whl" % (
+    filename = "pinozcam_runtime-%s-py3-none-%s.whl" % (
         args.version, TARGETS[args.target]["platform"])
     wheel = os.path.join(output, filename)
     if not os.path.isfile(wheel):
