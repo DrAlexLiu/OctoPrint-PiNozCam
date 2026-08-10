@@ -48,7 +48,7 @@ jobs:
 
       - name: Build the ARMHF daemon from source
         run: |
-          src/executorch/bootstrap_armhf_cpu.sh \
+          bash src/executorch/bootstrap_armhf_cpu.sh \
             "$RUNNER_TEMP/pinozcam-armhf-build" \
             "$GITHUB_WORKSPACE/runtime-artifacts"
 
