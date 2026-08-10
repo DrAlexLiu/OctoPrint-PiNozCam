@@ -12,7 +12,7 @@ and retain it as a GitHub Actions artifact for 14 days.
 | `build-armhf-runtime.yml` | GitHub x86-64 cross-build plus QEMU | ARMHF CPU Wheel |
 | `build-rockchip-runtime.yml` | GitHub ARM64 plus a pinned Ubuntu 20.04 cross-build container | RK3566, RK3576, and RK3588 Wheels |
 | `build-gpu-aarch64-runtime.yml` | GitHub Ubuntu 22.04 ARM64 | Generic AArch64 CPU and AArch64 Vulkan GPU Wheels |
-| `build-a733-runtime.yml` | GitHub ARM64 with a pinned manylinux 2.28 container | A733 AWNN Wheel |
+| `build-a733-runtime.yml` | GitHub ARM64 with a pinned Ubuntu 20.04 container | A733 AWNN Wheel |
 
 The generic AArch64 CPU Wheel and GPU fallback are built from the same pinned
 ExecuTorch source on Ubuntu 22.04 ARM64. Rockchip uses one shared daemon
@@ -64,7 +64,7 @@ artifacts with development version numbers, not release assets.
 | x86-64 CPU | [31337036007](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31337036007) | Installed artifact completed PING/INFO/INFER/SHUTDOWN with the production PTE on x86-64 |
 | x86-64 Vulkan GPU | Pending first run of `build-gpu-x86-runtime.yml` | The production daemon and shared PTE completed the 34-image set on an RTX 4090 and Radeon R9700: box counts 34/34 identical, maximum score difference `1.1920929e-7`, box/severity/area differences zero. The exact Actions artifact still needs download-and-run qualification |
 | ARMHF CPU | Pending first run of `build-armhf-runtime.yml` | Previously qualified local runner; the new source-built Actions artifact still needs exact-byte board qualification |
-| A733 AWNN | Historical: [31339370137](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31339370137) | An earlier self-hosted workflow completed real AWNN inference; current releases use hosted build verification only |
+| A733 AWNN | Pending first successful hosted run | No real-device smoke test by design; release evidence stops at hosted build, ELF/dependency, Wheel, and CPU-fallback checks |
 | RK3566/RK3576/RK3588 | [31340003668](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340003668) | The exact three downloaded Wheels completed real NPU inference on one board of each SoC family |
 | Jetson Orin Vulkan | [31340384861](https://github.com/DrAlexLiu/OctoPrint-PiNozCam/actions/runs/31340384861) | The exact downloaded Wheel completed Vulkan inference on an NVIDIA Tegra Orin after the hosted lavapipe check |
 

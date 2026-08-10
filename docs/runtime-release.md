@@ -108,18 +108,20 @@ workflow invokes all six from the tagged source revision:
    qualified with NVIDIA and AMD ICDs. Intel uses the same artifact but remains
    provisional until it completes the hardware matrix.
 6. GitHub-hosted ARM64 fetches the pinned public A733 SDK inputs, builds the
-   AWNN/VIPLite daemon in a manylinux 2.28 container, and performs static,
+   AWNN/VIPLite daemon in a pinned Ubuntu 20.04 container, and performs static,
    dependency, packaging, and CPU-fallback protocol checks.
-7. Download the workflow artifacts independently, verify their SHA-256 values,
-   then execute the production pipe protocol on the matching hardware.
+7. For targets that retain hardware qualification, download the workflow
+   artifacts independently, verify their SHA-256 values, then execute the
+   production pipe protocol on the matching hardware. A733 deliberately stops
+   at the hosted checks in step 6.
 8. Assemble all nine Wheels and their checksum manifest into one immutable
    GitHub Release. Publishing the five portable CPU/GPU Wheels to PyPI is a
    later, separately approved delivery step.
 
 The source-build definitions now cover all nine Wheels: x86-64 CPU/GPU and
 ARMHF on GitHub x86 hosts, generic AArch64 CPU/GPU on GitHub ARM64, Rockchip on
-a GitHub ARM64/cross-build pair, and A733 on GitHub ARM64 with a pinned
-manylinux container.
+a GitHub ARM64/cross-build pair, and A733 on GitHub ARM64 with a pinned Ubuntu
+20.04 container.
 The new ARMHF workflow must complete its first hosted run and its exact output
 must pass the real-board qualification before this becomes release evidence.
 

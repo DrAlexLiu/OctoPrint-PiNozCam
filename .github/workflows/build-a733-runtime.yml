@@ -48,7 +48,7 @@ jobs:
     needs: build-cpu-fallback
     runs-on: ubuntu-22.04-arm
     container:
-      image: quay.io/pypa/manylinux_2_28_aarch64@sha256:b9dd5b2d6885fae144119ac934978003bcc413087ea08f602a960257205ec246
+      image: ubuntu@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
     timeout-minutes: 120
     env:
       AI_SDK_REPOSITORY: https://github.com/ZIFENG278/ai-sdk.git
@@ -61,10 +61,17 @@ jobs:
       VIP_INCLUDE_DIR: ${{ github.workspace }}/vendor/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0/inc
       VIP_LIB_DIR: ${{ github.workspace }}/vendor/ai-sdk/viplite-tina/lib/aarch64-none-linux-gnu/v2.0
       VIP_RUNTIME_LIB_DIR: /usr/local/lib
-      PACKAGE_PYTHON: /opt/python/cp39-cp39/bin/python
+      PACKAGE_PYTHON: python3
       VERSION: ${{ inputs.version }}
 
     steps:
+      - name: Install hosted build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes \
+            --no-install-recommends \
+            ca-certificates curl file g++ gcc git python3 python3-venv unzip
+
       - name: Check out PiNozCam
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -151,16 +158,16 @@ jobs:
             runtime-artifacts/bin/nozcam_daemon.awnn.aarch64 \
             | grep -Eo 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' \
             | sort -Vu | tail -n 1)
-          if [ "$(printf '%s\n' "$max_glibc" 2.28 | sort -V | tail -n 1)" != 2.28 ]; then
-            echo "A733 daemon requires GLIBC_$max_glibc, above the 2.28 build ceiling"
+          if [ "$(printf '%s\n' "$max_glibc" 2.29 | sort -V | tail -n 1)" != 2.29 ]; then
+            echo "A733 daemon requires GLIBC_$max_glibc, above the 2.29 build ceiling"
             exit 1
           fi
           readelf --dynamic runtime-artifacts/bin/nozcam_daemon.awnn.aarch64 \
             > "$RUNNER_TEMP/a733.dynamic"
           grep -F 'Shared library: [libNBGlinker.so]' \
             "$RUNNER_TEMP/a733.dynamic"
-          grep -F 'Shared library: [libVIPhal.so]' \
-            "$RUNNER_TEMP/a733.dynamic"
+          readelf --dynamic "$VIP_LIB_DIR/libNBGlinker.so" \
+            | grep -F 'Shared library: [libVIPhal.so]'
           grep -E '(RPATH|RUNPATH).*/usr/local/lib' \
             "$RUNNER_TEMP/a733.dynamic"
           if grep -F "$RUNNER_TEMP" "$RUNNER_TEMP/a733.dynamic"; then
