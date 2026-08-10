@@ -1,5 +1,8 @@
 # Releasing PiNozCam
 
+For the end-to-end installation boundary, package naming, and clean reinstall
+procedure, see [`runtime-install-pipeline.md`](runtime-install-pipeline.md).
+
 PiNozCam RCs use one immutable distribution boundary: the GitHub Release holds
 all nine runtime Wheels and their checksum manifest. The five portable CPU and
 GPU Wheels may also be published to PyPI later through a separate approved
