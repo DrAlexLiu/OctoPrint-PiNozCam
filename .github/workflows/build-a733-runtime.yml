@@ -86,7 +86,7 @@ jobs:
       - name: Fetch pinned model inputs
         run: |
           mkdir -p runtime-artifacts/models
-          curl --fail --location --retry 5 --retry-all-errors \
+          curl --fail --location --retry 5 \
             --output "$RUNNER_TEMP/model-source.whl" "$MODEL_WHEEL_URL"
           echo "$MODEL_WHEEL_SHA256  $RUNNER_TEMP/model-source.whl" \
             | sha256sum --check
