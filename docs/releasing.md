@@ -1,8 +1,8 @@
 # Releasing PiNozCam
 
-PiNozCam uses two immutable distribution channels: generic CPU and AArch64
-Vulkan Wheels use PyPI after a successful manylinux audit; Rockchip and A733
-Wheels use fixed GitHub Release asset URLs.
+PiNozCam uses two immutable distribution channels: generic CPU and Vulkan
+Wheels use PyPI after a successful manylinux audit; Rockchip and A733 Wheels
+use fixed GitHub Release asset URLs.
 
 A tag and its assets are immutable. If a release candidate has a packaging
 problem, fix it and create the next `rcN`; never move the old tag or replace an
@@ -15,7 +15,7 @@ The installer contract and platform tags are defined in
 ## Artifacts
 
 The GitHub tag archive contains the OctoPrint plugin and native runner source,
-but no model or runner binary. A complete release has eight runtime Wheels:
+but no model or runner binary. A complete release has nine runtime Wheels:
 
 | Distribution | Platform files | Channel |
 | --- | --- | --- |
@@ -24,7 +24,8 @@ but no model or runner binary. A complete release has eight runtime Wheels:
 | `pinozcam-runtime-rknn3576` | RK3576 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3588` | RK3588 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release after license clearance |
-| `pinozcam-runtime-vulkan-aarch64` | AArch64 Vulkan plus ARM CPU fallback | PyPI |
+| `pinozcam-runtime-gpu-aarch64` | AArch64 Vulkan plus ARM CPU fallback | PyPI |
+| `pinozcam-runtime-gpu-x86-64` | x86-64 Vulkan plus x86 CPU fallback | PyPI |
 
 The GitHub Release also contains `CHECKSUMS.txt` for its hardware-specific
 assets. Every direct-reference digest in the plugin source must match the
@@ -56,9 +57,10 @@ The minimum matrix is:
 - ARM 32-bit CPU, including a 64-bit kernel with 32-bit Python userspace;
 - ARM 64-bit CPU;
 - x86-64 CPU;
+- x86-64 Vulkan on qualified NVIDIA and AMD drivers;
 - RK3566, RK3576, and RK3588 NPU;
 - A733 NPU, subject to the redistribution gate;
-- Jetson Orin Vulkan.
+- AArch64 Vulkan on a qualified Jetson Orin.
 
 For each target, require PING, INFO, INFER, and SHUTDOWN through the production
 binary pipe protocol. Accelerator targets must execute on the real device, not
@@ -92,7 +94,7 @@ Download the public assets into another empty directory and run
 `sha256sum -c CHECKSUMS.txt`. This catches upload mistakes independently of the
 build workspace.
 
-Publish the audited generic CPU and AArch64 Vulkan Wheels through their
+Publish the audited generic CPU and Vulkan Wheels through their
 production PyPI Trusted Publishers. PyPI and GitHub must contain the same
 version recorded by the plugin; never rebuild or replace a file under an
 existing version.
@@ -130,7 +132,7 @@ Do not rename RC artifacts. After the candidate passes:
    digests.
 4. Manually merge the verified release commit to `master`.
 5. Create the annotated `1.1.0` tag on that exact merged commit.
-6. Publish audited CPU and AArch64 Vulkan Wheels to PyPI.
+6. Publish audited CPU and Vulkan Wheels to PyPI.
 7. Create the non-prerelease GitHub Release and upload the verified Rockchip
    Wheels, the cleared A733 Wheel, and `CHECKSUMS.txt`.
 8. Download the public stable assets and repeat the clean-install smoke test.

@@ -76,6 +76,12 @@ NVIDIA's own TensorRT. That is a deliberate trade, and it costs real speed:
 TensorRT was measured at **6.4 ms** per image on the same Orin Nano Super
 against Vulkan's **179 ms**.
 
+Jetson is not executing AMD code. On Jetson, the generic runner submits Vulkan
+work through NVIDIA's Vulkan driver; on a qualified AMD machine, the same PTE
+and protocol use AMD's Vulkan driver instead. The portability cost comes from
+using one cross-vendor ExecuTorch/Vulkan graph rather than NVIDIA-specific
+TensorRT/CUDA graph fusion, tuned kernels and memory planning.
+
 The reason is that TensorRT does not produce a portable file. It compiles an
 engine by timing every layer on the exact machine it is building for, and
 the result is locked to that GPU architecture, that CPU architecture and

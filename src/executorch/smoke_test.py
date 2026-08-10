@@ -46,6 +46,7 @@ def main():
     """Run PING, INFO, one inference, and a clean shutdown."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--daemon", required=True)
+    parser.add_argument("--launcher", action="append", default=[])
     parser.add_argument("--model", required=True)
     parser.add_argument("--timeout", type=float, default=300.0)
     args = parser.parse_args()
@@ -65,7 +66,8 @@ def main():
     )
 
     process = subprocess.Popen(
-        [args.daemon, args.model, "640", "384", "0.5", "0.05"],
+        args.launcher
+        + [args.daemon, args.model, "640", "384", "0.5", "0.05"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

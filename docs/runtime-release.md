@@ -4,8 +4,8 @@
 
 PiNozCam uses a hybrid runtime distribution:
 
-- generic CPU Wheels and the AArch64 Vulkan Wheel use PyPI after passing a real
-  manylinux audit;
+- generic CPU Wheels and the AArch64/x86-64 Vulkan Wheels use PyPI after
+  passing a real manylinux audit;
 - Rockchip and A733 Wheels use immutable GitHub Release assets because their
   honest platform tag is `linux_aarch64` and they depend on board-provided
   vendor libraries.
@@ -27,6 +27,7 @@ One runtime release contains:
 | RK3588 NPU with CPU fallback | `linux_aarch64` | GitHub Release |
 | A733 NPU with CPU fallback | `linux_aarch64` | GitHub Release, after license clearance |
 | AArch64 Vulkan GPU with CPU fallback | `manylinux_2_35_aarch64` | PyPI |
+| x86-64 Vulkan GPU with CPU fallback | `manylinux_2_35_x86_64` | PyPI |
 
 The GitHub Release contains the three Rockchip Wheels, the cleared A733 Wheel,
 and `CHECKSUMS.txt`. GitHub attestations may be attached when the release
@@ -41,22 +42,27 @@ filename alone does not prove compliance; the final Wheel must pass
 
 The RC5 generic CPU Wheels were accepted by PyPI, but an independent
 `auditwheel show` check found their ELF executable under `.data/purelib` and
-rejected the Wheel as an invalid binary layout. The source-built AArch64 Vulkan
-Wheel, currently named for Jetson Orin, has the same layout. Move the runtime
-packages to platlib and require `auditwheel show` to pass before the stable CPU
-or Vulkan upload. PyPI accepting an upload is not a substitute for this check.
+rejected the Wheel as an invalid binary layout. The runtime packagers now use
+platlib and both hosted CPU/GPU builds run `auditwheel show`. PyPI accepting an
+upload remains insufficient without this gate.
 
 ## Installation contract
 
 The plugin installer must select exactly one runtime from the detected Python
 ABI, CPU architecture, and SoC.
 
-For CPU and AArch64 Vulkan, it emits an exact package-index requirement:
+For CPU and Vulkan, it emits an exact package-index requirement:
 
 ```text
 pinozcam-runtime==1.1.0
-pinozcam-runtime-vulkan-aarch64==1.1.0
+pinozcam-runtime-gpu-aarch64==1.1.0
+pinozcam-runtime-gpu-x86-64==1.1.0
 ```
+
+While the plugin still pins the immutable `1.1.0rc5` runtime set, setup keeps
+requesting its historical `pinozcam-runtime-jetson-orin` name and the loader
+accepts that module after trying the new canonical name. The compatibility
+entry must not be used for rc6 or stable artifacts.
 
 For Rockchip and A733, it emits one exact PEP 508 direct reference:
 
@@ -83,14 +89,14 @@ installer.
 
 Before the first hybrid release:
 
-1. Keep exact PyPI requirements for CPU and AArch64 Vulkan; use PEP 508 GitHub
-   direct references only for Rockchip and A733.
-2. Rename the current `pinozcam-runtime-jetson-orin` development package to
-   `pinozcam-runtime-vulkan-aarch64` in the packager, setup selection, workflow,
-   tests, and documentation.
-3. Fix the CPU and Vulkan platlib layout and add `auditwheel show` as a release
-   gate.
-4. Add selection and checksum regression tests for all eight Wheels.
+1. Keep exact PyPI requirements for CPU and both Vulkan architectures; use
+   PEP 508 GitHub direct references only for Rockchip and A733.
+2. Keep the AArch64 Vulkan distribution named
+   `pinozcam-runtime-gpu-aarch64`; the backend remains Vulkan and Jetson Orin
+   is the first qualified device family.
+3. Keep native payloads in platlib and require `auditwheel show` as a release
+   gate for every CPU and GPU Wheel.
+4. Add selection and checksum regression tests for all nine Wheels.
 5. Update the README and maintainer release checklist.
 6. Perform clean tag-ZIP installs on every supported ABI/SoC.
 
@@ -104,20 +110,23 @@ checked-out source revision:
    Wheels.
 3. GitHub-hosted ARM64 builds the shared Rockchip runner and packages the three
    SoC-specific RKNN models.
-4. GitHub-hosted ARM64 builds the Jetson Orin Vulkan runner; real Orin hardware
+4. GitHub-hosted ARM64 builds the AArch64 Vulkan runner; real Orin hardware
    performs the final GPU qualification.
-5. An ephemeral A733 self-hosted runner builds and tests the AWNN/VIPLite
+5. GitHub-hosted x86-64 builds the x86 Vulkan runner; the same artifact is
+   qualified with NVIDIA and AMD ICDs.
+6. An ephemeral A733 self-hosted runner builds and tests the AWNN/VIPLite
    runtime because the vendor toolchain and NPU are board-specific.
-6. Download the workflow artifacts independently, verify their SHA-256 values,
+7. Download the workflow artifacts independently, verify their SHA-256 values,
    then execute the production pipe protocol on the matching hardware.
-7. Upload compliant CPU and AArch64 Vulkan Wheels to PyPI. Attach only the
-   verified Rockchip and cleared A733 Wheels plus their checksum manifest to
-   the immutable GitHub Release.
+8. Upload compliant CPU and Vulkan Wheels to PyPI. Attach only the verified
+   Rockchip and cleared A733 Wheels plus their checksum manifest to the
+   immutable GitHub Release.
 
-The current source-build workflows cover x86-64 and all accelerator Wheels.
-A dedicated source-build workflow for the generic ARMHF and AArch64 CPU Wheels
-is still required before claiming that all eight release files are rebuilt by
-GitHub Actions.
+The source-build definitions now cover all nine Wheels: x86-64 CPU/GPU and
+ARMHF on GitHub x86 hosts, generic AArch64 CPU/GPU on GitHub ARM64, Rockchip on
+a GitHub ARM64/cross-build pair, and A733 with its ephemeral self-hosted board.
+The new ARMHF workflow must complete its first hosted run and its exact output
+must pass the real-board qualification before this becomes release evidence.
 
 The AArch64 Vulkan runner contains no Jetson-specific dependency. Jetson Orin
 is the currently qualified platform. Grace Hopper/GH200 and other AArch64
@@ -125,6 +134,12 @@ Vulkan systems are candidates, but must not be listed as supported until their
 installed Vulkan ICD exposes the required Vulkan features and the production
 PTE completes a real inference. A missing or incompatible Vulkan backend must
 fall back to the generic AArch64 CPU runtime.
+
+The x86-64 Vulkan runner is likewise vendor-neutral and uses the same Vulkan
+PTE on supported NVIDIA and AMD drivers. This portability does not add an AMD
+code path to NVIDIA execution. Its performance tradeoff is instead that the
+delegate cannot use TensorRT/CUDA-specific graph fusion, kernel selection, or
+memory planning, so Jetson Vulkan can be slower than a TensorRT-only engine.
 
 The measured workflow runs and hardware qualification results are recorded in
 [`runtime-ci.md`](runtime-ci.md).

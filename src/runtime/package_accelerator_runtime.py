@@ -56,12 +56,22 @@ TARGETS = {
         "models": ("nozcam-cpu.pte", "nozcam-a733.nb"),
     },
     "vulkan": {
-        "dist": "pinozcam-runtime-jetson-orin",
-        "module": "pinozcam_runtime_jetson_orin",
+        "dist": "pinozcam-runtime-gpu-aarch64",
+        "module": "pinozcam_runtime_gpu_aarch64",
         "platform": "manylinux_2_35_aarch64",
         "bins": (
             "nozcam_daemon.aarch64.static",
             "nozcam_daemon.vulkan.aarch64",
+        ),
+        "models": ("nozcam-cpu.pte", "nozcam-gpu.pte"),
+    },
+    "vulkan_x86_64": {
+        "dist": "pinozcam-runtime-gpu-x86-64",
+        "module": "pinozcam_runtime_gpu_x86_64",
+        "platform": "manylinux_2_35_x86_64",
+        "bins": (
+            "nozcam_daemon.x86_64.static",
+            "nozcam_daemon.vulkan.x86_64",
         ),
         "models": ("nozcam-cpu.pte", "nozcam-gpu.pte"),
     },
@@ -219,8 +229,13 @@ def _stage(stage, artifacts, target, version, revision):
         % (target, version),
     )
 
-    setup_source = '''from setuptools import setup
+    setup_source = '''from setuptools import Distribution, setup
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
 
 
 class bdist_wheel(_bdist_wheel):
@@ -242,6 +257,9 @@ setup(
     ),
     long_description_content_type="text/plain",
     url="https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
+    project_urls={{
+        "Source": "https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
+    }},
     license="AGPL-3.0-only",
     python_requires=">=3.7,<4",
     packages=[{module!r}],
@@ -251,6 +269,7 @@ setup(
     ]}},
     include_package_data=False,
     zip_safe=False,
+    distclass=BinaryDistribution,
     cmdclass={{"bdist_wheel": bdist_wheel}},
 )
 '''.format(

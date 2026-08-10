@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create the x86-64 native runtime Wheel from verified build artifacts."""
+"""Create one generic CPU runtime Wheel from verified build artifacts."""
 
 import argparse
 import hashlib
@@ -12,6 +12,24 @@ import tempfile
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+TARGETS = {
+    "armhf": {
+        "module": "pinozcam_runtime_armhf",
+        "platform": "manylinux2014_armv7l",
+        "runner": "nozcam_daemon.armhf.static",
+    },
+    "aarch64": {
+        "module": "pinozcam_runtime_aarch64",
+        "platform": "manylinux2014_aarch64",
+        "runner": "nozcam_daemon.aarch64.static",
+    },
+    "x86_64": {
+        "module": "pinozcam_runtime_x86_64",
+        "platform": "manylinux2014_x86_64",
+        "runner": "nozcam_daemon.x86_64.static",
+    },
+}
 
 
 def _sha256(path):
@@ -39,11 +57,12 @@ def _write(path, value):
         handle.write(value)
 
 
-def _stage(stage, artifacts, version, revision):
+def _stage(stage, artifacts, target, version, revision):
     """Assemble the temporary Python package consumed by wheel."""
-    module = "pinozcam_runtime_x86_64"
+    spec = TARGETS[target]
+    module = spec["module"]
     package = os.path.join(stage, module)
-    runner = "nozcam_daemon.x86_64.static"
+    runner = spec["runner"]
     model = "nozcam-cpu.pte"
     _copy(os.path.join(artifacts, "bin", runner),
           os.path.join(package, "bin", runner), executable=True)
@@ -91,23 +110,28 @@ def _stage(stage, artifacts, version, revision):
             "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/%s" %
             revision
         ),
-        "target": "x86_64",
+        "target": target,
     }
     _write(os.path.join(package, "manifest.json"),
            json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     init_source = (
-        '"""Native PiNozCam x86-64 runtime payload."""\n'
+        '"""Native PiNozCam CPU runtime payload."""\n'
         "import os\n\n"
         "ROOT = os.path.dirname(os.path.abspath(__file__))\n"
         'BIN_DIR = os.path.join(ROOT, "bin")\n'
         'MODEL_DIR = os.path.join(ROOT, "models")\n'
-        'TARGET = "x86_64"\n'
-        "VERSION = %r\n" % version
+        "TARGET = %r\n"
+        "VERSION = %r\n" % (target, version)
     )
     _write(os.path.join(package, "__init__.py"), init_source)
 
-    setup_source = '''from setuptools import setup
+    setup_source = '''from setuptools import Distribution, setup
 from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
 
 
 class bdist_wheel(_bdist_wheel):
@@ -116,31 +140,40 @@ class bdist_wheel(_bdist_wheel):
         self.root_is_pure = False
 
     def get_tag(self):
-        return "py3", "none", "manylinux2014_x86_64"
+        return "py3", "none", {platform!r}
 
 
 setup(
     name="pinozcam-runtime",
-    version=%r,
-    description="Native x86-64 CPU runner and model payload for PiNozCam",
+    version={version!r},
+    description="Native {target} CPU runner and model payload for PiNozCam",
     long_description=(
-        "PiNozCam native XNNPACK CPU runtime for Linux x86-64. "
+        "PiNozCam native XNNPACK CPU runtime for Linux {target}. "
         "Install OctoPrint-PiNozCam for the user interface and configuration."
     ),
     long_description_content_type="text/plain",
     url="https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
+    project_urls={{
+        "Source": "https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
+    }},
     license="AGPL-3.0-only",
     python_requires=">=3.7,<4",
-    packages=[%r],
-    package_data={%r: [
+    packages=[{module!r}],
+    package_data={{{module!r}: [
         "manifest.json", "PiNozCam.LICENSE", "bin/*", "models/*",
         "THIRD_PARTY_LICENSES/*",
-    ]},
+    ]}},
     include_package_data=False,
     zip_safe=False,
-    cmdclass={"bdist_wheel": bdist_wheel},
+    distclass=BinaryDistribution,
+    cmdclass={{"bdist_wheel": bdist_wheel}},
 )
-''' % (version, module, module)
+'''.format(
+        platform=spec["platform"],
+        target=target,
+        version=version,
+        module=module,
+    )
     _write(os.path.join(stage, "setup.py"), setup_source)
 
 
@@ -149,6 +182,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact-root", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--target", choices=sorted(TARGETS), required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
     args = parser.parse_args()
@@ -156,8 +190,9 @@ def main():
     artifacts = os.path.abspath(args.artifact_root)
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="pinozcam_runtime_x86_") as stage:
-        _stage(stage, artifacts, args.version, args.revision)
+    with tempfile.TemporaryDirectory(
+            prefix="pinozcam_runtime_%s_" % args.target) as stage:
+        _stage(stage, artifacts, args.target, args.version, args.revision)
         subprocess.run(
             [sys.executable, "setup.py", "bdist_wheel", "--dist-dir", output],
             cwd=stage,
@@ -165,9 +200,8 @@ def main():
             check=True,
         )
 
-    filename = "pinozcam_runtime-%s-py3-none-manylinux2014_x86_64.whl" % (
-        args.version
-    )
+    filename = "pinozcam_runtime-%s-py3-none-%s.whl" % (
+        args.version, TARGETS[args.target]["platform"])
     wheel = os.path.join(output, filename)
     if not os.path.isfile(wheel):
         raise RuntimeError("expected Wheel was not produced: %s" % wheel)

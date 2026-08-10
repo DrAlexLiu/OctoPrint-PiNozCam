@@ -1,4 +1,4 @@
-name: Build Jetson Orin Vulkan runtime
+name: Build AArch64 GPU runtime
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-jetson-runtime-${{ github.ref }}
+  group: build-gpu-aarch64-runtime-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
       - name: Upload CPU fallback for the Vulkan job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pinozcam-jetson-cpu-${{ github.sha }}
+          name: pinozcam-gpu-aarch64-cpu-${{ github.sha }}
           path: runtime-artifacts/bin/nozcam_daemon.aarch64.static
           if-no-files-found: error
           retention-days: 1
@@ -76,7 +76,7 @@ jobs:
       - name: Download the source-built CPU fallback
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: pinozcam-jetson-cpu-${{ github.sha }}
+          name: pinozcam-gpu-aarch64-cpu-${{ github.sha }}
           path: runtime-artifacts/bin
 
       - name: Install native build and software Vulkan tools
@@ -144,13 +144,20 @@ jobs:
           readelf --version-info "$vulkan" \
             | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' | sort -Vu
 
-      - name: Build the Jetson runtime Wheel
+      - name: Build the generic CPU and AArch64 GPU Wheels
         run: |
           python3 -m venv "$RUNNER_TEMP/runtime-package-venv"
           runtime_python="$RUNNER_TEMP/runtime-package-venv/bin/python"
           "$runtime_python" -m pip install --disable-pip-version-check \
-            'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
+            'auditwheel==6.4.2' 'packaging==24.2' \
+            'setuptools==75.3.2' 'wheel==0.45.1'
           version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
+          "$runtime_python" src/runtime/package_cpu_runtime.py \
+            --target aarch64 \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --version "$version" \
+            --revision "$GITHUB_SHA"
           "$runtime_python" src/runtime/package_accelerator_runtime.py \
             --target vulkan \
             --artifact-root runtime-artifacts \
@@ -161,16 +168,26 @@ jobs:
 
       - name: Verify the installed Wheel and run real PTE inference
         run: |
-          wheels=(dist/*.whl)
-          test "${#wheels[@]}" -eq 1
-          wheel="${wheels[0]}"
+          cpu_wheels=(dist/pinozcam_runtime-*.whl)
+          gpu_wheels=(dist/pinozcam_runtime_gpu_aarch64-*.whl)
+          test "${#cpu_wheels[@]}" -eq 1
+          test "${#gpu_wheels[@]}" -eq 1
+          cpu_wheel="${cpu_wheels[0]}"
+          gpu_wheel="${gpu_wheels[0]}"
           "$RUNTIME_PYTHON" src/runtime/verify_runtime_wheel.py \
             --target vulkan \
-            --wheel "$wheel" \
+            --wheel "$gpu_wheel" \
             --revision "$GITHUB_SHA"
+          "$RUNTIME_PYTHON" src/runtime/check_manylinux.py \
+            --architecture aarch64 --max-glibc-minor 17 "$cpu_wheel"
+          "$RUNTIME_PYTHON" src/runtime/check_manylinux.py \
+            --architecture aarch64 --max-glibc-minor 35 "$gpu_wheel"
           "$RUNTIME_PYTHON" -m pip install --disable-pip-version-check --no-deps \
-            --target "$RUNNER_TEMP/wheel-install" "$wheel"
-          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_jetson_orin"
+            --target "$RUNNER_TEMP/wheel-install" "$cpu_wheel" "$gpu_wheel"
+          cpu_module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_aarch64"
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_gpu_aarch64"
+          test -x "$cpu_module/bin/nozcam_daemon.aarch64.static"
+          test -f "$cpu_module/models/nozcam-cpu.pte"
           test -x "$module/bin/nozcam_daemon.aarch64.static"
           test -x "$module/bin/nozcam_daemon.vulkan.aarch64"
           test -f "$module/models/nozcam-cpu.pte"
@@ -185,8 +202,8 @@ jobs:
             "$module/models/nozcam-gpu.pte"
 
           "$RUNTIME_PYTHON" src/executorch/smoke_test.py \
-            --daemon "$module/bin/nozcam_daemon.aarch64.static" \
-            --model "$module/models/nozcam-cpu.pte" \
+            --daemon "$cpu_module/bin/nozcam_daemon.aarch64.static" \
+            --model "$cpu_module/models/nozcam-cpu.pte" \
             --timeout 600
 
           lavapipe_icd=$(find /usr/share/vulkan/icd.d -maxdepth 1 \
@@ -205,10 +222,10 @@ jobs:
             --timeout 900
           (cd dist && sha256sum --check SHA256SUMS)
 
-      - name: Upload the verified Jetson runtime
+      - name: Upload the verified AArch64 GPU runtime
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: pinozcam-runtime-jetson-orin-${{ github.sha }}
+          name: pinozcam-runtime-gpu-aarch64-${{ github.sha }}
           path: |
             dist/*.whl
             dist/SHA256SUMS

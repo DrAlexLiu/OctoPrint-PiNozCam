@@ -47,8 +47,10 @@ def main():
             if name.startswith("/") or ".." in name.split("/"):
                 raise RuntimeError("unsafe Wheel member: %s" % name)
 
-        module_suffix = "/%s/manifest.json" % spec["module"]
+        module_suffix = "%s/manifest.json" % spec["module"]
         manifest_name = _one(names, module_suffix)
+        if ".data/purelib/" in manifest_name:
+            raise RuntimeError("native runtime payload is stored in purelib")
         module_root = posixpath.dirname(manifest_name)
         manifest = json.loads(archive.read(manifest_name))
         expected_source = (

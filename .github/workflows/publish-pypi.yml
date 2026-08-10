@@ -4,22 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: GitHub pre-release tag containing the eight runtime Wheels
+        description: GitHub pre-release tag containing the nine runtime Wheels
         required: true
-        default: 1.1.0rc5
+        default: 1.1.0rc6
         type: string
       runtime_target:
-        description: Upload one runtime project while bootstrapping, or all later
+        description: Upload CPU, AArch64 GPU, x86-64 GPU, or all three
         required: true
         default: cpu
         type: choice
         options:
           - cpu
-          - rknn3566
-          - rknn3576
-          - rknn3588
-          - a733
-          - jetson_orin
+          - gpu_aarch64
+          - gpu_x86_64
           - all
 
 concurrency:
@@ -97,9 +94,9 @@ jobs:
                   raise SystemExit("duplicate checksum entry: " + filename)
               expected[filename] = digest
 
-          if len(expected) != 8:
+          if len(expected) != 9:
               raise SystemExit(
-                  "CHECKSUMS.txt describes {} Wheels, expected 8".format(
+                  "CHECKSUMS.txt describes {} Wheels, expected 9".format(
                       len(expected)
                   )
               )
@@ -130,9 +127,8 @@ jobs:
                   )
               platform_tag = filename[:-4].rsplit("-", 1)[-1]
               if not re.fullmatch(
-                  r"manylinux(?:2014|_[0-9]+_[0-9]+)_"
-                  r"(?:armv7l|aarch64|x86_64)",
-                  platform_tag,
+                  r"(?:manylinux(?:2014|_[0-9]+_[0-9]+)|linux)_"
+                  r"(?:armv7l|aarch64|x86_64)", platform_tag
               ):
                   raise SystemExit(
                       "unsupported public Linux Wheel tag in {}: {}".format(
@@ -140,6 +136,11 @@ jobs:
                       )
                   )
               with zipfile.ZipFile(actual[filename]) as archive:
+                  if any(".data/purelib/" in name for name in archive.namelist()):
+                      raise SystemExit(
+                          "native runtime payload is stored in purelib: "
+                          + filename
+                      )
                   wheel_metadata = next(
                       name for name in archive.namelist()
                       if name.endswith(".dist-info/WHEEL")
@@ -175,23 +176,26 @@ jobs:
 
           wheel_stems = {
               "cpu": "pinozcam_runtime-",
-              "rknn3566": "pinozcam_runtime_rknn3566-",
-              "rknn3576": "pinozcam_runtime_rknn3576-",
-              "rknn3588": "pinozcam_runtime_rknn3588-",
-              "a733": "pinozcam_runtime_a733-",
-              "jetson_orin": "pinozcam_runtime_jetson_orin-",
+              "gpu_aarch64": "pinozcam_runtime_gpu_aarch64-",
+              "gpu_x86_64": "pinozcam_runtime_gpu_x86_64-",
           }
           source = Path("dist")
           destination = Path("publish-dist")
           destination.mkdir()
           target = os.environ["RUNTIME_TARGET"]
-          wheels = sorted(source.glob("*.whl"))
-          if target != "all":
+          all_wheels = sorted(source.glob("*.whl"))
+          if target == "all":
+              wheels = [
+                  path for path in all_wheels
+                  if any(path.name.startswith(prefix)
+                         for prefix in wheel_stems.values())
+              ]
+          else:
               prefix = wheel_stems[target]
-              wheels = [path for path in wheels if path.name.startswith(prefix)]
-          expected_count = (
-              8 if target == "all" else 3 if target == "cpu" else 1
-          )
+              wheels = [
+                  path for path in all_wheels if path.name.startswith(prefix)
+              ]
+          expected_count = 5 if target == "all" else 3 if target == "cpu" else 1
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(

@@ -58,7 +58,11 @@ _RUNTIME_MODULES = {
     "rknn3576": "pinozcam_runtime_rknn3576",
     "rknn3588": "pinozcam_runtime_rknn3588",
     "awnn": "pinozcam_runtime_a733",
-    "vulkan": "pinozcam_runtime_jetson_orin",
+    "vulkan": (
+        "pinozcam_runtime_gpu_aarch64",
+        "pinozcam_runtime_jetson_orin",
+    ),
+    "vulkan_x86_64": "pinozcam_runtime_gpu_x86_64",
 }
 
 
@@ -145,20 +149,62 @@ def _detect_nvidia_tegra():
 
 
 def _vulkan_runtime_present():
-    """Return whether this aarch64 process can see a Vulkan loader.
+    """Return whether this 64-bit ARM or x86 process sees a Vulkan loader.
 
     The daemon load and warm-up handshake performs the authoritative GPU
     capability check.
     """
     if struct.calcsize("P") * 8 != 64:
         return False
-    if os.uname().machine.lower() not in ("aarch64", "arm64"):
+    machine = os.uname().machine.lower()
+    multiarch = {
+        "aarch64": "aarch64-linux-gnu",
+        "arm64": "aarch64-linux-gnu",
+        "x86_64": "x86_64-linux-gnu",
+        "amd64": "x86_64-linux-gnu",
+    }.get(machine)
+    if multiarch is None:
         return False
     return any(os.path.exists(path) for path in (
-        "/lib/aarch64-linux-gnu/libvulkan.so.1",
-        "/usr/lib/aarch64-linux-gnu/libvulkan.so.1",
+        "/lib/%s/libvulkan.so.1" % multiarch,
+        "/usr/lib/%s/libvulkan.so.1" % multiarch,
         "/usr/local/lib/libvulkan.so.1",
     ))
+
+
+def _detect_x86_vulkan_gpu():
+    """Return whether x86 PCI data shows an AMD or NVIDIA display GPU."""
+    try:
+        if _machine_tag() != "x86_64":
+            return False
+    except BackendUnavailable:
+        return False
+    pci_root = "/sys/bus/pci/devices"
+    try:
+        devices = os.listdir(pci_root)
+    except OSError:
+        return False
+    for name in devices:
+        device = os.path.join(pci_root, name)
+        try:
+            with open(os.path.join(device, "class"), "r") as handle:
+                pci_class = handle.read().strip().lower()
+            with open(os.path.join(device, "vendor"), "r") as handle:
+                vendor = handle.read().strip().lower()
+        except (IOError, OSError):
+            continue
+        if pci_class.startswith("0x03") and vendor in ("0x1002", "0x10de"):
+            return True
+    return False
+
+
+def _x86_vulkan_runtime_installed():
+    """Return whether the architecture-specific x86 GPU package is present."""
+    try:
+        return importlib.util.find_spec(
+            "pinozcam_runtime_gpu_x86_64") is not None
+    except (AttributeError, ImportError, ValueError):
+        return False
 
 
 def _resolve_backend(requested):
@@ -188,8 +234,8 @@ def _resolve_backend(requested):
     if requested == "vulkan":
         if not _vulkan_runtime_present():
             raise BackendUnavailable(
-                "aiBackend is forced to vulkan, but no supported aarch64 "
-                "Vulkan loader was detected on this machine"
+                "aiBackend is forced to vulkan, but no supported 64-bit "
+                "ARM or x86 Vulkan loader was detected on this machine"
             )
         return "vulkan", None
     # Treat unrecognised persisted/API values as auto so detection stays up.
@@ -198,7 +244,16 @@ def _resolve_backend(requested):
         return "rknn", chip
     if _awnn_runtime_present():
         return "awnn", None
-    if _detect_nvidia_tegra() and _vulkan_runtime_present():
+    if (
+        (
+            _detect_nvidia_tegra()
+            or (
+                _detect_x86_vulkan_gpu()
+                and _x86_vulkan_runtime_installed()
+            )
+        )
+        and _vulkan_runtime_present()
+    ):
         return "vulkan", None
     return "cpu", None
 
@@ -211,8 +266,11 @@ def _runtime_target(kind, chip):
     """
     if kind == "rknn":
         return "rknn%s" % (chip[2:] if chip.startswith("rk") else chip)
-    if kind in ("awnn", "vulkan"):
+    if kind == "awnn":
         return kind
+    if kind == "vulkan":
+        return ("vulkan_x86_64"
+                if _machine_tag() == "x86_64" else "vulkan")
 
     detected_chip = _detect_rockchip_chip()
     if detected_chip in _SUPPORTED_RKNN_CHIPS:
@@ -223,6 +281,9 @@ def _runtime_target(kind, chip):
         return "awnn"
     if _detect_nvidia_tegra():
         return "vulkan"
+    if (_detect_x86_vulkan_gpu() and _vulkan_runtime_present()
+            and _x86_vulkan_runtime_installed()):
+        return "vulkan_x86_64"
     return _machine_tag()
 
 
@@ -233,16 +294,19 @@ def _runtime_directories(plugin_dir, kind, chip):
     import failures inside an installed runtime are propagated.
     """
     target = _runtime_target(kind, chip)
-    module_name = _RUNTIME_MODULES.get(target)
-    if module_name is None:
+    module_names = _RUNTIME_MODULES.get(target)
+    if module_names is None:
         raise BackendUnavailable(
             "no PiNozCam runtime package is defined for target %s" % target)
-    try:
-        module = importlib.import_module(module_name)
-    except ImportError as exc:
-        if getattr(exc, "name", None) not in (None, module_name):
-            raise
-    else:
+    if isinstance(module_names, str):
+        module_names = (module_names,)
+    for module_name in module_names:
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError as exc:
+            if getattr(exc, "name", None) not in (None, module_name):
+                raise
+            continue
         bin_dir = getattr(module, "BIN_DIR", None)
         model_dir = getattr(module, "MODEL_DIR", None)
         packaged_target = getattr(module, "TARGET", None)
@@ -268,7 +332,7 @@ def _runtime_directories(plugin_dir, kind, chip):
             return bin_dir, model_dir, "legacy-in-tree"
     raise BackendUnavailable(
         "native runtime is not installed: expected Python package %s"
-        % module_name)
+        % " or ".join(module_names))
 
 
 def model_identity(path):
@@ -348,8 +412,9 @@ class NozcamBackend(object):
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, "nozcam-a733.nb"))
         elif kind == "vulkan":
+            self._tag = _machine_tag()
             self._daemon_path = os.path.join(
-                self._bin_dir, "nozcam_daemon.vulkan.aarch64")
+                self._bin_dir, "nozcam_daemon.vulkan.%s" % self._tag)
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, "nozcam-gpu.pte"))
         else:

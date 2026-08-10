@@ -55,16 +55,19 @@ jobs:
       - name: Build the runtime Wheel
         run: |
           python3 -m pip install --disable-pip-version-check --upgrade \
-            setuptools wheel
+            'auditwheel==6.4.2' setuptools wheel
           version="1.1.0rc6.dev${GITHUB_RUN_NUMBER}"
-          python3 src/executorch/package_x86_runtime.py \
+          python3 src/runtime/package_cpu_runtime.py \
             --artifact-root runtime-artifacts \
             --output dist \
+            --target x86_64 \
             --version "$version" \
             --revision "$GITHUB_SHA"
 
       - name: Verify the installed Wheel payload
         run: |
+          python3 src/runtime/check_manylinux.py \
+            --architecture x86_64 --max-glibc-minor 17 dist/*.whl
           python3 -m pip install --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" dist/*.whl
           module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_x86_64"

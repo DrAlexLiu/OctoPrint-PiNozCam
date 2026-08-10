@@ -66,11 +66,13 @@ _ARCH_PLAT = {
     "aarch64-awnn": "linux_aarch64",
     "aarch64-vulkan": "linux_aarch64",
     "x86_64": "linux_x86_64",
+    "x86_64-vulkan": "linux_x86_64",
 }
 # Targets with a published native runtime.
 _RUNNABLE_ARCHES = {
     "armhf", "aarch64", "aarch64-rknn3566", "aarch64-rknn3576",
     "aarch64-rknn3588", "aarch64-awnn", "aarch64-vulkan", "x86_64",
+    "x86_64-vulkan",
 }
 # Map platform tags to CPU ABI; accelerator type is detected separately.
 _HOST_CPU_ARCH = {"linux_armv7l": "armhf", "linux_aarch64": "aarch64",
@@ -151,12 +153,40 @@ def _detect_nvidia_tegra():
 
 
 def _vulkan_runtime_present():
-    """Return whether an aarch64 Vulkan loader is installed."""
+    """Return whether this 64-bit ARM or x86 host has a Vulkan loader."""
+    if struct.calcsize("P") * 8 != 64:
+        return False
+    machine = os.uname().machine.lower()
+    multiarch = {
+        "aarch64": "aarch64-linux-gnu",
+        "arm64": "aarch64-linux-gnu",
+        "x86_64": "x86_64-linux-gnu",
+        "amd64": "x86_64-linux-gnu",
+    }.get(machine)
+    if multiarch is None:
+        return False
     return any(os.path.exists(p) for p in (
-        "/lib/aarch64-linux-gnu/libvulkan.so.1",
-        "/usr/lib/aarch64-linux-gnu/libvulkan.so.1",
+        "/lib/%s/libvulkan.so.1" % multiarch,
+        "/usr/lib/%s/libvulkan.so.1" % multiarch,
         "/usr/local/lib/libvulkan.so.1",
     ))
+
+
+def _detect_x86_vulkan_gpu():
+    """Return whether x86 PCI data shows an AMD or NVIDIA display GPU."""
+    if _host_cpu_arch != "x86_64":
+        return False
+    for device in glob.glob("/sys/bus/pci/devices/*"):
+        try:
+            with open(os.path.join(device, "class"), "r") as handle:
+                pci_class = handle.read().strip().lower()
+            with open(os.path.join(device, "vendor"), "r") as handle:
+                vendor = handle.read().strip().lower()
+        except (IOError, OSError):
+            continue
+        if pci_class.startswith("0x03") and vendor in ("0x1002", "0x10de"):
+            return True
+    return False
 
 
 # PEP 440 local versions distinguish accelerator builds sharing one ABI tag.
@@ -166,6 +196,7 @@ _VERSION_SUFFIX = {
     "aarch64-rknn3588": "+rknn3588",
     "aarch64-awnn": "+awnn",
     "aarch64-vulkan": "+vulkan",
+    "x86_64-vulkan": "+vulkan",
 }
 if _TARGET_ARCH in _VERSION_SUFFIX:
     plugin_version = plugin_version + _VERSION_SUFFIX[_TARGET_ARCH]
@@ -286,6 +317,10 @@ _TARGET_CONTENT = {
         "cpu_arch": "x86_64", "rknn_chip": None,
         "awnn": False, "vulkan": False,
     },
+    "x86_64-vulkan": {
+        "cpu_arch": "x86_64", "rknn_chip": None,
+        "awnn": False, "vulkan": True,
+    },
 }
 #  This runs for the AMBIENT case too: it is the real distribution path.
 # OctoPrint's Plugin Manager runs `pip install <source archive>` directly on
@@ -312,9 +347,12 @@ elif _host_cpu_arch == "aarch64":
         _content = _TARGET_CONTENT["aarch64-vulkan"]
     else:
         _content = _TARGET_CONTENT["aarch64"]
+elif (_host_cpu_arch == "x86_64" and runtime_version != "1.1.0rc5"
+      and _detect_x86_vulkan_gpu() and _vulkan_runtime_present()):
+    _content = _TARGET_CONTENT["x86_64-vulkan"]
 else:
-    # armhf and x86_64 have no accelerator probe here. An unrecognised host
-    # falls back to "ship nothing platform-specific" rather than guessing.
+    # An unrecognised host falls back to "ship nothing platform-specific"
+    # rather than guessing.
     _content = _TARGET_CONTENT.get(_host_cpu_arch,
                                    {"cpu_arch": None, "rknn_chip": None,
                                     "awnn": False, "vulkan": False})
@@ -330,7 +368,11 @@ _RUNTIME_REQUIREMENTS = {
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
     "awnn": "pinozcam-runtime-a733",
-    "vulkan": "pinozcam-runtime-jetson-orin",
+    "vulkan": "pinozcam-runtime-gpu-aarch64",
+    "vulkan_x86_64": "pinozcam-runtime-gpu-x86-64",
+}
+_LEGACY_RUNTIME_REQUIREMENTS = {
+    ("vulkan", "1.1.0rc5"): "pinozcam-runtime-jetson-orin",
 }
 
 if _content["rknn_chip"]:
@@ -340,12 +382,18 @@ if _content["rknn_chip"]:
 elif _content["awnn"]:
     _runtime_target = "awnn"
 elif _content["vulkan"]:
-    _runtime_target = "vulkan"
+    _runtime_target = (
+        "vulkan_x86_64"
+        if _content["cpu_arch"] == "x86_64" else "vulkan"
+    )
 else:
     _runtime_target = _content["cpu_arch"]
 
 if _runtime_target in _RUNTIME_REQUIREMENTS:
-    _runtime_dist = _RUNTIME_REQUIREMENTS[_runtime_target]
+    _runtime_dist = _LEGACY_RUNTIME_REQUIREMENTS.get(
+        (_runtime_target, runtime_version),
+        _RUNTIME_REQUIREMENTS[_runtime_target],
+    )
     _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
