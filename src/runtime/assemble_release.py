@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble and verify the nine runtime Wheels for one release."""
+"""Assemble and verify every runtime Wheel for one release."""
 
 import argparse
 import hashlib
@@ -16,6 +16,8 @@ TARGETS = {
                 "pinozcam_runner", "manylinux2014_aarch64"),
     "x86_64": ("pinozcam_runtime", "pinozcam-runtime",
                "pinozcam_runner", "manylinux2014_x86_64"),
+    "macos_arm64": ("pinozcam_runtime", "pinozcam-runtime",
+                    "pinozcam_runner", "macosx_14_0_arm64"),
     "vulkan": ("pinozcam_runtime_gpu", "pinozcam-runtime-gpu",
                "pinozcam_runner_gpu", "manylinux_2_35_aarch64"),
     "vulkan_x86_64": (
@@ -126,8 +128,9 @@ def main():
     unexpected = sorted(set(discovered) - set(expected.values()))
     if missing or unexpected:
         raise RuntimeError(
-            "runtime Wheel set differs from the nine-file contract; "
-            "missing=%r, unexpected=%r" % (missing, unexpected))
+            "runtime Wheel set differs from the %d-file contract; "
+            "missing=%r, unexpected=%r"
+            % (len(TARGETS), missing, unexpected))
 
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)

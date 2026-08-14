@@ -10,7 +10,7 @@ on:
       version:
         description: Runtime Wheel version
         required: true
-        default: "1.1.0rc9"
+        default: "1.1.0rc10"
         type: string
 
 permissions:
@@ -24,43 +24,44 @@ jobs:
   cpu-x86:
     uses: ./.github/workflows/build-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   cpu-armhf:
     uses: ./.github/workflows/build-armhf-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   cpu-macos-arm64:
     uses: ./.github/workflows/build-macos-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   gpu-aarch64:
     uses: ./.github/workflows/build-gpu-aarch64-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   gpu-x86:
     uses: ./.github/workflows/build-gpu-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   rockchip:
     uses: ./.github/workflows/build-rockchip-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   a733:
     uses: ./.github/workflows/build-a733-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
 
   bundle:
-    name: Verify and assemble all nine Wheels
+    name: Verify and assemble every runtime Wheel
     needs:
       - cpu-x86
       - cpu-armhf
+      - cpu-macos-arm64
       - gpu-aarch64
       - gpu-x86
       - rockchip
@@ -82,6 +83,12 @@ jobs:
         with:
           name: pinozcam-runner-armhf-${{ github.sha }}
           path: build-products/cpu-armhf
+
+      - name: Download macOS arm64 CPU Wheel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pinozcam-runner-macos-arm64-${{ github.sha }}
+          path: build-products/cpu-macos-arm64
 
       - name: Download AArch64 CPU and GPU Wheels
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -109,7 +116,7 @@ jobs:
 
       - name: Assemble release bundle and unified checksums
         env:
-          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc10' }}
         run: |
           python3 src/runtime/assemble_release.py \
             --artifact-root build-products \
@@ -148,7 +155,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          test "$(find release-dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 9
+          test "$(find release-dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 10
           test -f release-dist/CHECKSUMS.txt
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
               >/dev/null 2>&1; then
