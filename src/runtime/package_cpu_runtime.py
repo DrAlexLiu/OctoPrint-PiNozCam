@@ -153,10 +153,14 @@ class bdist_wheel(_bdist_wheel):
 setup(
     name="pinozcam-runtime",
     version={version!r},
-    description="Native {target} CPU runner and model payload for PiNozCam",
+    description="Native CPU runner and model payload for PiNozCam",
     long_description=(
-        "PiNozCam native XNNPACK CPU runtime for Linux {target}. "
-        "Install OctoPrint-PiNozCam for the user interface and configuration."
+        "PiNozCam native XNNPACK CPU runtime. One Wheel is published per "
+        "platform -- Linux armv7l, aarch64 and x86_64, and macOS on Apple "
+        "silicon -- and pip installs the one matching this machine. "
+        "Install OctoPrint-PiNozCam for the user interface and "
+        "configuration; this package carries only the compiled runner and "
+        "its model."
     ),
     long_description_content_type="text/plain",
     url="https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
@@ -164,6 +168,19 @@ setup(
         "Source": "https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
     }},
     license="AGPL-3.0-only",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Web Environment",
+        "Framework :: OctoPrint",
+        "Intended Audience :: End Users/Desktop",
+        # The distribution spans both; each Wheel's platform tag is what
+        # actually decides installability.
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS :: MacOS X",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3",
+        "Topic :: Printing",
+    ],
     python_requires=">=3.7,<4",
     packages=[{module!r}],
     package_data={{{module!r}: [

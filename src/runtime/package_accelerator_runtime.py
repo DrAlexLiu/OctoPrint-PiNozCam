@@ -252,8 +252,11 @@ setup(
     version={version!r},
     description="Native runner and model payload for PiNozCam ({target})",
     long_description=(
-        "PiNozCam native runtime for the {target} target. "
-        "Install OctoPrint-PiNozCam for its user interface and configuration."
+        "PiNozCam native runtime for the {target} accelerator on 64-bit "
+        "ARM or x86 Linux. "
+        "Install OctoPrint-PiNozCam for its user interface and "
+        "configuration; this package carries only the compiled runner and "
+        "its model."
     ),
     long_description_content_type="text/plain",
     url="https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
@@ -261,6 +264,16 @@ setup(
         "Source": "https://github.com/DrAlexLiu/OctoPrint-PiNozCam",
     }},
     license="AGPL-3.0-only",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Web Environment",
+        "Framework :: OctoPrint",
+        "Intended Audience :: End Users/Desktop",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: C++",
+        "Programming Language :: Python :: 3",
+        "Topic :: Printing",
+    ],
     python_requires=">=3.7,<4",
     packages=[{module!r}],
     package_data={{{module!r}: [
