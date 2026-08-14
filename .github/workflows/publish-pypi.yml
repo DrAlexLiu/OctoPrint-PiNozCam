@@ -4,26 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: GitHub pre-release tag containing the eight runtime Wheels
+        description: GitHub pre-release tag containing the runtime Wheels
         required: true
-        default: 1.1.0rc5
+        default: 1.1.0rc11
         type: string
       runtime_target:
-        description: Upload one runtime project while bootstrapping, or all later
+        description: Upload the CPU Wheels or both GPU Wheels
         required: true
         default: cpu
         type: choice
         options:
           - cpu
-          - rknn3566
-          - rknn3576
-          - rknn3588
-          - a733
-          - jetson_orin
-          - all
+          - gpu
 
 concurrency:
-  group: pypi-${{ inputs.release_tag }}
+  group: pypi-${{ inputs.release_tag }}-${{ inputs.runtime_target }}
   cancel-in-progress: false
 
 permissions: {}
@@ -33,6 +28,7 @@ jobs:
     name: Verify GitHub Release assets
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
     steps:
       - name: Check out the release tag
@@ -41,16 +37,22 @@ jobs:
           ref: ${{ inputs.release_tag }}
           persist-credentials: false
 
-      - name: Download runtime Wheels
+      - name: Download the verified tag-build bundle
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
+          release_sha=$(git rev-parse HEAD)
+          run_id=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build-runtime-release.yml/runs?event=push&status=success&head_sha=$release_sha&per_page=20" \
+            --jq ".workflow_runs[] | select(.head_branch == \"$RELEASE_TAG\") | .id" \
+            | head -n 1)
+          test -n "$run_id"
           mkdir dist
-          gh release download "$RELEASE_TAG" \
+          gh run download "$run_id" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern 'pinozcam_runtime*.whl' \
+            --name "pinozcam-runtime-release-$release_sha" \
             --dir dist
 
       - name: Verify release version, file set, and SHA-256
@@ -84,7 +86,7 @@ jobs:
               )
 
           expected = {}
-          for raw_line in (root / "CHECKSUMS.txt").read_text(
+          for raw_line in (root / "dist" / "CHECKSUMS.txt").read_text(
               encoding="ascii"
           ).splitlines():
               line = raw_line.strip()
@@ -97,9 +99,12 @@ jobs:
                   raise SystemExit("duplicate checksum entry: " + filename)
               expected[filename] = digest
 
-          if len(expected) != 8:
+          # The Wheel count is a property of the release, not a constant:
+          # it went from nine to ten when macOS arm64 was added, and a
+          # hardcoded number turns every future target into a failed publish.
+          if len(expected) < 9:
               raise SystemExit(
-                  "CHECKSUMS.txt describes {} Wheels, expected 8".format(
+                  "CHECKSUMS.txt describes only {} Wheels".format(
                       len(expected)
                   )
               )
@@ -130,16 +135,21 @@ jobs:
                   )
               platform_tag = filename[:-4].rsplit("-", 1)[-1]
               if not re.fullmatch(
-                  r"manylinux(?:2014|_[0-9]+_[0-9]+)_"
-                  r"(?:armv7l|aarch64|x86_64)",
-                  platform_tag,
+                  r"(?:manylinux(?:2014|_[0-9]+_[0-9]+)|linux)_"
+                  r"(?:armv7l|aarch64|x86_64)"
+                  r"|macosx_[0-9]+_[0-9]+_arm64", platform_tag
               ):
                   raise SystemExit(
-                      "unsupported public Linux Wheel tag in {}: {}".format(
+                      "unsupported public Wheel tag in {}: {}".format(
                           filename, platform_tag
                       )
                   )
               with zipfile.ZipFile(actual[filename]) as archive:
+                  if any(".data/purelib/" in name for name in archive.namelist()):
+                      raise SystemExit(
+                          "native runtime payload is stored in purelib: "
+                          + filename
+                      )
                   wheel_metadata = next(
                       name for name in archive.namelist()
                       if name.endswith(".dist-info/WHEEL")
@@ -175,23 +185,18 @@ jobs:
 
           wheel_stems = {
               "cpu": "pinozcam_runtime-",
-              "rknn3566": "pinozcam_runtime_rknn3566-",
-              "rknn3576": "pinozcam_runtime_rknn3576-",
-              "rknn3588": "pinozcam_runtime_rknn3588-",
-              "a733": "pinozcam_runtime_a733-",
-              "jetson_orin": "pinozcam_runtime_jetson_orin-",
+              "gpu": "pinozcam_runtime_gpu-",
           }
           source = Path("dist")
           destination = Path("publish-dist")
           destination.mkdir()
           target = os.environ["RUNTIME_TARGET"]
-          wheels = sorted(source.glob("*.whl"))
-          if target != "all":
-              prefix = wheel_stems[target]
-              wheels = [path for path in wheels if path.name.startswith(prefix)]
-          expected_count = (
-              8 if target == "all" else 3 if target == "cpu" else 1
-          )
+          all_wheels = sorted(source.glob("*.whl"))
+          prefix = wheel_stems[target]
+          wheels = [
+              path for path in all_wheels if path.name.startswith(prefix)
+          ]
+          expected_count = 4 if target == "cpu" else 2
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(
@@ -217,7 +222,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: ${{ inputs.runtime_target == 'cpu' && 'pypi' || 'pypi-gpu' }}
       url: https://pypi.org/
     permissions:
       actions: read
