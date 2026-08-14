@@ -73,10 +73,17 @@ jobs:
             --model runtime-artifacts/models/nozcam-cpu.pte
 
       - name: Build the runtime Wheel
+        # A virtualenv, not the runner's python3: macOS runners ship
+        # Homebrew Python, which is PEP 668 externally-managed and refuses
+        # `pip install` into itself. The Linux runners have no such guard,
+        # which is why only this target needs the extra step.
         run: |
-          python3 -m pip install --disable-pip-version-check --upgrade \
+          python3 -m venv "$RUNNER_TEMP/packaging-venv"
+          "$RUNNER_TEMP/packaging-venv/bin/python" -m pip install \
+            --disable-pip-version-check --upgrade \
             'setuptools==75.3.2' 'wheel==0.45.1'
-          python3 src/runtime/package_cpu_runtime.py \
+          "$RUNNER_TEMP/packaging-venv/bin/python" \
+            src/runtime/package_cpu_runtime.py \
             --artifact-root runtime-artifacts \
             --output dist \
             --target macos_arm64 \
@@ -89,7 +96,8 @@ jobs:
         # libSystem and libc++", which bootstrap_macos_arm64.sh asserts with
         # otool before the Wheel is ever built.
         run: |
-          python3 -m pip install --disable-pip-version-check --no-deps \
+          "$RUNNER_TEMP/packaging-venv/bin/python" -m pip install \
+            --disable-pip-version-check --no-deps \
             --target "$RUNNER_TEMP/wheel-install" dist/*.whl
           module="$RUNNER_TEMP/wheel-install/pinozcam_runner"
           test -x "$module/bin/nozcam_daemon.macos.arm64"
