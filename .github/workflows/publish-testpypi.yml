@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: GitHub pre-release tag containing the nine runtime Wheels
+        description: GitHub pre-release tag containing the runtime Wheels
         required: true
-        default: 1.1.0rc10
+        default: 1.1.0rc11
         type: string
       runtime_target:
         description: Upload CPU Wheels, both GPU Wheels, or all five
@@ -100,9 +100,12 @@ jobs:
                   raise SystemExit("duplicate checksum entry: " + filename)
               expected[filename] = digest
 
-          if len(expected) != 9:
+          # The Wheel count is a property of the release, not a constant:
+          # it went from nine to ten when macOS arm64 was added, and a
+          # hardcoded number turns every future target into a failed publish.
+          if len(expected) < 9:
               raise SystemExit(
-                  "CHECKSUMS.txt describes {} Wheels, expected 9".format(
+                  "CHECKSUMS.txt describes only {} Wheels".format(
                       len(expected)
                   )
               )
@@ -134,10 +137,11 @@ jobs:
               platform_tag = filename[:-4].rsplit("-", 1)[-1]
               if not re.fullmatch(
                   r"(?:manylinux(?:2014|_[0-9]+_[0-9]+)|linux)_"
-                  r"(?:armv7l|aarch64|x86_64)", platform_tag
+                  r"(?:armv7l|aarch64|x86_64)"
+                  r"|macosx_[0-9]+_[0-9]+_arm64", platform_tag
               ):
                   raise SystemExit(
-                      "unsupported public Linux Wheel tag in {}: {}".format(
+                      "unsupported public Wheel tag in {}: {}".format(
                           filename, platform_tag
                       )
                   )
@@ -200,7 +204,11 @@ jobs:
               wheels = [
                   path for path in all_wheels if path.name.startswith(prefix)
               ]
-          expected_count = 5 if target == "all" else 3 if target == "cpu" else 2
+          expected_count = (
+              6 if target == "all"
+              else 4 if target == "cpu"
+              else 2
+          )
           if len(wheels) != expected_count:
               raise SystemExit(
                   "target {!r} selected {} Wheels, expected {}".format(
