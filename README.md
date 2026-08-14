@@ -84,15 +84,20 @@ runtime remains supported for boards and OctoPi images that require it.
 
 ### ⚡ How fast is it?
 
-| Device | AI images/min |
+| Device | Checks/min |
 |---|---:|
+| LubanCat-4 (RK3588 NPU) | 625 |
+| Radxa A733 (Allwinner NPU) | 545 |
 | Raspberry Pi 5 | 221 |
-| BIQU CB2 / Orange Pi 3B (RK3566 NPU) | 203 |
-| Jetson Orin Nano Super | 335 |
+| BIQU CB2 / Orange Pi 3B (RK3566 NPU) | 215 |
 | Raspberry Pi 4 / CM4 | 23 |
-| Radxa A733 (Allwinner NPU) | 949 |
-| LubanCat-4 (RK3588 NPU) | 1,143 |
-| Raspberry Pi 3B+ | 14 |
+| Raspberry Pi 3B+ | 8 |
+
+These are full camera-to-result checks, the rate you actually get. Figures
+for the detection step alone run higher -- up to 1,143/min on the RK3588 --
+and are listed separately in [docs/performance.md](docs/performance.md),
+along with the Jetson Orin Nano Super, which has not been measured end to
+end yet.
 
 Even a few checks per minute is plenty to catch a failing print.
 
