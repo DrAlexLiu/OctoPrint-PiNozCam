@@ -67,12 +67,14 @@ _ARCH_PLAT = {
     "aarch64-vulkan": "linux_aarch64",
     "x86_64": "linux_x86_64",
     "x86_64-vulkan": "linux_x86_64",
+    "macos_arm64": "macosx_14_0_arm64",
 }
 # Targets with a published native runtime.
 _RUNNABLE_ARCHES = {
     "armhf", "aarch64", "aarch64-rknn3566", "aarch64-rknn3576",
     "aarch64-rknn3588", "aarch64-awnn", "aarch64-vulkan", "x86_64",
     "x86_64-vulkan",
+    "macos_arm64",
 }
 # Map platform tags to CPU ABI; accelerator type is detected separately.
 _HOST_CPU_ARCH = {"linux_armv7l": "armhf", "linux_aarch64": "aarch64",
@@ -81,6 +83,11 @@ _X86_VULKAN_GPU_VENDORS = frozenset(("0x1002", "0x10de", "0x8086"))
 
 _host = sysconfig.get_platform().replace("-", "_").replace(".", "_")
 _host_cpu_arch = _HOST_CPU_ARCH.get(_host)
+# macOS reports macosx_<major>_<minor>_arm64, which changes with every
+# OS release, so it cannot be a key in _HOST_CPU_ARCH. uname is stable.
+if _host_cpu_arch is None and os.uname().sysname == "Darwin" \
+        and os.uname().machine.lower() in ("arm64", "aarch64"):
+    _host_cpu_arch = "macos_arm64"
 # A 32-bit Raspberry Pi userspace may report an aarch64 kernel platform.
 # Interpreter pointer size decides which daemon can actually execute.
 _HOST_PLAT_OVERRIDE = None
@@ -99,7 +106,14 @@ _TARGET_PLAT = _ARCH_PLAT.get(_TARGET_ARCH)
 # Fail closed when an ambient build has no published runtime target.
 if not _TARGET_ARCH and not os.environ.get("PINOZCAM_ALLOW_HOST_WHEEL"):
     _runnable_plats = set(_ARCH_PLAT[_a] for _a in _RUNNABLE_ARCHES)
-    if _host not in _runnable_plats:
+    # Compare the RESOLVED architecture, not the raw platform string. On
+    # Linux the two are the same ("linux_aarch64" either way), but macOS
+    # reports the running OS version (macosx_26_0_arm64) while the Wheel tag
+    # is pinned at the minimum supported one (macosx_14_0_arm64), so a
+    # literal comparison rejects every Mac newer than 14.0 -- including the
+    # ones that can run the daemon perfectly well.
+    _host_plat_for_check = _ARCH_PLAT.get(_host_cpu_arch, _host)
+    if _host_plat_for_check not in _runnable_plats:
         import sys
 
         print("This host (%s) has no shipped daemon binary, so a wheel "
@@ -315,6 +329,10 @@ _TARGET_CONTENT = {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": False, "vulkan": True,
     },
+    "macos_arm64": {
+        "cpu_arch": "macos_arm64", "rknn_chip": None,
+        "awnn": False, "vulkan": False,
+    },
     "x86_64": {
         "cpu_arch": "x86_64", "rknn_chip": None,
         "awnn": False, "vulkan": False,
@@ -366,6 +384,7 @@ _RUNTIME_REQUIREMENTS = {
     "armhf": "pinozcam-runtime",
     "aarch64": "pinozcam-runtime",
     "x86_64": "pinozcam-runtime",
+    "macos_arm64": "pinozcam-runtime",
     "rknn3566": "pinozcam-runtime-rknn3566",
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
@@ -377,6 +396,8 @@ _RUNTIME_WHEEL_NAMES = {
     "armhf": "pinozcam_runtime-%s-py3-none-manylinux2014_armv7l.whl",
     "aarch64": "pinozcam_runtime-%s-py3-none-manylinux2014_aarch64.whl",
     "x86_64": "pinozcam_runtime-%s-py3-none-manylinux2014_x86_64.whl",
+    "macos_arm64": (
+        "pinozcam_runtime-%s-py3-none-macosx_14_0_arm64.whl"),
     "rknn3566": (
         "pinozcam_runtime_rknn3566-%s-py3-none-linux_aarch64.whl"),
     "rknn3576": (
