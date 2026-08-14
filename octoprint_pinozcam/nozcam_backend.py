@@ -58,6 +58,7 @@ _RUNTIME_MODULES = {
     "armhf": ("pinozcam_runner", "pinozcam_runtime_armhf"),
     "aarch64": ("pinozcam_runner", "pinozcam_runtime_aarch64"),
     "x86_64": ("pinozcam_runner", "pinozcam_runtime_x86_64"),
+    "macos_arm64": ("pinozcam_runner", "pinozcam_runtime_macos_arm64"),
     "rknn3566": "pinozcam_runtime_rknn3566",
     "rknn3576": "pinozcam_runtime_rknn3576",
     "rknn3588": "pinozcam_runtime_rknn3588",
@@ -96,6 +97,15 @@ def _machine_tag():
     if bits == 32:
         return "armhf"
     machine = os.uname().machine.lower()
+    # The OS has to be checked before the CPU: macOS on Apple Silicon
+    # reports machine "arm64", which used to fall into the aarch64 branch
+    # and hand back a Linux ELF for a host that can only run Mach-O. The
+    # binary would be found, marked executable, and fail at exec.
+    if os.uname().sysname == "Darwin":
+        if machine in ("aarch64", "arm64"):
+            return "macos_arm64"
+        raise BackendUnavailable(
+            "no nozcam_daemon binary for macOS on %s" % machine)
     if machine in ("x86_64", "amd64"):
         return "x86_64"
     if machine in ("aarch64", "arm64"):
@@ -431,8 +441,14 @@ class NozcamBackend(object):
                 model_name, os.path.join(self._model_dir, "nozcam-gpu.pte"))
         else:
             self._tag = _machine_tag()
-            self._daemon_path = os.path.join(
-                self._bin_dir, "nozcam_daemon.%s.static" % self._tag)
+            # ".static" is a claim, not decoration: the Linux daemons are
+            # fully static so they run on any glibc. macOS has no static
+            # libSystem, so its daemon links libSystem and libc++ and is
+            # named without that suffix rather than lying about it.
+            name = ("nozcam_daemon.macos.arm64"
+                    if self._tag == "macos_arm64"
+                    else "nozcam_daemon.%s.static" % self._tag)
+            self._daemon_path = os.path.join(self._bin_dir, name)
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, DEFAULT_MODEL))
 

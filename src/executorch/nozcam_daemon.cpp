@@ -143,6 +143,17 @@ void HwcU8ToChwF32(const std::uint8_t* src, float* dst, int h, int w) {
   }
 }
 
+// CPU pinning is Linux-only. Darwin has no sched_setaffinity and no
+// cpu_set_t at all -- its scheduler deliberately does not expose pinning --
+// so on macOS these two become honest no-ops rather than an emulation that
+// would report an affinity nothing enforces. The caller already treats
+// affinity as a scheduling hint whose failure only warns, so a build that
+// cannot pin still satisfies the runner contract.
+//
+// The Linux bodies are left textually untouched inside the guard: the
+// shipped armhf and aarch64 daemons must keep rebuilding byte-for-byte.
+#if defined(__linux__)
+
 // "0,1,2" -> cpu_set_t, then sched_setaffinity(0, ...) applied to OURSELVES.
 // An empty string or empty list means leave affinity alone: the parent asked
 // for nothing.
@@ -182,6 +193,20 @@ std::string CurrentCpuList() {
   }
   return out;
 }
+
+#else  // !__linux__
+
+bool ApplyAffinity(const char* list) {
+  (void)list;
+  errno = ENOTSUP;
+  return false;   // the caller warns and carries on
+}
+
+// Empty, matching what the Linux version returns when the kernel refuses:
+// INFO reports what is actually in force, and here nothing is.
+std::string CurrentCpuList() { return std::string(); }
+
+#endif  // __linux__
 
 // getpriority returning -1 is either a legitimate nice value or an error,
 // and only errno distinguishes them. That is POSIX's interface design, not a

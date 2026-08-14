@@ -24,6 +24,13 @@ TARGETS = {
         "platform": "manylinux2014_aarch64",
         "runner": "nozcam_daemon.aarch64.static",
     },
+    "macos_arm64": {
+        "module": "pinozcam_runner",
+        # No ".static": macOS ships no static libSystem, so this runner
+        # links libSystem and libc++ like every other Mach-O executable.
+        "platform": "macosx_14_0_arm64",
+        "runner": "nozcam_daemon.macos.arm64",
+    },
     "x86_64": {
         "module": "pinozcam_runner",
         "platform": "manylinux2014_x86_64",

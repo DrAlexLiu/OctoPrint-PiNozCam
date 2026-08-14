@@ -1,4 +1,4 @@
-name: Build nine-Wheel runtime release
+name: Build the runtime Wheel release
 
 on:
   push:
@@ -28,6 +28,11 @@ jobs:
 
   cpu-armhf:
     uses: ./.github/workflows/build-armhf-runtime.yml
+    with:
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
+
+  cpu-macos-arm64:
+    uses: ./.github/workflows/build-macos-runtime.yml
     with:
       version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc9' }}
 
