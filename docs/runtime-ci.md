@@ -21,7 +21,10 @@ RKNN model files. Jetson builds both the CPU fallback and Vulkan executable;
 Mesa lavapipe provides a software Vulkan protocol smoke test in CI. A733 uses
 the pinned public `ZIFENG278/ai-sdk` input and has no self-hosted hardware job.
 Its hosted-build boundary is documented in
-[`a733-ci.md`](a733-ci.md).
+[`a733-ci.md`](a733-ci.md). macOS arm64 builds on GitHub's `macos-14`
+runners, which are Apple silicon; it is the one target that cannot be
+cross-produced from the Linux runners, and its build differences and
+hardware verification are in [`macos-runtime.md`](macos-runtime.md).
 
 ## Platform tags
 
