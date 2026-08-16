@@ -27,8 +27,11 @@ jobs:
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     env:
-      CPU_WHEEL_URL: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5/pinozcam_runtime-1.1.0rc5-py3-none-manylinux2014_aarch64.whl
-      CPU_WHEEL_SHA256: 81a04c377fedcd01821769d1496fe7d4c519445788fbe72beca8b783aff37595
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
 
     steps:
@@ -48,15 +51,24 @@ jobs:
             "$GITHUB_WORKSPACE/runtime-artifacts"
 
       - name: Fetch the pinned CPU model and run real inference
+        # Pinned to a commit in the model repository: a commit SHA is
+        # immutable, where a release asset can be replaced under an unchanged
+        # tag. x-repo-commit is read without --location because only
+        # huggingface.co's own 307 carries it; the CDN response behind the
+        # redirect does not.
         run: |
           mkdir -p runtime-artifacts/models
-          curl --fail --location --retry 5 --retry-all-errors \
-            --output "$RUNNER_TEMP/cpu-model-source.whl" "$CPU_WHEEL_URL"
-          echo "$CPU_WHEEL_SHA256  $RUNNER_TEMP/cpu-model-source.whl" \
-            | sha256sum --check --strict
-          unzip -p "$RUNNER_TEMP/cpu-model-source.whl" \
-            '*/models/nozcam-cpu.pte' \
-            > runtime-artifacts/models/nozcam-cpu.pte
+          url="$HF_BASE/cpu/nozcam-cpu.pte"
+          commit=$(curl --fail --silent --show-error --head \
+            --retry 5 --retry-all-errors "$url" \
+            | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+          if [ "$commit" != "$HF_REVISION" ]; then
+            echo "model resolved to commit '$commit', expected $HF_REVISION"
+            exit 1
+          fi
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors \
+            --output runtime-artifacts/models/nozcam-cpu.pte "$url"
           echo "$CPU_MODEL_SHA256  runtime-artifacts/models/nozcam-cpu.pte" \
             | sha256sum --check --strict
           python3 src/executorch/smoke_test.py \
@@ -83,13 +95,11 @@ jobs:
     container:
       image: ubuntu@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
     env:
-      RELEASE_BASE: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5
-      RKNN3566_WHEEL: pinozcam_runtime_rknn3566-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
-      RKNN3566_WHEEL_SHA256: b08df012e6331f5b151bed71c4a0e58e78ef95f93793ab69858f336f7a220075
-      RKNN3576_WHEEL: pinozcam_runtime_rknn3576-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
-      RKNN3576_WHEEL_SHA256: 9597328c96400523fb26d5468e6f914d62bb6d706a4c652433f8dfb17f440aac
-      RKNN3588_WHEEL: pinozcam_runtime_rknn3588-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
-      RKNN3588_WHEEL_SHA256: 11ac73dc272f84e79c5c0990d28b21d43bd27c4ea0a598fd6888691a721786f3
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
 
     defaults:
       run:
@@ -121,30 +131,38 @@ jobs:
             "$GITHUB_WORKSPACE/runtime-artifacts"
 
       - name: Fetch SHA-pinned RKNN models (no NPU execution on hosted x86)
+        # Pinned to a commit in the model repository. Note the plain
+        # --retry 5: this job runs in the pinned Ubuntu 20.04 container,
+        # whose curl 7.68 predates --retry-all-errors (7.71) and exits with
+        # "option is unknown" rather than ignoring it.
         run: |
-          mkdir -p "$RUNNER_TEMP/rc5-wheels" runtime-artifacts/models
-          fetch_wheel() {
-            local filename=$1
-            local digest=$2
-            local destination="$RUNNER_TEMP/rc5-wheels/$filename"
-            curl --fail --location --retry 5 --retry-connrefused \
-              --output "$destination" "$RELEASE_BASE/$filename"
-            echo "$digest  $destination" | sha256sum --check --strict
+          mkdir -p runtime-artifacts/models
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 "$HF_BASE/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "$HF_REVISION" ]; then
+              echo "$remote resolved to commit '$commit', expected $HF_REVISION"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location --retry 5 \
+              --output "runtime-artifacts/models/$local_name" \
+              "$HF_BASE/$remote"
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | sha256sum --check --strict
           }
-          fetch_wheel "$RKNN3566_WHEEL" "$RKNN3566_WHEEL_SHA256"
-          fetch_wheel "$RKNN3576_WHEEL" "$RKNN3576_WHEEL_SHA256"
-          fetch_wheel "$RKNN3588_WHEEL" "$RKNN3588_WHEEL_SHA256"
+          fetch_pinned npu/nozcam-rk3566.rknn \
+            88fb2fb34953ec36063428c04b9a6be23a198615114d7cda340c08b6d6a82ec6
+          fetch_pinned npu/nozcam-rk3576.rknn \
+            d3a8dcac39849fd48a59fbd2087f24b5fca953cfb78bd73ff496f05d5b0a699e
+          fetch_pinned npu/nozcam-rk3588.rknn \
+            490cb2684bf49fe4212111573ebbe977d65ae2208a2f2224c9214a323565000c
 
-          unzip -p "$RUNNER_TEMP/rc5-wheels/$RKNN3566_WHEEL" \
-            '*/models/nozcam-rk3566.rknn' \
-            > runtime-artifacts/models/nozcam-rk3566.rknn
-          unzip -p "$RUNNER_TEMP/rc5-wheels/$RKNN3576_WHEEL" \
-            '*/models/nozcam-rk3576.rknn' \
-            > runtime-artifacts/models/nozcam-rk3576.rknn
-          unzip -p "$RUNNER_TEMP/rc5-wheels/$RKNN3588_WHEEL" \
-            '*/models/nozcam-rk3588.rknn' \
-            > runtime-artifacts/models/nozcam-rk3588.rknn
-
+          # The CPU model arrives from the previous job's artifact, so it is
+          # checked here rather than fetched.
           echo '1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221  runtime-artifacts/models/nozcam-cpu.pte' | sha256sum --check --strict
           echo '88fb2fb34953ec36063428c04b9a6be23a198615114d7cda340c08b6d6a82ec6  runtime-artifacts/models/nozcam-rk3566.rknn' | sha256sum --check --strict
           echo 'd3a8dcac39849fd48a59fbd2087f24b5fca953cfb78bd73ff496f05d5b0a699e  runtime-artifacts/models/nozcam-rk3576.rknn' | sha256sum --check --strict

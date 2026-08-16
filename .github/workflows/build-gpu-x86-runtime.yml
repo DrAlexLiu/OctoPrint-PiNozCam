@@ -53,8 +53,11 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
-      MODEL_WHEEL_URL: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5/pinozcam_runtime_jetson_orin-1.1.0rc5-py3-none-manylinux_2_38_aarch64.whl
-      MODEL_WHEEL_SHA256: fa5022a37ddc1815ec31604b7a73a38ca491e424fb224504a5e31d3ee00ec052
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
       GPU_MODEL_SHA256: 9c5f6d5c2f426e128697e03c87e903d052f9be895b0072a9361691b420b1e181
     steps:
@@ -82,23 +85,33 @@ jobs:
             unzip \
             vulkan-tools
 
-      - name: Fetch and verify the immutable PTE models
+      - name: Fetch pinned model inputs
+        # Pinned to a commit in the model repository: a commit SHA
+        # is immutable, where a release asset can be replaced under
+        # an unchanged tag. x-repo-commit is read without --location
+        # because only huggingface.co's own 307 carries it.
         run: |
           mkdir -p runtime-artifacts/models
-          curl --fail --location --retry 5 --retry-all-errors \
-            --output "$RUNNER_TEMP/model-source.whl" "$MODEL_WHEEL_URL"
-          echo "$MODEL_WHEEL_SHA256  $RUNNER_TEMP/model-source.whl" \
-            | sha256sum --check
-          unzip -p "$RUNNER_TEMP/model-source.whl" \
-            '*/models/nozcam-cpu.pte' \
-            > runtime-artifacts/models/nozcam-cpu.pte
-          unzip -p "$RUNNER_TEMP/model-source.whl" \
-            '*/models/nozcam-gpu.pte' \
-            > runtime-artifacts/models/nozcam-gpu.pte
-          echo "$CPU_MODEL_SHA256  runtime-artifacts/models/nozcam-cpu.pte" \
-            | sha256sum --check
-          echo "$GPU_MODEL_SHA256  runtime-artifacts/models/nozcam-gpu.pte" \
-            | sha256sum --check
+          base="https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1"
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 --retry-all-errors "$base/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "cfac74f19ed6ba537d138a047a1f547893123be1" ]; then
+              echo "$remote resolved to commit '$commit', expected cfac74f19ed6ba537d138a047a1f547893123be1"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-all-errors \
+              --output "runtime-artifacts/models/$local_name" "$base/$remote"
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | sha256sum --check
+          }
+          fetch_pinned cpu/nozcam-cpu.pte "1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221"
+          fetch_pinned gpu/nozcam-gpu.pte "9c5f6d5c2f426e128697e03c87e903d052f9be895b0072a9361691b420b1e181"
 
       - name: Build the x86-64 Vulkan runner from source
         run: |

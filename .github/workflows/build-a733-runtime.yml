@@ -51,10 +51,13 @@ jobs:
       image: ubuntu@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
     timeout-minutes: 120
     env:
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
       AI_SDK_REPOSITORY: https://github.com/ZIFENG278/ai-sdk.git
       AI_SDK_COMMIT: fc90006d0f6569da2f6726c2d8395877686f5aca
-      MODEL_WHEEL_URL: https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc5/pinozcam_runtime_a733-1.1.0rc5-py3-none-manylinux_2_29_aarch64.whl
-      MODEL_WHEEL_SHA256: 6fe4ef17b71be17c512bf3d993a6751898bc697d1bf093aae8a1f40c45840907
       CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
       AWNN_MODEL_SHA256: 0000bb6d454ee6d3f80e5b13df8a2622e800444a769f6a744db39c47a7a90334
       AWNN_SDK_DIR: ${{ github.workspace }}/vendor/ai-sdk/examples/libawnn_viplite
@@ -91,35 +94,34 @@ jobs:
           test "$(git -C vendor/ai-sdk rev-parse HEAD)" = "$AI_SDK_COMMIT"
 
       - name: Fetch pinned model inputs
+        # Pinned to a commit in the model repository: a commit SHA
+        # is immutable, where a release asset can be replaced under
+        # an unchanged tag. x-repo-commit is read without --location
+        # because only huggingface.co's own 307 carries it.
         run: |
           mkdir -p runtime-artifacts/models
-          curl --fail --location --retry 5 \
-            --output "$RUNNER_TEMP/model-source.whl" "$MODEL_WHEEL_URL"
-          echo "$MODEL_WHEEL_SHA256  $RUNNER_TEMP/model-source.whl" \
-            | sha256sum --check
-          python3 - "$RUNNER_TEMP/model-source.whl" runtime-artifacts/models <<'PY'
-          import os
-          import sys
-          import zipfile
-
-          wheel, output = sys.argv[1:]
-          wanted = {"nozcam-a733.nb", "nozcam-cpu.pte"}
-          with zipfile.ZipFile(wheel) as archive:
-              members = {
-                  os.path.basename(name): name
-                  for name in archive.namelist()
-                  if "/models/" in name and os.path.basename(name) in wanted
-              }
-              if set(members) != wanted:
-                  raise SystemExit("pinned Wheel has the wrong model set")
-              for filename, member in members.items():
-                  with open(os.path.join(output, filename), "wb") as handle:
-                      handle.write(archive.read(member))
-          PY
-          echo "$CPU_MODEL_SHA256  runtime-artifacts/models/nozcam-cpu.pte" \
-            | sha256sum --check
-          echo "$AWNN_MODEL_SHA256  runtime-artifacts/models/nozcam-a733.nb" \
-            | sha256sum --check
+          base="https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1"
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            # This job runs in the pinned Ubuntu 20.04 container, whose
+            # curl 7.68 predates --retry-all-errors (7.71) and exits on it.
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 "$base/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "cfac74f19ed6ba537d138a047a1f547893123be1" ]; then
+              echo "$remote resolved to commit '$commit', expected cfac74f19ed6ba537d138a047a1f547893123be1"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location \
+              --retry 5 \
+              --output "runtime-artifacts/models/$local_name" "$base/$remote"
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | sha256sum --check
+          }
+          fetch_pinned cpu/nozcam-cpu.pte "1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221"
+          fetch_pinned npu/nozcam-a733.nb "0000bb6d454ee6d3f80e5b13df8a2622e800444a769f6a744db39c47a7a90334"
 
       - name: Validate hosted build inputs
         run: |
