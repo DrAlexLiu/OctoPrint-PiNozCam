@@ -36,13 +36,49 @@ and digest before it creates the draft release.
 ## 1. Prepare a release candidate
 
 1. Work on `release/1.1.0`; do not merge `master` during RC development.
-2. Set `plugin_version` and `runtime_version` to the intended candidate.
+2. Set the version everywhere it appears, not only in `setup.py`. The
+   publish workflow compares the release tag against `plugin_version` and
+   refuses a mismatch, so a tag created before this step cannot be
+   published — and the tag cannot simply be moved afterwards, because its
+   release would then name a commit it was not built from. Bump, commit,
+   *then* tag.
+
+   ```bash
+   old=1.1.0rcN-1
+   new=1.1.0rcN
+   grep -rl "$old" setup.py README.md docs .github/workflows \
+     | grep -v docs/macos-runtime.md \
+     | xargs sed -i "s/$old/$new/g"
+   grep -rn "$old" . | grep -v '^\./\.git'   # expect only the line below
+   ```
+
+   ⚠️ `docs/macos-runtime.md` names a version that must **not** move: it
+   records which published Wheel the macOS hardware verification actually
+   used, not the version being prepared.
 3. Run each manual source-build workflow at the exact release commit.
 4. Download the Actions artifacts into a new empty directory.
 5. Verify filenames, Wheel metadata, ELF architecture, runtime manifests, and
    SHA-256 values. Require `auditwheel show` to pass for every CPU and Vulkan
    Wheel; PyPI accepting a filename is not this check.
-6. Generate one `CHECKSUMS.txt` covering all nine Wheels.
+6. Generate one `CHECKSUMS.txt` covering all eleven Wheels.
+7. If any packaging metadata changed, check every classifier against
+   PyPI's own list. An invalid one is accepted by the build, by `pip
+   install` and by metadata readers, and is rejected only by the upload
+   API — after the Wheels are already built and attached to a release,
+   which then cannot be replaced.
+
+   ```bash
+   curl -sL "https://pypi.org/pypi?:action=list_classifiers" > /tmp/trove.txt
+   grep -h '::' src/runtime/package_*_runtime.py \
+     | sed 's/.*"\(.*::.*\)".*/\1/' | sort -u \
+     | while read -r c; do
+         grep -qxF "$c" /tmp/trove.txt || echo "INVALID: $c"
+       done
+   ```
+
+   `setup.py` is exempt: the plugin is installed from a GitHub archive and
+   never uploaded, so `Framework :: OctoPrint` is fine there and only
+   there.
 
 The build workflows and recorded qualification runs are described in
 [`runtime-ci.md`](runtime-ci.md).
@@ -79,8 +115,10 @@ git push origin release/1.1.0
 git push origin 1.1.0rcN
 ```
 
-The tag-triggered `Build nine-Wheel runtime release` workflow builds, verifies,
-and attaches all nine Wheels plus `CHECKSUMS.txt` to a draft pre-release. Do
+The tag-triggered release workflow builds, verifies, and attaches all
+eleven Wheels plus `CHECKSUMS.txt` to a draft pre-release. It refuses to
+touch a tag that already has a release, so a candidate that fails at
+publishing is spent: take the next number rather than retagging. Do
 not manually substitute a local Wheel. For emergency manual recovery only:
 
 ```bash
