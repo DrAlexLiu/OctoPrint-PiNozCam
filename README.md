@@ -101,6 +101,34 @@ end yet.
 
 Even a few checks per minute is plenty to catch a failing print.
 
+**⚡ If your numbers come out far below the table, suspect the power supply
+before the board.** Detection is one of the heaviest things a printer host
+ever runs, so it draws current that lighter workloads never do. A supply
+that looks fine — the desktop is responsive, nothing has crashed — can still
+sag under it, and a Raspberry Pi responds by quietly running the CPU at a
+fraction of its rated clock. Nothing errors; the checks just get slower.
+
+Speed Test reports this when it sees it. Two things are worth knowing about
+when it will:
+
+- **At the default CPU setting it usually will not fire.** That setting
+  deliberately leaves cores for gcode streaming, so it draws less and often
+  stays within what a marginal supply can deliver.
+- **At 100% it is much more likely.** Measured on a Raspberry Pi 3B+ with a
+  marginal supply: the default setting drew no under-voltage at all and
+  reported 5.9 s per check, while 100% under-volted for most of the run and
+  reported **7.1 s — slower with twice the cores.** That inversion is the
+  signature. More cores made it slower because the whole chip was throttled.
+
+**So run Speed Test once at 100% as a power check**, even if you intend to
+leave the setting lower. If it reports under-voltage, a better supply and
+cable will raise every number on this page; if it does not, your figures are
+honest and you can set the level you actually want.
+
+⚠️ Only Raspberry Pi boards report this. On other hardware Speed Test says
+nothing about power — not because the supply is fine, but because the board
+does not expose the measurement.
+
 **And it's light on memory:** OctoPrint + PiNozCam together stay under
 **512 MB** — even a 512 MB Pi Zero 2 W / Pi CM0 works. A **1 GB Raspberry Pi 5
 (~US$45)** runs it comfortably. Full tables, 32-bit vs 64-bit numbers, and

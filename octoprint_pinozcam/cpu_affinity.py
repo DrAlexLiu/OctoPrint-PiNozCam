@@ -23,6 +23,63 @@ def _read_int_file(path):
         return None
 
 
+DEFAULT_HWMON_ROOT = "/sys/class/hwmon"
+
+PowerState = namedtuple("PowerState", ["undervoltage"])
+
+
+def _read_undervoltage(hwmon_root=DEFAULT_HWMON_ROOT):
+    """Return True/False for present under-voltage, or None if unreadable.
+
+    The Raspberry Pi firmware exposes this through a hwmon device named
+    ``rpi_volt``. Its index is not stable -- it follows driver probe order,
+    and on a Jetson Orin index 1 is an NVMe drive -- so the device is located
+    by name. Absence means "cannot tell", never "healthy".
+
+    ``in0_lcrit_alarm`` reflects the voltage *now*. It is deliberately not
+    mixed with vcgencmd's latched history bits, which stay set for the rest
+    of the boot after a single dip, so a board that sagged once would
+    otherwise be reported as under-voltage forever. Reading it also needs no
+    privileges, where /dev/vcio is root-only on some images and
+    video-group on others.
+
+    There is deliberately no companion "clock is capped" reading. On a
+    Raspberry Pi the firmware throttles below Linux: measured on a sagging
+    Pi 3B+, ``scaling_cur_freq`` reported a steady 1400000 in the same
+    instant the firmware reported 600 MHz. cpufreq cannot see this, so a
+    check built on it would confidently report full speed while the board
+    ran at 43% of it.
+    """
+    try:
+        entries = sorted(os.listdir(hwmon_root))
+    except OSError:
+        return None
+    for entry in entries:
+        device = os.path.join(hwmon_root, entry)
+        try:
+            with open(os.path.join(device, "name"), "r",
+                      encoding="utf-8") as handle:
+                if handle.read().strip() != "rpi_volt":
+                    continue
+        except (OSError, ValueError):
+            continue
+        value = _read_int_file(os.path.join(device, "in0_lcrit_alarm"))
+        if value is None:
+            return None
+        return value != 0
+    return None
+
+
+def read_power_state(hwmon_root=DEFAULT_HWMON_ROOT):
+    """Return present board power state; the field is None if unmeasurable.
+
+    None where the machine does not expose it, so a caller can distinguish
+    "measured healthy" from "not measurable" and say nothing rather than
+    claim the power supply is fine.
+    """
+    return PowerState(undervoltage=_read_undervoltage(hwmon_root))
+
+
 def _read_allowed_cpus():
     """Return the CPUs this process may currently use."""
     try:

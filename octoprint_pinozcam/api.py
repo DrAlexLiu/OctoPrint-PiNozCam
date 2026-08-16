@@ -22,6 +22,21 @@ from .mask import MASK_GRID
 from .nozcam_backend import NozcamBackend
 
 
+
+def _sample_undervoltage(logger):
+    """Return whether the board reports under-voltage right now, or None.
+
+    Isolated from the caller so a missing or unreadable sensor can never
+    affect the speed measurement it annotates: any failure is logged once
+    and reported as "unknown".
+    """
+    try:
+        return cpu_affinity.read_power_state().undervoltage
+    except Exception:
+        logger.exception("Could not read the board power state.")
+        return None
+
+
 class ApiMixin(object):
     """Mixed into PinozcamPlugin; see the module docstring."""
 
@@ -695,6 +710,12 @@ class ApiMixin(object):
             # make ensure_started restart the daemon mid-timing.
             result = backend.infer(image, self.scores_threshold,
                                    self.img_sensitivity, cpus)
+            # Sampled here, not after the teardown below: the alarm tracks
+            # the voltage right now and clears within milliseconds of the
+            # load stopping, so a reading taken once the daemon has been
+            # stopped reports a healthy board that was throttled throughout
+            # the measurement it is attached to.
+            undervoltage = _sample_undervoltage(self._logger)
             round_trip_ms = (time.monotonic() - started) * 1000.0
         except Exception as exc:
             return Response(json.dumps({
@@ -727,6 +748,15 @@ class ApiMixin(object):
         # per_min is derived from the MODEL time, and the field names say
         # which is which so a reader does not have to guess.
         per_min = 60000.0 / model_ms if model_ms > 0 else 0.0
+        # A sagging supply halves this number, and the user sees only a
+        # slow result to blame the detector for. Reporting it beside the
+        # figure it explains is the point; a standing banner would separate
+        # cause from effect. None where the board cannot report it, and
+        # nothing is said then -- "not measurable" is not "healthy".
+        power_note = (" -- the board was under-voltage during this test, "
+                      "which throttles it below its rated clock; a better "
+                      "power supply should raise this"
+                      if undervoltage else "")
         return Response(json.dumps({
             "ok": True,
             "model_ms": round(model_ms, 1),
@@ -734,12 +764,14 @@ class ApiMixin(object):
             "total_ms": round(total_ms, 1),
             "frame_source": frame_source,
             "per_min_basis": "model_ms",
+            "undervoltage": undervoltage,
             "message": ("%.0f ms per inference = at most %.0f checks/min, "
-                        "on %d of %d %s%s%s"
+                        "on %d of %d %s%s%s%s"
                         % (model_ms, per_min, cores, pool_cores, pool_label,
                            "" if pool_cores == 1 else "s",
                            ("; using the built-in no-camera test image"
-                            if frame_source == "placeholder" else "")))}),
+                            if frame_source == "placeholder" else ""),
+                           power_note))}),
                         mimetype="application/json")
 
     def _inference_test_frame(self):
