@@ -11,8 +11,8 @@ from setuptools import setup
 plugin_identifier = "pinozcam"
 plugin_package = "octoprint_pinozcam"
 plugin_name = "OctoPrint-PiNozCam"
-plugin_version = "1.1.0rc13"
-runtime_version = "1.1.0rc13"
+plugin_version = "1.1.0rc14"
+runtime_version = "1.1.0rc14"
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
     "board. Requires Linux on ARM32, ARM64 or x86_64."
