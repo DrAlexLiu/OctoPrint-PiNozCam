@@ -64,6 +64,7 @@ _ARCH_PLAT = {
     "aarch64-rknn3576": "linux_aarch64",
     "aarch64-rknn3588": "linux_aarch64",
     "aarch64-awnn": "linux_aarch64",
+    "aarch64-awnnt527": "linux_aarch64",
     "aarch64-vulkan": "linux_aarch64",
     "x86_64": "linux_x86_64",
     "x86_64-vulkan": "linux_x86_64",
@@ -72,7 +73,8 @@ _ARCH_PLAT = {
 # Targets with a published native runtime.
 _RUNNABLE_ARCHES = {
     "armhf", "aarch64", "aarch64-rknn3566", "aarch64-rknn3576",
-    "aarch64-rknn3588", "aarch64-awnn", "aarch64-vulkan", "x86_64",
+    "aarch64-rknn3588", "aarch64-awnn", "aarch64-awnnt527",
+    "aarch64-vulkan", "x86_64",
     "x86_64-vulkan",
     "macos_arm64",
 }
@@ -157,6 +159,43 @@ def _awnn_runtime_present():
         "/usr/local/lib/libNBGlinker.so", "/usr/lib/libNBGlinker.so"))
 
 
+# Duplicated from nozcam_backend rather than imported: that module does
+# "from PIL import Image", which need not be installable yet at this point in
+# a fresh install. The two copies must stay in step.
+_AWNN_V113_LIB_DIRS = (
+    "/usr/local/lib",
+    "/usr/lib",
+    "/usr/lib/walnutpi/walnutpi.npu/walnutpi_npu/_awnn_lib/t527/lib",
+)
+
+
+def _detect_allwinner_vip_chip():
+    """Return the Allwinner SoC name from the device tree, or None."""
+    try:
+        with open("/proc/device-tree/compatible", "rb") as handle:
+            entries = handle.read().split(b"\x00")
+    except (IOError, OSError):
+        return None
+    for entry in entries:
+        if entry.startswith(b"allwinner,"):
+            return entry[len(b"allwinner,"):].decode("ascii", "replace")
+    return None
+
+
+def _awnn_t527_runtime_present():
+    """Return whether this is a T527 carrying the VIPLite v1.13 runtime.
+
+    Tested before the A733 check because it is the more specific claim: both
+    chips expose /dev/vipcore, so the SoC name is what separates them.
+    """
+    if not os.path.exists("/dev/vipcore"):
+        return False
+    if _detect_allwinner_vip_chip() != "t527":
+        return False
+    return any(os.path.exists(os.path.join(directory, "libVIPlite.so"))
+               for directory in _AWNN_V113_LIB_DIRS)
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies an NVIDIA Tegra SoC."""
     try:
@@ -211,6 +250,7 @@ _VERSION_SUFFIX = {
     "aarch64-rknn3576": "+rknn3576",
     "aarch64-rknn3588": "+rknn3588",
     "aarch64-awnn": "+awnn",
+    "aarch64-awnnt527": "+awnnt527",
     "aarch64-vulkan": "+vulkan",
     "x86_64-vulkan": "+vulkan",
 }
@@ -325,6 +365,13 @@ _TARGET_CONTENT = {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": True, "vulkan": False,
     },
+    # Both Allwinner targets set "awnn"; "awnn_chip" separates them because
+    # their NBG files carry incompatible hardware target IDs and their
+    # daemons link different VIPLite library names.
+    "aarch64-awnnt527": {
+        "cpu_arch": "aarch64", "rknn_chip": None,
+        "awnn": True, "awnn_chip": "t527", "vulkan": False,
+    },
     "aarch64-vulkan": {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": False, "vulkan": True,
@@ -361,6 +408,8 @@ elif _host_cpu_arch == "aarch64":
     if (_rknn_target in _TARGET_CONTENT and
             _rknn_runtime_present()):
         _content = _TARGET_CONTENT[_rknn_target]
+    elif _awnn_t527_runtime_present():
+        _content = _TARGET_CONTENT["aarch64-awnnt527"]
     elif _awnn_runtime_present():
         _content = _TARGET_CONTENT["aarch64-awnn"]
     elif _detect_nvidia_tegra() and _vulkan_runtime_present():
@@ -389,6 +438,7 @@ _RUNTIME_REQUIREMENTS = {
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
     "awnn": "pinozcam-runtime-a733",
+    "awnnt527": "pinozcam-runtime-t527",
     "vulkan": "pinozcam-runtime-gpu",
     "vulkan_x86_64": "pinozcam-runtime-gpu",
 }
@@ -405,6 +455,7 @@ _RUNTIME_WHEEL_NAMES = {
     "rknn3588": (
         "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl"),
     "awnn": "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
+    "awnnt527": "pinozcam_runtime_t527-%s-py3-none-linux_aarch64.whl",
     "vulkan": (
         "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
     "vulkan_x86_64": (
@@ -418,7 +469,8 @@ if _content["rknn_chip"]:
     _runtime_target = "rknn%s" % (
         _chip[2:] if _chip.startswith("rk") else _chip)
 elif _content["awnn"]:
-    _runtime_target = "awnn"
+    _runtime_target = ("awnn%s" % _content["awnn_chip"]
+                       if _content.get("awnn_chip") else "awnn")
 elif _content["vulkan"]:
     _runtime_target = (
         "vulkan_x86_64"

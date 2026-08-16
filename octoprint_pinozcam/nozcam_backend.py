@@ -63,6 +63,7 @@ _RUNTIME_MODULES = {
     "rknn3576": "pinozcam_runtime_rknn3576",
     "rknn3588": "pinozcam_runtime_rknn3588",
     "awnn": "pinozcam_runtime_a733",
+    "awnnt527": "pinozcam_runtime_t527",
     "vulkan": (
         "pinozcam_runner_gpu",
         "pinozcam_runtime_gpu_aarch64",
@@ -156,6 +157,56 @@ def _awnn_runtime_present():
     ))
 
 
+# VIPLite v1.13 keeps the vendor runtime outside the loader's default search
+# path on the boards seen so far, so the directory is resolved rather than
+# assumed and handed to the daemon as LD_LIBRARY_PATH.
+_AWNN_V113_LIB_DIRS = (
+    "/usr/local/lib",
+    "/usr/lib",
+    "/usr/lib/walnutpi/walnutpi.npu/walnutpi_npu/_awnn_lib/t527/lib",
+)
+
+
+def _awnn_v113_lib_dir():
+    """Return the directory holding the VIPLite v1.13 runtime, or None."""
+    for directory in _AWNN_V113_LIB_DIRS:
+        if os.path.exists(os.path.join(directory, "libVIPlite.so")):
+            return directory
+    return None
+
+
+def _detect_allwinner_vip_chip():
+    """Return the Allwinner SoC name from the device tree, or None.
+
+    Both A733 and T527 expose /dev/vipcore, and their NBG files carry a
+    hardware target ID that the other chip's driver rejects, so the model
+    cannot be chosen from the device node alone.
+    """
+    try:
+        with open("/proc/device-tree/compatible", "rb") as handle:
+            entries = handle.read().split(b"\x00")
+    except (IOError, OSError):
+        return None
+    for entry in entries:
+        if entry.startswith(b"allwinner,"):
+            return entry[len(b"allwinner,"):].decode("ascii", "replace")
+    return None
+
+
+def _awnn_t527_runtime_present():
+    """Return whether this is a T527 with the VIPLite v1.13 runtime.
+
+    Checked before the A733 path because it is the more specific claim: it
+    requires the SoC name as well as the device node, where the A733 check
+    keys off its own v2.0 library names.
+    """
+    if not os.path.exists("/dev/vipcore"):
+        return False
+    if _detect_allwinner_vip_chip() != "t527":
+        return False
+    return _awnn_v113_lib_dir() is not None
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies NVIDIA Tegra hardware."""
     try:
@@ -247,10 +298,12 @@ def _resolve_backend(requested):
             )
         return "rknn", chip
     if requested == "awnn":
+        if _awnn_t527_runtime_present():
+            return "awnn", "t527"
         if not _awnn_runtime_present():
             raise BackendUnavailable(
-                "aiBackend is forced to awnn, but no a733 VIPLite runtime "
-                "was detected on this machine"
+                "aiBackend is forced to awnn, but no A733 or T527 VIPLite "
+                "runtime was detected on this machine"
             )
         return "awnn", None
     if requested == "vulkan":
@@ -264,6 +317,8 @@ def _resolve_backend(requested):
     chip = _detect_rockchip_chip()
     if chip in _SUPPORTED_RKNN_CHIPS and _rknn_runtime_present():
         return "rknn", chip
+    if _awnn_t527_runtime_present():
+        return "awnn", "t527"
     if _awnn_runtime_present():
         return "awnn", None
     if (
@@ -289,7 +344,7 @@ def _runtime_target(kind, chip):
     if kind == "rknn":
         return "rknn%s" % (chip[2:] if chip.startswith("rk") else chip)
     if kind == "awnn":
-        return kind
+        return "awnnt527" if chip == "t527" else kind
     if kind == "vulkan":
         return ("vulkan_x86_64"
                 if _machine_tag() == "x86_64" else "vulkan")
@@ -300,7 +355,8 @@ def _runtime_target(kind, chip):
                   else detected_chip)
         return "rknn%s" % suffix
     if os.path.exists("/dev/vipcore"):
-        return "awnn"
+        return ("awnnt527" if _detect_allwinner_vip_chip() == "t527"
+                else "awnn")
     if _detect_nvidia_tegra():
         return "vulkan"
     if (_detect_x86_vulkan_gpu() and _vulkan_runtime_present()
@@ -429,10 +485,23 @@ class NozcamBackend(object):
                 model_name, os.path.join(
                     self._model_dir, "nozcam-%s.rknn" % chip))
         elif kind == "awnn":
-            self._daemon_path = os.path.join(
-                self._bin_dir, "nozcam_daemon.awnn.aarch64")
-            self._model_path = self._pick_model(
-                model_name, os.path.join(self._model_dir, "nozcam-a733.nb"))
+            # The two VIPLite stacks need different binaries: v1.13 links
+            # libVIPlite/libVIPuser, v2.0 links libNBGlinker/libVIPhal. The
+            # awnn_* API above them is identical, so both are built from the
+            # same source, but neither binary loads the other's libraries.
+            if chip == "t527":
+                self._lib_dir = _awnn_v113_lib_dir()
+                self._daemon_path = os.path.join(
+                    self._bin_dir, "nozcam_daemon.awnn113.aarch64")
+                self._model_path = self._pick_model(
+                    model_name,
+                    os.path.join(self._model_dir, "nozcam-t527.nb"))
+            else:
+                self._daemon_path = os.path.join(
+                    self._bin_dir, "nozcam_daemon.awnn.aarch64")
+                self._model_path = self._pick_model(
+                    model_name,
+                    os.path.join(self._model_dir, "nozcam-a733.nb"))
         elif kind == "vulkan":
             self._tag = _machine_tag()
             self._daemon_path = os.path.join(
@@ -605,6 +674,23 @@ class NozcamBackend(object):
                 raise
             self._note_success()
 
+    def _daemon_env(self):
+        """Return the child environment, or None to inherit unchanged.
+
+        The v1.13 VIPLite runtime is not always on the loader path -- WalnutPi
+        installs it under its own vendor directory -- and the daemon records
+        an RPATH of /usr/local/lib, so the resolved directory is prepended
+        here rather than baking one distribution's layout into the binary.
+        """
+        lib_dir = getattr(self, "_lib_dir", None)
+        if not lib_dir:
+            return None
+        env = dict(os.environ)
+        existing = env.get("LD_LIBRARY_PATH")
+        env["LD_LIBRARY_PATH"] = (
+            "%s:%s" % (lib_dir, existing) if existing else lib_dir)
+        return env
+
     def _start_locked(self, score_threshold, sensitivity, cpus):
         """Spawn and validate the daemon while the caller holds _lock."""
         self.preflight()
@@ -631,6 +717,7 @@ class NozcamBackend(object):
                 # This is descriptor hygiene, not a network sandbox.
                 close_fds=True,
                 bufsize=0,
+                env=self._daemon_env(),
             )
         except OSError as exc:
             raise BackendUnavailable(

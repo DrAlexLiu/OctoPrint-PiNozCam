@@ -55,6 +55,23 @@ TARGETS = {
         ),
         "models": ("nozcam-cpu.pte", "nozcam-a733.nb"),
     },
+    # T527 is the same VeriSilicon VIP family as A733 and runs the identical
+    # awnn_* API, but nothing compiled is shared: VIPLite v1.13 names its
+    # runtime libVIPlite/libVIPuser where v2.0 names it
+    # libNBGlinker/libVIPhal, so the daemon is a separate binary, and the NBG
+    # carries both a hardware target ID and a format version that the other
+    # stack rejects. Hence its own Wheel rather than a second model in the
+    # A733 one.
+    "awnnt527": {
+        "dist": "pinozcam-runtime-t527",
+        "module": "pinozcam_runtime_t527",
+        "platform": "linux_aarch64",
+        "bins": (
+            "nozcam_daemon.aarch64.static",
+            "nozcam_daemon.awnn113.aarch64",
+        ),
+        "models": ("nozcam-cpu.pte", "nozcam-t527.nb"),
+    },
     "vulkan": {
         "dist": "pinozcam-runtime-gpu",
         "module": "pinozcam_runner_gpu",
@@ -110,6 +127,12 @@ MODEL_METADATA = {
         "backend": "viplite",
         "format": "nb",
         "hardware": "a733",
+        "quantization": "int8",
+    },
+    "nozcam-t527.nb": {
+        "backend": "viplite",
+        "format": "nb",
+        "hardware": "t527",
         "quantization": "int8",
     },
 }
