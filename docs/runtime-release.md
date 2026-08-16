@@ -56,14 +56,14 @@ For RC7, every target emits an exact PEP 508 direct reference. The portable CPU
 and GPU project names are shared across their platform Wheels:
 
 ```text
-pinozcam-runtime @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc11/pinozcam_runtime-1.1.0rc11-py3-none-manylinux2014_aarch64.whl
-pinozcam-runtime-gpu @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc11/pinozcam_runtime_gpu-1.1.0rc11-py3-none-manylinux_2_35_aarch64.whl
+pinozcam-runtime @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc12/pinozcam_runtime-1.1.0rc12-py3-none-manylinux2014_aarch64.whl
+pinozcam-runtime-gpu @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc12/pinozcam_runtime_gpu-1.1.0rc12-py3-none-manylinux_2_35_aarch64.whl
 ```
 
 Hardware-specific targets use the same fixed-tag form:
 
 ```text
-pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc11/pinozcam_runtime_rknn3566-1.1.0rc11-py3-none-linux_aarch64.whl
+pinozcam-runtime-rknn3566 @ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download/1.1.0rc12/pinozcam_runtime_rknn3566-1.1.0rc12-py3-none-linux_aarch64.whl
 ```
 
 The URL must contain a fixed release tag and exact filename. Do not use

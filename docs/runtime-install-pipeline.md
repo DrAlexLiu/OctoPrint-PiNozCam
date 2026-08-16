@@ -64,7 +64,7 @@ For the 1.1.0 release candidate, the direct installation command is:
 ```bash
 python -m pip install \
   --no-build-isolation --no-cache-dir \
-  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc11.zip
+  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc12.zip
 ```
 
 `--no-build-isolation` is required for OctoPrint installations because the
@@ -125,7 +125,7 @@ python -m pip uninstall -y \
 
 python -m pip install \
   --no-build-isolation --no-cache-dir \
-  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc11.zip
+  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0rc12.zip
 ```
 
 Stop OctoPrint before a manual uninstall/reinstall and start it again after
