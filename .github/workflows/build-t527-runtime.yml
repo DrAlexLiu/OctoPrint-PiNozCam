@@ -115,15 +115,17 @@ jobs:
             remote=$1
             local_name=$2
             expected=$3
+            # No --retry-all-errors: this pinned container is Ubuntu 20.04,
+            # whose curl 7.68 predates that option (added in 7.71) and exits
+            # with "option is unknown" rather than ignoring it.
             commit=$(curl --fail --silent --show-error --head \
-              --retry 5 --retry-all-errors "$base/$remote" \
+              --retry 5 "$base/$remote" \
               | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
             if [ "$commit" != "$HF_REVISION" ]; then
               echo "$remote resolved to commit '$commit', expected $HF_REVISION"
               exit 1
             fi
-            curl --fail --silent --show-error --location \
-              --retry 5 --retry-all-errors \
+            curl --fail --silent --show-error --location --retry 5 \
               --output "runtime-artifacts/models/$local_name" "$base/$remote"
             echo "$expected  runtime-artifacts/models/$local_name" \
               | sha256sum --check
