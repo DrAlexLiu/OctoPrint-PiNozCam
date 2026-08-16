@@ -171,7 +171,6 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Web Environment",
-        "Framework :: OctoPrint",
         "Intended Audience :: End Users/Desktop",
         # The distribution spans both; each Wheel's platform tag is what
         # actually decides installability.

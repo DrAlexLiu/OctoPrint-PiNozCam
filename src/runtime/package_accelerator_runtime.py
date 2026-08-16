@@ -290,7 +290,6 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Web Environment",
-        "Framework :: OctoPrint",
         "Intended Audience :: End Users/Desktop",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: C++",
