@@ -34,6 +34,8 @@ TARGETS = {
         "pinozcam_runtime_rknn3588", "linux_aarch64"),
     "awnn": ("pinozcam_runtime_a733", "pinozcam-runtime-a733",
              "pinozcam_runtime_a733", "linux_aarch64"),
+    "awnnt527": ("pinozcam_runtime_t527", "pinozcam-runtime-t527",
+                 "pinozcam_runtime_t527", "linux_aarch64"),
 }
 
 
