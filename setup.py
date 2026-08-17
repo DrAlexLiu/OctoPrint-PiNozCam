@@ -15,7 +15,7 @@ plugin_version = "1.1.0rc15"
 runtime_version = "1.1.0rc15"
 plugin_description = (
     "AI print-failure detection that runs entirely on your printer's own "
-    "board. Requires Linux on ARM32, ARM64 or x86_64."
+    "board. Runs on Linux (ARM32, ARM64, x86-64) and Apple Silicon macOS."
 )
 plugin_author = "DrAlexLiu"
 plugin_author_email = "liu1111w@uwindsor.ca"
@@ -64,6 +64,7 @@ _ARCH_PLAT = {
     "aarch64-rknn3576": "linux_aarch64",
     "aarch64-rknn3588": "linux_aarch64",
     "aarch64-awnn": "linux_aarch64",
+    "aarch64-bpu-x5": "linux_aarch64",
     "aarch64-awnnt527": "linux_aarch64",
     "aarch64-vulkan": "linux_aarch64",
     "x86_64": "linux_x86_64",
@@ -196,6 +197,46 @@ def _awnn_t527_runtime_present():
                for directory in _AWNN_V113_LIB_DIRS)
 
 
+# Duplicated from nozcam_backend rather than imported: that module does
+# "from PIL import Image", which need not be installable yet during a fresh
+# install. The two copies must stay in step.
+_BPU_LIB_PATHS = (
+    "/usr/lib/libdnn.so",
+    "/usr/lib/aarch64-linux-gnu/libdnn.so",
+    "/usr/local/lib/libdnn.so",
+)
+
+_SUPPORTED_BPU_CHIPS = ("x5",)
+
+
+def _detect_drobotics_chip():
+    """Return the D-Robotics SoC name from the device tree, or None."""
+    try:
+        with open("/proc/device-tree/compatible", "rb") as handle:
+            entries = handle.read().split(b"\x00")
+    except (IOError, OSError):
+        return None
+    for entry in entries:
+        text = entry.decode("ascii", "replace").strip()
+        if "," not in text:
+            continue
+        vendor, _, chip = text.partition(",")
+        if vendor.strip().lower() == "d-robotics":
+            return chip.strip().lower()
+    return None
+
+
+def _bpu_runtime_present():
+    """Return whether the D-Robotics BPU runtime and device are installed.
+
+    The X5 exposes no dedicated node -- the BPU is reached through libdnn
+    over /dev/ion -- so both the device and the library are required.
+    """
+    if not os.path.exists("/dev/ion"):
+        return False
+    return any(os.path.exists(path) for path in _BPU_LIB_PATHS)
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies an NVIDIA Tegra SoC."""
     try:
@@ -250,6 +291,7 @@ _VERSION_SUFFIX = {
     "aarch64-rknn3576": "+rknn3576",
     "aarch64-rknn3588": "+rknn3588",
     "aarch64-awnn": "+awnn",
+    "aarch64-bpu-x5": "+bpux5",
     "aarch64-awnnt527": "+awnnt527",
     "aarch64-vulkan": "+vulkan",
     "x86_64-vulkan": "+vulkan",
@@ -365,6 +407,10 @@ _TARGET_CONTENT = {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": True, "vulkan": False,
     },
+    "aarch64-bpu-x5": {
+        "cpu_arch": "aarch64", "rknn_chip": None,
+        "awnn": False, "bpu_chip": "x5", "vulkan": False,
+    },
     # Both Allwinner targets set "awnn"; "awnn_chip" separates them because
     # their NBG files carry incompatible hardware target IDs and their
     # daemons link different VIPLite library names.
@@ -410,6 +456,9 @@ elif _host_cpu_arch == "aarch64":
         _content = _TARGET_CONTENT[_rknn_target]
     elif _awnn_t527_runtime_present():
         _content = _TARGET_CONTENT["aarch64-awnnt527"]
+    elif (_detect_drobotics_chip() in _SUPPORTED_BPU_CHIPS
+          and _bpu_runtime_present()):
+        _content = _TARGET_CONTENT["aarch64-bpu-x5"]
     elif _awnn_runtime_present():
         _content = _TARGET_CONTENT["aarch64-awnn"]
     elif _detect_nvidia_tegra() and _vulkan_runtime_present():
@@ -438,6 +487,7 @@ _RUNTIME_REQUIREMENTS = {
     "rknn3576": "pinozcam-runtime-rknn3576",
     "rknn3588": "pinozcam-runtime-rknn3588",
     "awnn": "pinozcam-runtime-a733",
+    "bpu_x5": "pinozcam-runtime-rdkx5",
     "awnnt527": "pinozcam-runtime-t527",
     "vulkan": "pinozcam-runtime-gpu",
     "vulkan_x86_64": "pinozcam-runtime-gpu",
@@ -455,6 +505,7 @@ _RUNTIME_WHEEL_NAMES = {
     "rknn3588": (
         "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl"),
     "awnn": "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
+    "bpu_x5": "pinozcam_runtime_rdkx5-%s-py3-none-linux_aarch64.whl",
     "awnnt527": "pinozcam_runtime_t527-%s-py3-none-linux_aarch64.whl",
     "vulkan": (
         "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
@@ -468,6 +519,8 @@ if _content["rknn_chip"]:
     _chip = _content["rknn_chip"]
     _runtime_target = "rknn%s" % (
         _chip[2:] if _chip.startswith("rk") else _chip)
+elif _content.get("bpu_chip"):
+    _runtime_target = "bpu_%s" % _content["bpu_chip"]
 elif _content["awnn"]:
     _runtime_target = ("awnn%s" % _content["awnn_chip"]
                        if _content.get("awnn_chip") else "awnn")

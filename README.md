@@ -68,12 +68,20 @@ Setup guide: [docs/notifications.md](docs/notifications.md)
 
 Any Linux machine with Python 3.7+ — every Raspberry Pi from the Zero 2 W / Pi CM0
 up, any ARM64 or x86_64 PC, and NPU boards like the **Orange Pi 3B**,
-**BIQU CB2**, Radxa ROCK 4D, LubanCat-4 and Radxa A733, plus Jetson Orin and
-x86-64 Vulkan GPUs. NVIDIA and AMD have been hardware-qualified; Intel uses
-the same vendor-neutral runner but remains provisional until it has completed
-the hardware qualification matrix. PiNozCam finds the fastest option your
-board has on its own, and falls back to the CPU when there is nothing faster.
-*(No Windows, macOS, FreeBSD, or Android/Octo4a.)*
+**BIQU CB2**, Radxa ROCK 4D, LubanCat-4, Radxa A733, WalnutPi (T527) and the
+**D-Robotics RDK X5**, plus Jetson Orin and x86-64 Vulkan GPUs. NVIDIA and
+AMD have been hardware-qualified; Intel uses the same vendor-neutral runner
+but remains provisional until it has completed the hardware qualification
+matrix. PiNozCam finds the fastest option your board has on its own, and
+falls back to the CPU when there is nothing faster.
+
+**Apple Silicon Macs also work** (macOS 14 or newer, arm64). That runtime is
+built and hardware-qualified like the others -- measured on an M4 Mac mini at
+36.6 ms per check -- and is most useful for trying PiNozCam out or running it
+beside a printer you already have a Mac next to. It uses the CPU: the Apple
+GPU and Neural Engine are not used, and on this model the CPU is already
+faster than every NPU board above.
+*(No Windows, Intel Macs, FreeBSD, or Android/Octo4a.)*
 
 Rockchip users can verify the driver, runtime library and OctoPrint service
 permissions with the [Rockchip NPU setup checklist](docs/rockchip-npu.md).
