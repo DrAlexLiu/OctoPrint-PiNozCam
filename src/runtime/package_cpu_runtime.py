@@ -30,6 +30,19 @@ TARGETS = {
         # links libSystem and libc++ like every other Mach-O executable.
         "platform": "macosx_14_0_arm64",
         "runner": "nozcam_daemon.macos.arm64",
+        # The only target that ships a second model. One daemon runs both:
+        # it is built with the CoreML delegate as well as XNNPACK, so the
+        # choice is which .pte to hand it, not which binary to launch.
+        # CoreML reaches the Neural Engine and is what normally runs; the
+        # CPU model stays as the fallback for a Mac where CoreML will not
+        # load it.
+        "extra_models": {
+            "nozcam-coreml.pte": {
+                "backend": "coreml",
+                "format": "pte",
+                "quantization": "int8",
+            },
+        },
     },
     "x86_64": {
         "module": "pinozcam_runner",
@@ -71,10 +84,14 @@ def _stage(stage, artifacts, target, version, revision):
     package = os.path.join(stage, module)
     runner = spec["runner"]
     model = "nozcam-cpu.pte"
+    models = {model: {"backend": "xnnpack", "format": "pte",
+                      "quantization": "int8"}}
+    models.update(spec.get("extra_models", {}))
     _copy(os.path.join(artifacts, "bin", runner),
           os.path.join(package, "bin", runner), executable=True)
-    _copy(os.path.join(artifacts, "models", model),
-          os.path.join(package, "models", model))
+    for name in sorted(models):
+        _copy(os.path.join(artifacts, "models", name),
+              os.path.join(package, "models", name))
     _copy(os.path.join(ROOT, "LICENSE"),
           os.path.join(package, "PiNozCam.LICENSE"))
 
@@ -103,13 +120,7 @@ def _stage(stage, artifacts, target, version, revision):
         "distribution": "pinozcam-runtime",
         "files": files,
         "format": 2,
-        "models": {
-            model: {
-                "backend": "xnnpack",
-                "format": "pte",
-                "quantization": "int8",
-            }
-        },
+        "models": models,
         "module": module,
         "plugin_version": version,
         "runner_protocol": 1,

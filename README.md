@@ -76,11 +76,14 @@ matrix. PiNozCam finds the fastest option your board has on its own, and
 falls back to the CPU when there is nothing faster.
 
 **Apple Silicon Macs also work** (macOS 14 or newer, arm64). That runtime is
-built and hardware-qualified like the others -- measured on an M4 Mac mini at
-36.6 ms per check -- and is most useful for trying PiNozCam out or running it
-beside a printer you already have a Mac next to. It uses the CPU: the Apple
-GPU and Neural Engine are not used, and on this model the CPU is already
-faster than every NPU board above.
+built and hardware-qualified like the others, and is most useful for trying
+PiNozCam out or running it beside a printer you already have a Mac next to.
+It uses the **Apple Neural Engine** through CoreML -- measured at 5.14 ms
+per check on an A18 Pro, 10x that machine's own CPU and faster than any
+board above -- and falls back to the CPU model bundled in the same package
+if CoreML cannot load. The Apple GPU is deliberately not used: measured on
+the same machine and graph it is marginally *slower* than the CPU, while
+the Neural Engine is 6x faster.
 *(No Windows, Intel Macs, FreeBSD, or Android/Octo4a.)*
 
 Rockchip users can verify the driver, runtime library and OctoPrint service

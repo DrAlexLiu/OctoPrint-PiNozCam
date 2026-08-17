@@ -75,6 +75,7 @@ cmake -S "$ET_ROOT" -B "$ET_BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
   -DPython3_EXECUTABLE="$VENV/bin/python" \
   -DEXECUTORCH_BUILD_XNNPACK=ON \
+  -DEXECUTORCH_BUILD_COREML=ON \
   -DEXECUTORCH_BUILD_EXECUTOR_RUNNER=ON \
   -DEXECUTORCH_BUILD_EXTENSION_DATA_LOADER=ON \
   -DEXECUTORCH_BUILD_EXTENSION_RUNNER_UTIL=ON
@@ -94,10 +95,14 @@ if ! file "$daemon" | grep -q 'Mach-O 64-bit executable arm64'; then
   file "$daemon" >&2
   exit 1
 fi
-# A macOS binary cannot be fully static, but it must not have picked up
-# anything beyond the two system libraries every C++ program here needs.
+# A macOS binary cannot be fully static, but everything it links must be
+# shipped with the OS. The CoreML delegate pulls in CoreML, Foundation and
+# Accelerate, so an exact two-library list no longer works; what the check
+# is really for is catching a Homebrew dylib or an rpath into this build
+# tree, and "must live under /usr/lib or /System/Library" still catches
+# both. Anything outside those prefixes is not on a user's Mac.
 extra=$(otool -L "$daemon" | tail -n +2 | awk '{print $1}' \
-        | grep -vE '^/usr/lib/(libSystem\.B|libc\+\+\.1)\.dylib$' || true)
+        | grep -vE '^(/usr/lib/|/System/Library/Frameworks/)' || true)
 if [ -n "$extra" ]; then
   echo "daemon links unexpected libraries:" >&2
   echo "$extra" >&2

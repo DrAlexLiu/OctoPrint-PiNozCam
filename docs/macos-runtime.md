@@ -11,10 +11,21 @@ same options differently. That is why this target has its own
 the shared scripts, whose output must keep reproducing byte for byte for
 armhf and aarch64.
 
-The model is not rebuilt here. The workflow downloads the pinned
-`nozcam-cpu.pte` published with 1.1.0rc5 and checks its SHA-256
-(`1057e47d…`) before use, so every platform runs the identical file and no
-result difference can be blamed on a different model.
+Models are not rebuilt here. The workflow downloads two, pinned to a
+commit in the Hugging Face model repository and checked by SHA-256 before
+use: `nozcam-cpu.pte` (`1057e47d…`), the same file all twelve other targets
+run, and `nozcam-coreml.pte` (`eda45034…`), which only Apple silicon can
+load.
+
+**This is the one target that runs a platform-specific model**, so it is
+also the one where a result difference can come from the model rather than
+the arithmetic. That is the deliberate trade: the CoreML file reaches the
+Neural Engine, and the CPU file stays in the Wheel as the fallback and as
+the cross-platform reference to compare against.
+
+One daemon runs both. It is built with the CoreML delegate *and* XNNPACK,
+so falling back is a change of model, not of process image — unlike every
+accelerator target, which ships a second binary.
 
 ## Runner version is a deliberate choice, not a default
 
@@ -74,12 +85,40 @@ Same `.pte`, same preprocessing, measured end to end through the daemon:
 
 | host | backend | median | img/min |
 |---|---|---:|---:|
+| **MacBook A18 Pro** | **CoreML / Neural Engine** | **5.14 ms** | **11677** |
 | Mac mini M4 | XNNPACK CPU | 36.6 ms | 1641 |
 | Orange Pi AI Pro | Ascend NPU | 33.4 ms | 1795 |
+| MacBook A18 Pro | XNNPACK CPU (2P + 4E) | 52.6 ms | 1142 |
 | Orange Pi AI Pro | XNNPACK CPU (3× A55) | 487.4 ms | 123 |
 
 An M4's plain CPU lands within touching distance of a dedicated edge NPU,
-and is 13× the same-generation ARM CPU beside it.
+and is 13× the same-generation ARM CPU beside it. The Neural Engine is a
+further order of magnitude: on the A18 Pro it is **10× that machine's own
+CPU** and the fastest non-NVIDIA figure in this project.
+
+⚠️ The two Apple rows use different models — CoreML int8 versus the shared
+CPU int8 — so they are not a pure backend comparison. The clean one is the
+A18 Pro against itself, 5.14 ms versus 52.6 ms.
+
+### The GPU is not worth reaching for, and that is measured
+
+Compiling the identical graph against each CoreML compute unit and timing
+all four on one machine:
+
+| compute unit | median |
+|---|---:|
+| CPU only | 57.31 ms |
+| **CPU and GPU** | **59.32 ms** |
+| CPU and Neural Engine | 9.22 ms |
+| ALL (CoreML chose the ANE) | 9.06 ms |
+
+The GPU is *slower than the CPU* here. So ExecuTorch's MPS backend, and
+GPU routes generally, have nothing to offer on Apple silicon for this
+model; the Neural Engine does, and CoreML is the only way to reach it.
+
+⚠️ `compute_unit` is a preference, not a constraint — CoreML may still
+place work on the CPU. This table is how that was settled rather than
+assumed, and a 6× gap cannot come from anything else.
 
 ## Three Linux assumptions this target had to separate out
 
