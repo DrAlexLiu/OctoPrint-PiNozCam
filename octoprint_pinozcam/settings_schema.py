@@ -88,7 +88,7 @@ SETTINGS = (
     # working -- which is exactly why "bpu" went unnoticed after the RDK X5
     # backend landed.
     Setting("aiBackend", "ai_backend", str, default="auto",
-            choices=("auto", "cpu", "rknn", "awnn", "bpu", "vulkan",
+            choices=("auto", "cpu", "rknn", "awnn", "acl", "bpu", "vulkan",
                      "coreml")),
     Setting("action", "action", int, default=0, lo=0, hi=2),
     Setting("aiStartDelay", "ai_start_delay", int, default=0, lo=0,

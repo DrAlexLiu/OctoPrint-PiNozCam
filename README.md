@@ -87,7 +87,9 @@ the Neural Engine is 6x faster.
 *(No Windows, Intel Macs, FreeBSD, or Android/Octo4a.)*
 
 Rockchip users can verify the driver, runtime library and OctoPrint service
-permissions with the [Rockchip NPU setup checklist](docs/rockchip-npu.md).
+permissions with the [Rockchip NPU setup checklist](docs/rockchip-npu.md),
+and Allwinner A733 or T527 users with the
+[Allwinner NPU setup checklist](docs/allwinner-npu.md).
 
 If an ARM board supports both operating systems, prefer **64-bit AArch64**:
 it is usually faster and is the recommended installation. The 32-bit ARMHF
@@ -99,6 +101,7 @@ runtime remains supported for boards and OctoPi images that require it.
 |---|---:|
 | LubanCat-4 (RK3588 NPU) | 625 |
 | Radxa A733 (Allwinner NPU) | 545 |
+| WalnutPi (Allwinner T527 NPU) | 481 |
 | Raspberry Pi 5 | 221 |
 | BIQU CB2 / Orange Pi 3B (RK3566 NPU) | 215 |
 | Raspberry Pi 4 / CM4 | 23 |

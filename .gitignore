@@ -19,3 +19,8 @@ octoprint_pinozcam/static/models/
 src/rockchip/nozcam_rockchip_daemon
 src/allwinner/nozcam_allwinner_daemon
 src/allwinner/.build/
+# CANN installers: multi-GB, over GitHub's 100 MB hard limit
+*.run
+# Huawei's closed-source msmodelslim .so: kept locally to avoid
+# re-downloading the 3 GB CANN rpm, not redistributed here.
+ascend/aipro_cann/msmodelslim_so/

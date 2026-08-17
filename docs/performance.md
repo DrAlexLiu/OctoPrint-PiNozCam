@@ -27,6 +27,7 @@ These are the closest measurements to what an OctoPrint user experiences.
 | RK3576 | NPU | 165 ms | 364 | two NPU cores |
 | RK3588 | NPU | 96 ms | 625 | recorded before performance-core-aware CPU selection; see note below |
 | Allwinner A733 | NPU | 110 ms | 545 | |
+| Allwinner T527 | NPU | 125 ms | 481 | eight A55 cores, 950 MB RAM |
 
 The RK3588's 96 ms result predates performance-core-aware CPU selection:
 the older rule happened to pick the four slower cores for the CPU side of
@@ -52,7 +53,27 @@ camera frames.
 | RK3576 | NPU, two cores | 89.0 ms | 674 |
 | RK3588 | NPU, three cores | 52.5 ms | 1,143 |
 | Allwinner A733 | NPU | 63.2 ms | 949 |
+| Allwinner T527 | NPU | 122.1 ms | 491 |
 | Jetson Orin Nano Super | GPU | 179 ms | 335 |
+
+### Desktop Vulkan GPU comparison
+
+The same Vulkan INT8 PTE and x86-64 runner were measured on one NVIDIA and one
+AMD GPU. These are model-only approximate steady-state timings, excluding
+camera capture, JPEG decoding, Pillow preparation and plugin result handling.
+They were calculated as `(100-run total - one-run total) / 99`, so they show
+the useful performance order rather than a GPU-timestamp microbenchmark.
+
+| GPU | Vulkan driver | Approximate steady state | Approximate ceiling/min |
+|---|---|---:|---:|
+| NVIDIA RTX 4090 | NVIDIA 595.84, Vulkan 1.4.329 | 9.4 ms/frame | 6,383 |
+| AMD Radeon AI PRO R9700 | Mesa RADV 25.2.8, Vulkan 1.4.318 | 17.5 ms/frame | 3,429 |
+
+Both GPUs produced the same box count and alarm decision on all 34 reference
+images. Their maximum raw box-coordinate difference was zero and their maximum
+raw score difference was one float32 ULP (`1.1920929e-7`). The RTX 4090 was
+about 1.9 times faster in this particular test; that is a measurement of these
+two GPUs and drivers, not a general NVIDIA-versus-AMD rule.
 
 The x86_64 measurement used the production detection process and the exact
 same model file shipped to ARM. Against the recorded ARM64 run, all 34
@@ -111,6 +132,7 @@ from a simulator or an estimate:
 | Rockchip RK3576 | Radxa ROCK 4D | NPU |
 | Rockchip RK3588 | LubanCat-4 | NPU |
 | Allwinner A733 | Radxa A733 | NPU |
+| Allwinner T527 | WalnutPi | NPU |
 | Jetson Orin | Orin Nano Super | GPU |
 
 The **BIQU CB2** is the one board here designed for 3D printers, so it is

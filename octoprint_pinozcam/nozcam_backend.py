@@ -64,6 +64,7 @@ _RUNTIME_MODULES = {
     "rknn3588": "pinozcam_runtime_rknn3588",
     "awnn": "pinozcam_runtime_a733",
     "bpu_x5": "pinozcam_runtime_rdkx5",
+    "acl": "pinozcam_runtime_ascend310b",
     "awnnt527": "pinozcam_runtime_t527",
     "vulkan": (
         "pinozcam_runner_gpu",
@@ -273,6 +274,34 @@ def _coreml_runtime_present():
         "/System/Library/Frameworks/CoreML.framework")
 
 
+def _acl_runtime_present():
+    """Return whether the Ascend device and CANN userspace are present.
+
+    libascendcl.so is a thin front end over ~24 more CANN libraries, so its
+    presence stands for the whole stack; the device node is what proves
+    there is silicon behind it. Boards that ship an Ascend NPU carry CANN
+    in their image, which is why nothing here is bundled.
+    """
+    if not os.path.exists("/dev/davinci0"):
+        return False
+    for root in ("/usr/local/Ascend/ascend-toolkit/latest",
+                 os.path.expanduser("~/Ascend/ascend-toolkit/latest")):
+        for sub in ("lib64", "aarch64-linux/lib64"):
+            if os.path.exists(os.path.join(root, sub, "libascendcl.so")):
+                return True
+    return False
+
+
+# VIPLite v1.13 keeps the vendor runtime outside the loader's default search
+# path on the boards seen so far, so the directory is resolved rather than
+# assumed and handed to the daemon as LD_LIBRARY_PATH.
+_AWNN_V113_LIB_DIRS = (
+    "/usr/local/lib",
+    "/usr/lib",
+    "/usr/lib/walnutpi/walnutpi.npu/walnutpi_npu/_awnn_lib/t527/lib",
+)
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies NVIDIA Tegra hardware."""
     try:
@@ -372,6 +401,13 @@ def _resolve_backend(requested):
                 "runtime was detected on this machine"
             )
         return "awnn", None
+    if requested == "acl":
+        if not _acl_runtime_present():
+            raise BackendUnavailable(
+                "aiBackend is forced to acl, but no Ascend device and CANN "
+                "runtime were detected on this machine"
+            )
+        return "acl", None
     if requested == "bpu":
         chip = _detect_drobotics_chip()
         if chip not in _SUPPORTED_BPU_CHIPS or not _bpu_runtime_present():
@@ -402,6 +438,8 @@ def _resolve_backend(requested):
         return "awnn", "t527"
     if _awnn_runtime_present():
         return "awnn", None
+    if _acl_runtime_present():
+        return "acl", None
     bpu_chip = _detect_drobotics_chip()
     if bpu_chip in _SUPPORTED_BPU_CHIPS and _bpu_runtime_present():
         return "bpu", bpu_chip
@@ -431,6 +469,8 @@ def _runtime_target(kind, chip):
         return "rknn%s" % (chip[2:] if chip.startswith("rk") else chip)
     if kind == "awnn":
         return "awnnt527" if chip == "t527" else kind
+    if kind == "acl":
+        return kind
     if kind == "bpu":
         return "bpu_%s" % chip
     if kind == "vulkan":
@@ -593,6 +633,12 @@ class NozcamBackend(object):
                 self._model_path = self._pick_model(
                     model_name,
                     os.path.join(self._model_dir, "nozcam-a733.nb"))
+        elif kind == "acl":
+            self._daemon_path = os.path.join(
+                self._bin_dir, "nozcam_daemon.acl.aarch64")
+            self._model_path = self._pick_model(
+                model_name,
+                os.path.join(self._model_dir, "nozcam-ascend310b.om"))
         elif kind == "bpu":
             self._daemon_path = os.path.join(
                 self._bin_dir, "nozcam_daemon.drobotics.aarch64")
@@ -632,7 +678,8 @@ class NozcamBackend(object):
     def _may_fallback_to_cpu(self):
         """Return whether an auto-selected accelerator may use CPU."""
         return (self._requested_backend == "auto"
-                and self._kind in ("rknn", "awnn", "vulkan", "coreml"))
+                and self._kind in ("rknn", "awnn", "acl", "vulkan",
+                                   "coreml"))
 
     def _pick_model(self, model_name, default):
         """Return the caller's model override or this backend's default."""
@@ -746,9 +793,13 @@ class NozcamBackend(object):
                 self._stop_locked(graceful=False)
                 if self._may_fallback_to_cpu():
                     failed_kind = self._kind
+                    # .get, not [] : this runs inside the handler for a
+                    # backend that already failed, so a missing label must
+                    # not raise and replace the real cause with a KeyError.
                     failed_label = {
                         "rknn": "Rockchip NPU",
                         "awnn": "A733 NPU",
+                        "acl": "Ascend NPU",
                         "vulkan": "Vulkan GPU",
                         "coreml": "Apple Neural Engine",
                     }.get(failed_kind, failed_kind)
@@ -784,20 +835,58 @@ class NozcamBackend(object):
             self._note_success()
 
     def _daemon_env(self):
-        """Return the child environment, or None to inherit unchanged.
+        """Return the environment this backend's daemon needs, or None.
 
-        The v1.13 VIPLite runtime is not always on the loader path -- WalnutPi
-        installs it under its own vendor directory -- and the daemon records
-        an RPATH of /usr/local/lib, so the resolved directory is prepended
-        here rather than baking one distribution's layout into the binary.
+        Only the Ascend daemon needs anything: it links libascendcl.so,
+        which lives under the CANN install rather than on the default
+        loader path, so without these directories it dies immediately with
+        "libascendcl.so => not found". CANN's own set_env.sh exports them,
+        but a daemon spawned by OctoPrint inherits whatever environment
+        OctoPrint was started in -- under systemd, that is not a login
+        shell and set_env.sh never ran. Injecting the paths here keeps the
+        backend working however OctoPrint itself was launched, instead of
+        making the service unit responsible for it.
+
+        The failure this prevents is quiet: the daemon crashes, the
+        auto-selected backend falls back to CPU, and inference keeps
+        working at ~20x the latency with only a WARNING in the log.
         """
+        # The T527 daemon has the same problem from a different vendor: it
+        # records an RPATH of /usr/local/lib, as the A733 one does, but
+        # WalnutPi installs the VIPLite v1.13 runtime under its own vendor
+        # directory. The resolved directory is prepended rather than baking
+        # one distribution's layout into the binary.
         lib_dir = getattr(self, "_lib_dir", None)
-        if not lib_dir:
+        if self._kind == "awnn" and lib_dir:
+            env = dict(os.environ)
+            inherited = env.get("LD_LIBRARY_PATH")
+            env["LD_LIBRARY_PATH"] = (
+                "%s:%s" % (lib_dir, inherited) if inherited else lib_dir)
+            return env
+        if self._kind != "acl":
+            return None
+        candidates = []
+        for root in ("/usr/local/Ascend/ascend-toolkit/latest",
+                     os.path.expanduser("~/Ascend/ascend-toolkit/latest")):
+            candidates.extend((
+                os.path.join(root, "lib64"),
+                os.path.join(root, "lib64", "plugin", "opskernel"),
+                os.path.join(root, "lib64", "plugin", "nnengine"),
+                os.path.join(root, "tools", "aml", "lib64"),
+                os.path.join(root, "tools", "aml", "lib64", "plugin"),
+            ))
+        candidates.extend((
+            "/usr/local/Ascend/driver/lib64",
+            "/usr/local/Ascend/driver/lib64/common",
+            "/usr/local/Ascend/driver/lib64/driver",
+        ))
+        existing = [path for path in candidates if os.path.isdir(path)]
+        if not existing:
             return None
         env = dict(os.environ)
-        existing = env.get("LD_LIBRARY_PATH")
-        env["LD_LIBRARY_PATH"] = (
-            "%s:%s" % (lib_dir, existing) if existing else lib_dir)
+        inherited = env.get("LD_LIBRARY_PATH", "")
+        env["LD_LIBRARY_PATH"] = ":".join(
+            existing + ([inherited] if inherited else []))
         return env
 
     def _start_locked(self, score_threshold, sensitivity, cpus):

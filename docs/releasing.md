@@ -4,7 +4,7 @@ For the end-to-end installation boundary, package naming, and clean reinstall
 procedure, see [`runtime-install-pipeline.md`](runtime-install-pipeline.md).
 
 PiNozCam RCs use one immutable distribution boundary: the GitHub Release holds
-all nine runtime Wheels and their checksum manifest. The five portable CPU and
+all twelve runtime Wheels and their checksum manifest. The six portable CPU and
 GPU Wheels may also be published to PyPI later through a separate approved
 workflow.
 
@@ -18,15 +18,17 @@ The installer contract and platform tags are defined in
 ## Artifacts
 
 The GitHub tag archive contains the OctoPrint plugin and native runner source,
-but no model or runner binary. A complete release has nine runtime Wheels:
+but no model or runner binary. A complete release has twelve runtime Wheels:
 
 | Distribution | Platform files | Channel |
 | --- | --- | --- |
-| `pinozcam-runtime` | ARM 32-bit, ARM 64-bit, x86-64 CPU | GitHub Release and PyPI |
+| `pinozcam-runtime` | ARM 32-bit, ARM 64-bit, x86-64 CPU, and macOS arm64 (CoreML plus its CPU fallback) | GitHub Release and PyPI |
 | `pinozcam-runtime-rknn3566` | RK3566 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3576` | RK3576 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-rknn3588` | RK3588 NPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-a733` | A733 NPU plus ARM CPU fallback | GitHub Release |
+| `pinozcam-runtime-t527` | T527 NPU plus ARM CPU fallback | GitHub Release |
+| `pinozcam-runtime-rdkx5` | RDK X5 BPU plus ARM CPU fallback | GitHub Release |
 | `pinozcam-runtime-gpu` | AArch64 and x86-64 Vulkan Wheels, each with its CPU fallback | GitHub Release and PyPI |
 
 The GitHub Release also contains `CHECKSUMS.txt` for all nine assets. The
@@ -136,7 +138,7 @@ Download the public assets into another empty directory and run
 build workspace.
 
 PyPI publication is not part of RC7 creation. A later manual workflow may
-publish only the three `pinozcam-runtime` and two `pinozcam-runtime-gpu` Wheels.
+publish only the four `pinozcam-runtime` and two `pinozcam-runtime-gpu` Wheels.
 
 ## 4. End-to-end clean-install test
 

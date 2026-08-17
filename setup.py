@@ -160,6 +160,23 @@ def _awnn_runtime_present():
         "/usr/local/lib/libNBGlinker.so", "/usr/lib/libNBGlinker.so"))
 
 
+def _acl_runtime_present():
+    """Return whether the Ascend device and CANN userspace are available.
+
+    Mirrors nozcam_backend._acl_runtime_present. Duplicated rather than
+    imported because that module needs Pillow, which may not be installed
+    yet at this point of a fresh install.
+    """
+    if not os.path.exists("/dev/davinci0"):
+        return False
+    for root in ("/usr/local/Ascend/ascend-toolkit/latest",
+                 os.path.expanduser("~/Ascend/ascend-toolkit/latest")):
+        for sub in ("lib64", "aarch64-linux/lib64"):
+            if os.path.exists(os.path.join(root, sub, "libascendcl.so")):
+                return True
+    return False
+
+
 # Duplicated from nozcam_backend rather than imported: that module does
 # "from PIL import Image", which need not be installable yet at this point in
 # a fresh install. The two copies must stay in step.
@@ -418,6 +435,10 @@ _TARGET_CONTENT = {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": True, "awnn_chip": "t527", "vulkan": False,
     },
+    "aarch64-acl": {
+        "cpu_arch": "aarch64", "rknn_chip": None,
+        "awnn": False, "acl": True, "vulkan": False,
+    },
     "aarch64-vulkan": {
         "cpu_arch": "aarch64", "rknn_chip": None,
         "awnn": False, "vulkan": True,
@@ -461,6 +482,8 @@ elif _host_cpu_arch == "aarch64":
         _content = _TARGET_CONTENT["aarch64-bpu-x5"]
     elif _awnn_runtime_present():
         _content = _TARGET_CONTENT["aarch64-awnn"]
+    elif _acl_runtime_present():
+        _content = _TARGET_CONTENT["aarch64-acl"]
     elif _detect_nvidia_tegra() and _vulkan_runtime_present():
         _content = _TARGET_CONTENT["aarch64-vulkan"]
     else:
@@ -524,6 +547,13 @@ elif _content.get("bpu_chip"):
 elif _content["awnn"]:
     _runtime_target = ("awnn%s" % _content["awnn_chip"]
                        if _content.get("awnn_chip") else "awnn")
+elif _content.get("acl"):
+    # No entry in _RUNTIME_REQUIREMENTS yet: the Ascend runtime Wheel is
+    # not published, so it is installed from a local file instead of being
+    # pulled in as a PEP 508 dependency. Naming the target here still stops
+    # this board from being mistaken for a plain aarch64 CPU one and
+    # dragging in the wrong runtime.
+    _runtime_target = "acl"
 elif _content["vulkan"]:
     _runtime_target = (
         "vulkan_x86_64"
