@@ -19,7 +19,7 @@ plugin_description = (
 )
 plugin_author = "DrAlexLiu"
 plugin_author_email = "liu1111w@uwindsor.ca"
-plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCAM"
+plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCam"
 plugin_license = "AGPL-3.0-only"
 
 # Native inference is supplied by a target-specific runtime dependency.

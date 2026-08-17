@@ -543,12 +543,12 @@ class PinozcamPlugin(ConfirmMixin,
                 type="github_release",
                 current=self._plugin_version,
                 user="DrAlexLiu",
-                repo="OctoPrint-PiNozCAM",
+                repo="OctoPrint-PiNozCam",
                 prerelease=False,
                 # update method: pip
                 pip=(
                     "https://github.com/DrAlexLiu/"
-                    "OctoPrint-PiNozCAM/archive/{target}.zip")
+                    "OctoPrint-PiNozCam/archive/{target}.zip")
             )
         )
 
