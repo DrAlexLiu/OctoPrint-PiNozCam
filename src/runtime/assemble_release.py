@@ -36,6 +36,8 @@ TARGETS = {
              "pinozcam_runtime_a733", "linux_aarch64"),
     "awnnt527": ("pinozcam_runtime_t527", "pinozcam-runtime-t527",
                  "pinozcam_runtime_t527", "linux_aarch64"),
+    "bpu_x5": ("pinozcam_runtime_rdkx5", "pinozcam-runtime-rdkx5",
+               "pinozcam_runtime_rdkx5", "linux_aarch64"),
 }
 
 
@@ -146,7 +148,8 @@ def main():
         for filename in sorted(expected.values()):
             handle.write("%s  %s\n" % (
                 _sha256(os.path.join(output, filename)), filename))
-    print("PASS: assembled nine runtime Wheels for %s" % args.version)
+    print("PASS: assembled %d runtime Wheels for %s"
+          % (len(expected), args.version))
 
 
 if __name__ == "__main__":

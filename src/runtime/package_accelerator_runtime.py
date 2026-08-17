@@ -72,6 +72,19 @@ TARGETS = {
         ),
         "models": ("nozcam-cpu.pte", "nozcam-t527.nb"),
     },
+    # The RDK X5's BPU is reached through libdnn over /dev/ion rather than
+    # a dedicated device node, and its .bin carries the bayes-e march, so
+    # neither the daemon nor the model is shared with any other target.
+    "bpu_x5": {
+        "dist": "pinozcam-runtime-rdkx5",
+        "module": "pinozcam_runtime_rdkx5",
+        "platform": "linux_aarch64",
+        "bins": (
+            "nozcam_daemon.aarch64.static",
+            "nozcam_daemon.drobotics.aarch64",
+        ),
+        "models": ("nozcam-cpu.pte", "nozcam-x5.bin"),
+    },
     "vulkan": {
         "dist": "pinozcam-runtime-gpu",
         "module": "pinozcam_runner_gpu",
@@ -121,6 +134,12 @@ MODEL_METADATA = {
         "backend": "rknn",
         "format": "rknn",
         "hardware": "rk3588",
+        "quantization": "int8",
+    },
+    "nozcam-x5.bin": {
+        "backend": "bpu",
+        "format": "bin",
+        "hardware": "rdk_x5",
         "quantization": "int8",
     },
     "nozcam-a733.nb": {

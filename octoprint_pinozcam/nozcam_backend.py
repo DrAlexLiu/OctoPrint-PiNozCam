@@ -63,6 +63,7 @@ _RUNTIME_MODULES = {
     "rknn3576": "pinozcam_runtime_rknn3576",
     "rknn3588": "pinozcam_runtime_rknn3588",
     "awnn": "pinozcam_runtime_a733",
+    "bpu_x5": "pinozcam_runtime_rdkx5",
     "awnnt527": "pinozcam_runtime_t527",
     "vulkan": (
         "pinozcam_runner_gpu",
@@ -207,6 +208,48 @@ def _awnn_t527_runtime_present():
     return _awnn_v113_lib_dir() is not None
 
 
+# The RDK X5 exposes no dedicated device node the way /dev/rknpu or
+# /dev/vipcore do -- the BPU is reached through libdnn over /dev/ion -- so
+# the SoC is identified from the device tree and the runtime from the
+# library, and both are required.
+_BPU_LIB_PATHS = (
+    "/usr/lib/libdnn.so",
+    "/usr/lib/aarch64-linux-gnu/libdnn.so",
+    "/usr/local/lib/libdnn.so",
+)
+
+_SUPPORTED_BPU_CHIPS = ("x5",)
+
+
+def _detect_drobotics_chip():
+    """Return the D-Robotics SoC name from the device tree, or None.
+
+    The compatible string is "D-Robotics,x5" rather than the lowercase
+    vendor prefix Rockchip and Allwinner use, so the vendor half is matched
+    case-insensitively and the SoC half taken verbatim.
+    """
+    try:
+        with open("/proc/device-tree/compatible", "rb") as handle:
+            entries = handle.read().split(b"\x00")
+    except (IOError, OSError):
+        return None
+    for entry in entries:
+        text = entry.decode("ascii", "replace").strip()
+        if "," not in text:
+            continue
+        vendor, _, chip = text.partition(",")
+        if vendor.strip().lower() == "d-robotics":
+            return chip.strip().lower()
+    return None
+
+
+def _bpu_runtime_present():
+    """Return whether the D-Robotics BPU runtime and device are installed."""
+    if not os.path.exists("/dev/ion"):
+        return False
+    return any(os.path.exists(path) for path in _BPU_LIB_PATHS)
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies NVIDIA Tegra hardware."""
     try:
@@ -306,6 +349,14 @@ def _resolve_backend(requested):
                 "runtime was detected on this machine"
             )
         return "awnn", None
+    if requested == "bpu":
+        chip = _detect_drobotics_chip()
+        if chip not in _SUPPORTED_BPU_CHIPS or not _bpu_runtime_present():
+            raise BackendUnavailable(
+                "aiBackend is forced to bpu, but no D-Robotics BPU runtime "
+                "and supported SoC were detected on this machine"
+            )
+        return "bpu", chip
     if requested == "vulkan":
         if not _vulkan_runtime_present():
             raise BackendUnavailable(
@@ -321,6 +372,9 @@ def _resolve_backend(requested):
         return "awnn", "t527"
     if _awnn_runtime_present():
         return "awnn", None
+    bpu_chip = _detect_drobotics_chip()
+    if bpu_chip in _SUPPORTED_BPU_CHIPS and _bpu_runtime_present():
+        return "bpu", bpu_chip
     if (
         (
             _detect_nvidia_tegra()
@@ -345,6 +399,8 @@ def _runtime_target(kind, chip):
         return "rknn%s" % (chip[2:] if chip.startswith("rk") else chip)
     if kind == "awnn":
         return "awnnt527" if chip == "t527" else kind
+    if kind == "bpu":
+        return "bpu_%s" % chip
     if kind == "vulkan":
         return ("vulkan_x86_64"
                 if _machine_tag() == "x86_64" else "vulkan")
@@ -357,6 +413,9 @@ def _runtime_target(kind, chip):
     if os.path.exists("/dev/vipcore"):
         return ("awnnt527" if _detect_allwinner_vip_chip() == "t527"
                 else "awnn")
+    detected_bpu = _detect_drobotics_chip()
+    if detected_bpu in _SUPPORTED_BPU_CHIPS:
+        return "bpu_%s" % detected_bpu
     if _detect_nvidia_tegra():
         return "vulkan"
     if (_detect_x86_vulkan_gpu() and _vulkan_runtime_present()
@@ -502,6 +561,12 @@ class NozcamBackend(object):
                 self._model_path = self._pick_model(
                     model_name,
                     os.path.join(self._model_dir, "nozcam-a733.nb"))
+        elif kind == "bpu":
+            self._daemon_path = os.path.join(
+                self._bin_dir, "nozcam_daemon.drobotics.aarch64")
+            self._model_path = self._pick_model(
+                model_name,
+                os.path.join(self._model_dir, "nozcam-%s.bin" % chip))
         elif kind == "vulkan":
             self._tag = _machine_tag()
             self._daemon_path = os.path.join(

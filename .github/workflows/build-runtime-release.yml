@@ -61,6 +61,11 @@ jobs:
     with:
       version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc14' }}
 
+  rdkx5:
+    uses: ./.github/workflows/build-rdkx5-runtime.yml
+    with:
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc14' }}
+
   bundle:
     name: Verify and assemble every runtime Wheel
     needs:
@@ -72,6 +77,7 @@ jobs:
       - rockchip
       - a733
       - t527
+      - rdkx5
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -126,6 +132,12 @@ jobs:
           name: pinozcam-runtime-t527-${{ github.sha }}
           path: build-products/t527
 
+      - name: Download RDK X5 Wheel
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pinozcam-runtime-rdkx5-${{ github.sha }}
+          path: build-products/rdkx5
+
       - name: Assemble release bundle and unified checksums
         env:
           VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc14' }}
@@ -167,7 +179,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          test "$(find release-dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 11
+          test "$(find release-dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 12
           test -f release-dist/CHECKSUMS.txt
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
               >/dev/null 2>&1; then
