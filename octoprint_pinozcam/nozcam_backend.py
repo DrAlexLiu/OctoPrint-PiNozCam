@@ -250,6 +250,29 @@ def _bpu_runtime_present():
     return any(os.path.exists(path) for path in _BPU_LIB_PATHS)
 
 
+def _coreml_runtime_present():
+    """Return whether this host can run the CoreML model.
+
+    Apple silicon only. CoreML.framework exists on Intel Macs too, but
+    those have no Neural Engine, and the Wheel that carries this model is
+    tagged macosx_14_0_arm64 and does not install there at all -- so the
+    framework is not worth probing separately.
+
+    Deliberately a capability check, not a hardware one: the Neural Engine
+    cannot be enumerated without private API, and asking would not settle
+    the question anyway. CoreML treats a compute unit as a preference and
+    may place work on the CPU, so the only authoritative answer comes from
+    the daemon actually loading the model -- which is what the CPU
+    fallback below exists to catch.
+    """
+    if os.uname().sysname != "Darwin":
+        return False
+    if os.uname().machine.lower() not in ("arm64", "aarch64"):
+        return False
+    return os.path.exists(
+        "/System/Library/Frameworks/CoreML.framework")
+
+
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies NVIDIA Tegra hardware."""
     try:
@@ -364,6 +387,13 @@ def _resolve_backend(requested):
                 "ARM or x86 Vulkan loader was detected on this machine"
             )
         return "vulkan", None
+    if requested == "coreml":
+        if not _coreml_runtime_present():
+            raise BackendUnavailable(
+                "aiBackend is forced to coreml, but this is not an Apple "
+                "silicon Mac with CoreML"
+            )
+        return "coreml", None
     # Treat unrecognised persisted/API values as auto so detection stays up.
     chip = _detect_rockchip_chip()
     if chip in _SUPPORTED_RKNN_CHIPS and _rknn_runtime_present():
@@ -386,6 +416,8 @@ def _resolve_backend(requested):
         and _vulkan_runtime_present()
     ):
         return "vulkan", None
+    if _coreml_runtime_present():
+        return "coreml", None
     return "cpu", None
 
 
@@ -573,6 +605,17 @@ class NozcamBackend(object):
                 self._bin_dir, "nozcam_daemon.vulkan.%s" % self._tag)
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, "nozcam-gpu.pte"))
+        elif kind == "coreml":
+            # The only accelerator that shares its binary with the CPU
+            # backend: the macOS daemon is built with both the CoreML and
+            # the XNNPACK delegate, so falling back is a change of model,
+            # not of process image.
+            self._tag = _machine_tag()
+            self._daemon_path = os.path.join(
+                self._bin_dir, "nozcam_daemon.macos.arm64")
+            self._model_path = self._pick_model(
+                model_name,
+                os.path.join(self._model_dir, "nozcam-coreml.pte"))
         else:
             self._tag = _machine_tag()
             # ".static" is a claim, not decoration: the Linux daemons are
@@ -589,7 +632,7 @@ class NozcamBackend(object):
     def _may_fallback_to_cpu(self):
         """Return whether an auto-selected accelerator may use CPU."""
         return (self._requested_backend == "auto"
-                and self._kind in ("rknn", "awnn", "vulkan"))
+                and self._kind in ("rknn", "awnn", "vulkan", "coreml"))
 
     def _pick_model(self, model_name, default):
         """Return the caller's model override or this backend's default."""
@@ -707,7 +750,8 @@ class NozcamBackend(object):
                         "rknn": "Rockchip NPU",
                         "awnn": "A733 NPU",
                         "vulkan": "Vulkan GPU",
-                    }[failed_kind]
+                        "coreml": "Apple Neural Engine",
+                    }.get(failed_kind, failed_kind)
                     self._logger.warning(
                         "Auto-selected %s backend failed to start; "
                         "using the bundled CPU fallback for this detector "
