@@ -729,14 +729,21 @@ class CameraMixin(object):
     _no_camera_cache = None
 
     def create_no_camera_image(self, image_size=None):
-        """The "no camera" placeholder: a camera under a prohibition sign.
+        """The "no camera" placeholder: black screen, "NO SIGNAL" in gray.
+
+        Matches ustreamer's own --blank default look on purpose. The two
+        placeholders mean different things -- ustreamer's fires when the
+        camera DEVICE is offline, this one when this plugin failed to fetch
+        a frame (customSnapshotURL misconfigured, a network hiccup; the
+        camera can be live and streaming fine while this still shows) -- but
+        there is no reason for the two failure layers to look unrelated to
+        whoever is staring at the webcam view.
 
         Drawn rather than loaded, replacing a packaged static/no_camera.jpg
         that was 432x360 -- a different aspect ratio from every other picture
         the plugin produces, on the one image shown when nothing works. This
-        draws at the processing size, cannot go missing (both former call
-        sites carried a file-not-found branch), and avoids JPEG ringing on
-        flat red and black.
+        draws at the processing size and cannot go missing (both former call
+        sites carried a file-not-found branch).
 
         All geometry is a fraction of the shorter side, so it is correct at
         any size and any aspect ratio.
@@ -746,54 +753,20 @@ class CameraMixin(object):
         scale = self.NO_CAMERA_SUPERSAMPLE
         width, height = image_size[0] * scale, image_size[1] * scale
         side = min(width, height)
-        image = Image.new("RGB", (width, height), (255, 255, 255))
+        image = Image.new("RGB", (width, height), (0, 0, 0))
         draw = ImageDraw.Draw(image)
-        centre_x, centre_y = width / 2.0, height / 2.0
-        red, black, white = (227, 30, 36), (26, 26, 26), (255, 255, 255)
 
-        # --- the camera, drawn first so the sign lands on top of it ---
-        body_w, body_h = side * 0.49, side * 0.29
-        body = [centre_x - body_w / 2, centre_y - body_h / 2 + side * 0.02,
-                centre_x + body_w / 2, centre_y + body_h / 2 + side * 0.02]
-        # The viewfinder hump, sitting on the body's top edge left of centre.
-        hump_w, hump_h = side * 0.15, side * 0.060
-        hump_x = centre_x - side * 0.02
-        draw.polygon([(hump_x - hump_w / 2 + side * 0.012, body[1] - hump_h),
-                      (hump_x + hump_w / 2, body[1] - hump_h),
-                      (hump_x + hump_w / 2, body[1] + 1),
-                      (hump_x - hump_w / 2, body[1] + 1)], fill=black)
-        # with Pillow 8.1.2 -- the oldest system this plugin still installs
-        # on. A square-cornered camera is a far better outcome there than an
-        # AttributeError on the one image shown when the camera is missing.
-        if hasattr(draw, "rounded_rectangle"):
-            draw.rounded_rectangle(body, radius=side * 0.035, fill=black)
+        text = "NO SIGNAL"
+        gray_white = (176, 176, 176)
+        font = self.load_font(int(round(side * 0.09)))
+        mask = font.getmask(text)
+        bbox = mask.getbbox()
+        if bbox is None:
+            x, y = width / 2.0, height / 2.0
         else:
-            draw.rectangle(body, fill=black)
-        # Lens: a white ring, left of the body's centre as on a real camera.
-        lens_x = centre_x - side * 0.035
-        lens_y = (body[1] + body[3]) / 2
-        lens_r, lens_stroke = side * 0.086, side * 0.031
-        draw.ellipse([lens_x - lens_r, lens_y - lens_r,
-                      lens_x + lens_r, lens_y + lens_r],
-                     outline=white, width=int(round(lens_stroke)))
-        # Flash, upper right.
-        flash_r = side * 0.021
-        flash_x, flash_y = centre_x + side * 0.155, body[1] + side * 0.048
-        draw.ellipse([flash_x - flash_r, flash_y - flash_r,
-                      flash_x + flash_r, flash_y + flash_r], fill=white)
-
-        # --- the prohibition sign ---
-        ring_r = side * 0.46
-        ring_stroke = int(round(side * 0.082))
-        draw.ellipse([centre_x - ring_r, centre_y - ring_r,
-                      centre_x + ring_r, centre_y + ring_r],
-                     outline=red, width=ring_stroke)
-        # The bar runs corner to corner of the ring, so its ends meet the
-        # ring's centreline rather than stopping short of it or poking out.
-        reach = (ring_r - ring_stroke / 2.0) * 0.7071
-        draw.line([centre_x - reach, centre_y - reach,
-                   centre_x + reach, centre_y + reach],
-                  fill=red, width=ring_stroke)
+            x = (width - (bbox[2] - bbox[0])) / 2.0 - bbox[0]
+            y = (height - (bbox[3] - bbox[1])) / 2.0 - bbox[1]
+        draw.text((x, y), text, fill=gray_white, font=font)
 
         return image.resize(image_size, Image.LANCZOS)
 
