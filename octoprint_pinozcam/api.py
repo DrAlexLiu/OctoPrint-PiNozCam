@@ -200,7 +200,12 @@ class ApiMixin(object):
                 {'id': item[1],
                  'age': round(time.monotonic() - item[2]['time'], 1),
                  'severity': round(item[2]['severity'], 3),
-                 'area': round(item[2].get('percentage_area', 0.0), 4)}
+                 'area': round(item[2].get('percentage_area', 0.0), 4),
+                 # The window state that actually tripped this episode --
+                 # this frame's own severity can be 0 when an old frame
+                 # aging out of the window is what crossed the ratio.
+                 'failureCount': item[2].get('failure_count', 0),
+                 'windowFrames': item[2].get('window_frames', 0)}
                 for item in sorted(self.evidence, key=lambda i: -i[2]['time'])
             ]
         thread = self.ai_thread
@@ -242,6 +247,7 @@ class ApiMixin(object):
             else round(self.last_ratio, 3),
             "failureRatioThreshold": self.failure_ratio,
             "windowFrames": len(self.ai_results),
+            "countTime": self.count_time,
             "evidence": evidence,
             "armed": self._armed(time.monotonic()),
             "cores": affinity["selected"],

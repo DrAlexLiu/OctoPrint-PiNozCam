@@ -363,6 +363,7 @@ $(function () {
         self.cpuTemperature = ko.observable(0);
         self.failureCount = ko.observable(0);
         self.windowFrames = ko.observable(0);
+        self.countTime = ko.observable(120);
         self.ratio = ko.observable(null);
         self.ratioAct = ko.observable(0.3);
         self.inferenceMs = ko.observable(null);
@@ -551,7 +552,7 @@ $(function () {
                     : "detection starts when a print does";
             }
             var text = self.failureCount() + " of " + self.windowFrames()
-                     + " frames alarming";
+                     + " frames alarming (last " + self.countTime() + "s)";
             if (!self.armed()) text += "  \u00b7  still warming up";
             return text;
         });
@@ -959,6 +960,7 @@ $(function () {
                     self.cpuTemperature(r.cpuTemperature);
                     self.failureCount(r.failureCount);
                     self.windowFrames(r.windowFrames);
+                    self.countTime(r.countTime);
                     self.ratio(r.failureRatio);
                     self.ratioAct(r.failureRatioThreshold);
                     self.inferenceMs(r.inferenceMs);
@@ -1040,6 +1042,8 @@ $(function () {
                     id: item.id,
                     age: ko.observable(Math.round(item.age)),
                     severity: item.severity.toFixed(2),
+                    failureCount: item.failureCount,
+                    windowFrames: item.windowFrames,
                     image: ko.observable("")
                 };
                 $.ajax({ url: "plugin/pinozcam/evidence/" + item.id,

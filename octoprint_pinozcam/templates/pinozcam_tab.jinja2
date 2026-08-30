@@ -136,6 +136,8 @@
                     <div class="evidence-meta">
                         <span data-bind="text: age"></span>{{ _('s ago') }}
                         &middot; {{ _('severity') }} <span data-bind="text: severity"></span>
+                        &middot; {{ _('sustained') }} <span data-bind="text: failureCount"></span>
+                        {{ _('of') }} <span data-bind="text: windowFrames"></span> {{ _('frames') }}
                     </div>
                 </div>
             </div>

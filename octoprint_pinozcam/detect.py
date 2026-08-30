@@ -907,11 +907,18 @@ class DetectMixin(object):
         # Push evidence once per episode even if retry/act edges repeat.
         if new_episode:
             with self.lock:
+                # The trigger is the sustained ratio, not this frame's own
+                # severity -- record the window state too, or a clean
+                # frame that merely happened to be current when an old
+                # frame aged out of the window reads as unexplained.
                 self._push_evidence({
                     'time': now,
                     'image': encoded_result,
                     'severity': severity,
                     'percentage_area': percentage_area,
+                    'ratio': ratio,
+                    'failure_count': failure_count,
+                    'window_frames': len(self.ai_results),
                 })
             # Set criterion_met only after evidence is prepared so
             # a transient exception does not suppress future retries.
