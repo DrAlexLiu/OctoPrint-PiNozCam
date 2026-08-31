@@ -42,7 +42,8 @@
     {% call f.number(_('Failure Area Threshold'), 'newImgSensitivity', 'help-failure-area-threshold', min=0.0001, max=1, step=0.001) %}
       Image sensitivity = (All bounding box areas &#x27;higher than Detection Score Threshold&#x27;)/(Whole image area). Set the sensitivity according to how far the camera is from the nozzle and how big you expect print failures to be. A lower sensitivity will detect smaller bounding boxes as failures, while a higher sensitivity will only detect bigger, more obvious bounding boxes. Adjust this setting based on your specific printer setup, camera position, and how many false alerts or missed failures you&#x27;re okay with to get the best failure detection.
       <br><br>
-      <strong>Side-mounted camera:</strong> 0.01&ndash;0.03 tends to work better than the overhead defaults.
+      <strong>Overview camera</strong> (looking down at the whole bed): the defaults above already fit this.
+      <strong>Side-mounted camera:</strong> 0.01&ndash;0.03 tends to work better.
       <strong>Nozzle camera:</strong> 0.02&ndash;0.04 tends to work better.
       <br><br>
       Changing this value resets the active failure baseline; the detector

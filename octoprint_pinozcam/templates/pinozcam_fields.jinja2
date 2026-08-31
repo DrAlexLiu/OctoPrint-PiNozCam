@@ -121,11 +121,14 @@
 {%- set field_id = 'settings-pinozcam-' ~ bind -%}
 <div class="control-group">
     <div class="controls">
+        <div class="pinozcam-row">
         <label class="checkbox" for="{{ field_id }}">
             <input type="checkbox" id="{{ field_id }}"
                    data-bind="checked: {{ bind }}"> {{ label }}
         </label>
-        {%- if help_id %} {{ helpbtn(help_id) }}
+        {%- if help_id %} {{ helpbtn(help_id) }}{% endif %}
+        </div>
+        {%- if help_id %}
         <div class="help-block pinozcam-help-text" id="{{ help_id }}" hidden>{{ caller() }}</div>
         {%- endif %}
     </div>
