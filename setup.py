@@ -499,8 +499,11 @@ else:
                                     "awnn": False, "vulkan": False})
 
 # The GitHub source archive contains only the plugin. The outer pip process
-# installs one immutable target Wheel from the matching GitHub Release. This is
-# a normal PEP 508 dependency, not a nested installer or custom downloader.
+# installs one immutable target Wheel, pinned to this exact version. The
+# CPU and GPU runtimes are published to PyPI (see _PYPI_PUBLISHED_DISTS) and
+# resolve through the normal index; every other target has no PyPI project
+# and keeps depending on the matching GitHub Release asset by direct PEP 508
+# URL, not a nested installer or custom downloader.
 _RUNTIME_REQUIREMENTS = {
     "armhf": "pinozcam-runtime",
     "aarch64": "pinozcam-runtime",
@@ -537,6 +540,10 @@ _RUNTIME_WHEEL_NAMES = {
 }
 _RUNTIME_RELEASE_BASE = (
     "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download")
+# Dists actually published to PyPI (publish-pypi.yml, "cpu" and "gpu"
+# targets only). Everything else -- the NPU-specific runtimes -- has no
+# PyPI project and must keep resolving from the GitHub Release asset.
+_PYPI_PUBLISHED_DISTS = frozenset(("pinozcam-runtime", "pinozcam-runtime-gpu"))
 
 if _content["rknn_chip"]:
     _chip = _content["rknn_chip"]
@@ -564,11 +571,14 @@ else:
 
 if _runtime_target in _RUNTIME_REQUIREMENTS:
     _runtime_dist = _RUNTIME_REQUIREMENTS[_runtime_target]
-    _runtime_filename = (
-        _RUNTIME_WHEEL_NAMES[_runtime_target] % runtime_version)
-    _runtime_url = "%s/%s/%s" % (
-        _RUNTIME_RELEASE_BASE, runtime_version, _runtime_filename)
-    _runtime_requirement = "%s @ %s" % (_runtime_dist, _runtime_url)
+    if _runtime_dist in _PYPI_PUBLISHED_DISTS:
+        _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
+    else:
+        _runtime_filename = (
+            _RUNTIME_WHEEL_NAMES[_runtime_target] % runtime_version)
+        _runtime_url = "%s/%s/%s" % (
+            _RUNTIME_RELEASE_BASE, runtime_version, _runtime_filename)
+        _runtime_requirement = "%s @ %s" % (_runtime_dist, _runtime_url)
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
     print("PiNozCam runtime target: %s" % _runtime_target)
