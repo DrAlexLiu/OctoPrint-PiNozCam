@@ -10,7 +10,7 @@ on:
       version:
         description: Runtime Wheel version
         required: true
-        default: "1.1.0rc16"
+        default: "1.1.0rc17"
         type: string
 
 permissions:
@@ -24,47 +24,47 @@ jobs:
   cpu-x86:
     uses: ./.github/workflows/build-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   cpu-armhf:
     uses: ./.github/workflows/build-armhf-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   cpu-macos-arm64:
     uses: ./.github/workflows/build-macos-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   gpu-aarch64:
     uses: ./.github/workflows/build-gpu-aarch64-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   gpu-x86:
     uses: ./.github/workflows/build-gpu-x86-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   rockchip:
     uses: ./.github/workflows/build-rockchip-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   a733:
     uses: ./.github/workflows/build-a733-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   t527:
     uses: ./.github/workflows/build-t527-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   rdkx5:
     uses: ./.github/workflows/build-rdkx5-runtime.yml
     with:
-      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+      version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
 
   bundle:
     name: Verify and assemble every runtime Wheel
@@ -140,7 +140,7 @@ jobs:
 
       - name: Assemble release bundle and unified checksums
         env:
-          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc16' }}
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.version || '1.1.0rc17' }}
         run: |
           python3 src/runtime/assemble_release.py \
             --artifact-root build-products \
