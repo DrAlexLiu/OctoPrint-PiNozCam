@@ -86,17 +86,17 @@ $(function () {
         var LEVELS = [
             null,
             {scoresThreshold: 0.93, imgSensitivity: 0.06,
-             failureRatio: 0.13},
+             failureRatio: 0.1},
             {scoresThreshold: 0.90, imgSensitivity: 0.05,
-             failureRatio: 0.10},
+             failureRatio: 0.08},
             {scoresThreshold: 0.87, imgSensitivity: 0.04,
-             failureRatio: 0.07},
+             failureRatio: 0.05},
             {scoresThreshold: 0.84, imgSensitivity: 0.03,
              failureRatio: 0.03},
             {scoresThreshold: 0.80, imgSensitivity: 0.02,
              failureRatio: 0.01}
         ];
-        var LEVEL_NAMES = [null, "Lowest", "Low", "Medium", "High", "Highest"];
+        var LEVEL_NAMES = [null, "Strictest", "Strict", "Medium", "Loose", "Loosest"];
         var PRESET_FIELDS = {
             scoresThreshold: "newScoresThreshold",
             imgSensitivity: "newImgSensitivity",

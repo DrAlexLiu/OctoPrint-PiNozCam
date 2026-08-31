@@ -231,7 +231,7 @@
     color: #333;
 }
 
-/* Everything below the Enable AI Detection checkbox, while it is unticked.
+/* Everything below the Enable AI Failure Analysis checkbox, while it is unticked.
    The controls are already disabled natively by `<fieldset disabled>`; this is
    only the part the browser does not do -- saying so at a glance instead of
    one greyed <select> at a time.
@@ -790,8 +790,8 @@
 
 .pinozcam-slider-value {
     /* Reserved so nothing shifts as the name changes length between
-       "Low" and "Highest". */
-    min-width: 5em;
+       "Loose" and "Strictest". */
+    min-width: 6.5em;
     /* Not bold. The name is the value of a control, not a heading, and
        OctoPrint sets no weight on its own field values either. */
     color: #333;
@@ -824,4 +824,14 @@
     top: 0;
     /* Clicks fall through to the image. */
     pointer-events: none;
+}
+
+.pinozcam-wizard-examples img {
+    max-height: 420px;
+    width: auto;
+    max-width: 100%;
+    display: inline-block;
+    margin: 6px 8px 0 0;
+    border: 1px solid #ccc;
+    border-radius: 3px;
 }

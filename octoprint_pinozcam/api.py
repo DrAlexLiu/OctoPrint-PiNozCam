@@ -335,7 +335,7 @@ class ApiMixin(object):
     def _ai_state(self, ai_on):
         """Which of the five AI situations this is.
 
-        disabled  -- Enable AI Detection is unticked
+        disabled  -- Enable AI Failure Analysis is unticked
         watching  -- running and past the warm-up
         warming   -- running, still building the baseline
         starting  -- asked to run, worker not up yet; the AI Start Delay lives

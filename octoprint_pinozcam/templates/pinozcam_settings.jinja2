@@ -23,7 +23,12 @@
 
     <div class="tab-content">
     <div class="tab-pane active" id="pinozcam_pane_detection">
-    {{ f.checkbox(_('Enable AI Detection'), 'newEnableAI') }}
+    {% call f.checkbox(_('Enable AI Failure Analysis'), 'newEnableAI', 'help-enable-ai') %}
+      Turning this off only pauses the AI's failure analysis. The camera
+      feed and remote monitoring keep working either way -- you can still
+      watch the print from your phone -- this switch just stops the AI
+      from judging what it sees.
+    {% endcall %}
 
     <fieldset data-bind="enable: newEnableAI,
                          css: {'pinozcam-gated': !newEnableAI()}">
@@ -36,6 +41,9 @@
 
     {% call f.number(_('Failure Area Threshold'), 'newImgSensitivity', 'help-failure-area-threshold', min=0.0001, max=1, step=0.001) %}
       Image sensitivity = (All bounding box areas &#x27;higher than Detection Score Threshold&#x27;)/(Whole image area). Set the sensitivity according to how far the camera is from the nozzle and how big you expect print failures to be. A lower sensitivity will detect smaller bounding boxes as failures, while a higher sensitivity will only detect bigger, more obvious bounding boxes. Adjust this setting based on your specific printer setup, camera position, and how many false alerts or missed failures you&#x27;re okay with to get the best failure detection.
+      <br><br>
+      <strong>Side-mounted camera:</strong> 0.01&ndash;0.03 tends to work better than the overhead defaults.
+      <strong>Nozzle camera:</strong> 0.02&ndash;0.04 tends to work better.
       <br><br>
       Changing this value resets the active failure baseline; the detector
       starts fresh on the next status update and existing recent frames are not

@@ -113,7 +113,7 @@ SETTINGS = (
             default=4, lo=4, hi=16),
     Setting("frameBufferCapacity", "frame_buffer_capacity", int,
             default=5, lo=4, hi=16),
-    Setting("failureRatio", "failure_ratio", float, default=0.07, lo=0.01,
+    Setting("failureRatio", "failure_ratio", float, default=0.05, lo=0.01,
             hi=1.0),
 
     Setting("cpuSpeedControl", "cpu_speed_control", float, default=0.5,

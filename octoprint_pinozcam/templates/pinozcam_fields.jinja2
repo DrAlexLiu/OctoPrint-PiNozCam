@@ -117,7 +117,7 @@
 {%- endmacro %}
 
 
-{% macro checkbox(label, bind) -%}
+{% macro checkbox(label, bind, help_id=None) -%}
 {%- set field_id = 'settings-pinozcam-' ~ bind -%}
 <div class="control-group">
     <div class="controls">
@@ -125,6 +125,9 @@
             <input type="checkbox" id="{{ field_id }}"
                    data-bind="checked: {{ bind }}"> {{ label }}
         </label>
+        {%- if help_id %} {{ helpbtn(help_id) }}
+        <div class="help-block pinozcam-help-text" id="{{ help_id }}" hidden>{{ caller() }}</div>
+        {%- endif %}
     </div>
 </div>
 {%- endmacro %}
@@ -132,19 +135,20 @@
 
 
 {% macro sensitivity_help() -%}
-Five steps from cautious to eager. These hardware names are suggested
+Five steps from strict to loose &mdash; how strict the criteria are before
+PiNozCam calls something a failure. These hardware names are suggested
 starting points, not requirements:
 <ul>
-  <li><strong>1 Lowest</strong> &mdash; GPU or NPU</li>
-  <li><strong>2 Low</strong> &mdash; Raspberry Pi 5</li>
+  <li><strong>1 Strictest</strong> &mdash; GPU or NPU</li>
+  <li><strong>2 Strict</strong> &mdash; Raspberry Pi 5</li>
   <li><strong>3 Medium</strong> &mdash; Raspberry Pi 4</li>
-  <li><strong>4 High</strong> &mdash; Raspberry Pi 3</li>
-  <li><strong>5 Highest</strong> &mdash; Raspberry Pi 2-class CPU</li>
+  <li><strong>4 Loose</strong> &mdash; Raspberry Pi 3</li>
+  <li><strong>5 Loosest</strong> &mdash; Raspberry Pi 2-class CPU</li>
 </ul>
 For tuning, keep <strong>Action on Failure</strong> at
-<strong>Alert only</strong>, start at Highest, and move left toward Lowest
-until missed failures and false alerts reach the balance you want. Only then
-consider allowing Pause or Stop.
+<strong>Alert only</strong>, start at Loosest, and move left toward
+Strictest until missed failures and false alerts reach the balance you want.
+Only then consider allowing Pause or Stop.
 <br><br>
 The slider changes three values: minimum detection score, failure area, and
 the fraction of recent frames that must be alarming. It does <strong>not</strong>

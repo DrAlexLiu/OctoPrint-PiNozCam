@@ -32,7 +32,8 @@
       print is running, PiNozCam restarts the running ratio from fresh data.
     {% endcall %}
     <p class="wizard-note">
-        {{ _('Keep Alert only while tuning. Start at Highest, then move toward Lowest until false alerts and missed failures reach the balance you want. You can change this later under Settings.') }}
+        {{ _('Every printer, camera, and mounting position is different, so there is no one setting that fits everyone. Keep Alert only while tuning.') }}
+        <strong>{{ _('Start at Loosest') }}</strong>{{ _(', then move toward Strictest until false alerts and missed failures reach the balance you want. Once you are close, fine-tune the individual values under Settings &rarr; PiNozCam Detection for the last bit of precision.') }}
     </p>
 
     <h3>{{ _('3. What should happen when it sees a failure') }}</h3>
@@ -47,11 +48,19 @@
         {{ _('Start with Alert only. Let it run for a print or two and see whether what it flags matches what you would have flagged, before letting it touch the printer.') }}
     </p>
 
-    <h3>{{ _('4. Optional: monitor your printer or receive alerts on your phone') }}</h3>
+    <h3>{{ _('4. Watch your printer and get alerts on your phone') }}</h3>
     <p class="wizard-note">
-        <strong>{{ _('Monitor your printer on demand or receive failure alerts on your phone.') }}</strong>
+        <strong>{{ _('AI detection and remote monitoring run together, not one instead of the other.') }}</strong>
         {{ _('Configure Telegram or Discord under Settings &rarr; PiNozCam Monitoring &amp; Alerts. Press Check in Telegram or Discord (or send /hi in Telegram) to see the current camera view, and use the connection test to confirm that messages can reach you without waiting for a real failure.') }}
+        {{ f.helpbtn('help-wizard-examples') }}
     </p>
+    <div class="help-block pinozcam-help-text pinozcam-wizard-examples" id="help-wizard-examples" hidden>
+        <div>{{ _('Examples: what Check looks like in Telegram and Discord') }}</div>
+        <img src="{{ url_for('plugin.pinozcam.static', filename='img/example_telegram_check.jpg') }}"
+             alt="{{ _('Telegram Check example') }}">
+        <img src="{{ url_for('plugin.pinozcam.static', filename='img/example_discord_check.jpg') }}"
+             alt="{{ _('Discord Check example') }}">
+    </div>
     <p class="wizard-note">
         <strong>{{ _('Carefully adjust detection for your own camera and printer.') }}</strong>
         {{ _('After this wizard, review Sensitivity and the other controls under Settings &rarr; PiNozCam Detection. Keep Alert only selected while you find the right balance.') }}
