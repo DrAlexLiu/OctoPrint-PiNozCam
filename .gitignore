@@ -1,11 +1,26 @@
-# Ignore the OctoPrint_PiNozCam.egg-info directory
-OctoPrint_PiNozCam.egg-info/
-
-# Ignore all __pycache__ directories
+# Python and package build output.
+*.egg-info/
 __pycache__/
-
-# Ignore all .pyc files
 *.pyc
-
-# Runtime Wheels are release assets, not Git source files.
+build/
+dist/
 *.whl
+
+# Native runners and model artifacts belong in release runtime Wheels, not Git.
+*.engine
+*.nb
+*.onnx
+*.plan
+*.pte
+*.rknn
+*.static
+octoprint_pinozcam/static/bin/
+octoprint_pinozcam/static/models/
+src/rockchip/nozcam_rockchip_daemon
+src/allwinner/nozcam_allwinner_daemon
+src/allwinner/.build/
+# CANN installers: multi-GB, over GitHub's 100 MB hard limit
+*.run
+# Huawei's closed-source msmodelslim .so: kept locally to avoid
+# re-downloading the 3 GB CANN rpm, not redistributed here.
+ascend/aipro_cann/msmodelslim_so/

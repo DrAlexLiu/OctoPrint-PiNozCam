@@ -6,7 +6,7 @@ on:
       release_tag:
         description: GitHub pre-release tag containing the runtime Wheels
         required: true
-        default: 1.1.0rc11
+        default: 1.1.0
         type: string
       runtime_target:
         description: Upload the CPU Wheels or both GPU Wheels

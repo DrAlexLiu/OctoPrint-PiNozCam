@@ -1,0 +1,214 @@
+name: Build Rockchip RKNN runtimes
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-rockchip-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-cpu-fallback:
+    name: Build source-based AArch64 CPU fallback
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+    env:
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
+      CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
+
+    steps:
+      - name: Check out PiNozCam
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install native ARM64 build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential cmake curl git python3-venv unzip
+
+      - name: Build static AArch64 ExecuTorch fallback
+        run: |
+          src/executorch/bootstrap_aarch64_cpu.sh \
+            "$RUNNER_TEMP/pinozcam-aarch64-build" \
+            "$GITHUB_WORKSPACE/runtime-artifacts"
+
+      - name: Fetch the pinned CPU model and run real inference
+        # Pinned to a commit in the model repository: a commit SHA is
+        # immutable, where a release asset can be replaced under an unchanged
+        # tag. x-repo-commit is read without --location because only
+        # huggingface.co's own 307 carries it; the CDN response behind the
+        # redirect does not.
+        run: |
+          mkdir -p runtime-artifacts/models
+          url="$HF_BASE/cpu/nozcam-cpu.pte"
+          commit=$(curl --fail --silent --show-error --head \
+            --retry 5 --retry-all-errors "$url" \
+            | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+          if [ "$commit" != "$HF_REVISION" ]; then
+            echo "model resolved to commit '$commit', expected $HF_REVISION"
+            exit 1
+          fi
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-all-errors \
+            --output runtime-artifacts/models/nozcam-cpu.pte "$url"
+          echo "$CPU_MODEL_SHA256  runtime-artifacts/models/nozcam-cpu.pte" \
+            | sha256sum --check --strict
+          python3 src/executorch/smoke_test.py \
+            --daemon runtime-artifacts/bin/nozcam_daemon.aarch64.static \
+            --model runtime-artifacts/models/nozcam-cpu.pte --timeout 900
+
+      - name: Upload CPU fallback for the packaging job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinozcam-rockchip-cpu-${{ github.sha }}
+          path: |
+            runtime-artifacts/bin/nozcam_daemon.aarch64.static
+            runtime-artifacts/models/nozcam-cpu.pte
+          if-no-files-found: error
+          retention-days: 1
+
+  build-and-package:
+    name: Cross-build and verify (NPU inference requires Rockchip hardware)
+    needs: build-cpu-fallback
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # The focal cross-sysroot keeps the executable at the manylinux_2_29
+    # GLIBC ceiling; bootstrap_ci.sh independently rejects a newer floor.
+    container:
+      image: ubuntu@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
+    env:
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/cfac74f19ed6ba537d138a047a1f547893123be1
+      HF_REVISION: cfac74f19ed6ba537d138a047a1f547893123be1
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install pinned-sysroot cross-build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes \
+            --no-install-recommends \
+            binutils-aarch64-linux-gnu ca-certificates curl file \
+            g++-aarch64-linux-gnu git python3 python3-pip unzip
+
+      - name: Check out PiNozCam
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download source-built CPU fallback
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pinozcam-rockchip-cpu-${{ github.sha }}
+          path: runtime-artifacts
+
+      - name: Cross-build shared RKNN daemon and run all non-hardware checks
+        run: |
+          chmod 0755 runtime-artifacts/bin/nozcam_daemon.aarch64.static
+          src/rockchip/bootstrap_ci.sh \
+            "$RUNNER_TEMP/pinozcam-rockchip-build" \
+            "$GITHUB_WORKSPACE/runtime-artifacts"
+
+      - name: Fetch SHA-pinned RKNN models (no NPU execution on hosted x86)
+        # Pinned to a commit in the model repository. Note the plain
+        # --retry 5: this job runs in the pinned Ubuntu 20.04 container,
+        # whose curl 7.68 predates --retry-all-errors (7.71) and exits with
+        # "option is unknown" rather than ignoring it.
+        run: |
+          mkdir -p runtime-artifacts/models
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 "$HF_BASE/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "$HF_REVISION" ]; then
+              echo "$remote resolved to commit '$commit', expected $HF_REVISION"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location --retry 5 \
+              --output "runtime-artifacts/models/$local_name" \
+              "$HF_BASE/$remote"
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | sha256sum --check --strict
+          }
+          fetch_pinned npu/nozcam-rk3566.rknn \
+            88fb2fb34953ec36063428c04b9a6be23a198615114d7cda340c08b6d6a82ec6
+          fetch_pinned npu/nozcam-rk3576.rknn \
+            d3a8dcac39849fd48a59fbd2087f24b5fca953cfb78bd73ff496f05d5b0a699e
+          fetch_pinned npu/nozcam-rk3588.rknn \
+            490cb2684bf49fe4212111573ebbe977d65ae2208a2f2224c9214a323565000c
+
+          # The CPU model arrives from the previous job's artifact, so it is
+          # checked here rather than fetched.
+          echo '1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221  runtime-artifacts/models/nozcam-cpu.pte' | sha256sum --check --strict
+          echo '88fb2fb34953ec36063428c04b9a6be23a198615114d7cda340c08b6d6a82ec6  runtime-artifacts/models/nozcam-rk3566.rknn' | sha256sum --check --strict
+          echo 'd3a8dcac39849fd48a59fbd2087f24b5fca953cfb78bd73ff496f05d5b0a699e  runtime-artifacts/models/nozcam-rk3576.rknn' | sha256sum --check --strict
+          echo '490cb2684bf49fe4212111573ebbe977d65ae2208a2f2224c9214a323565000c  runtime-artifacts/models/nozcam-rk3588.rknn' | sha256sum --check --strict
+
+      - name: Build three Rockchip runtime Wheels
+        run: |
+          python3 -m pip install --disable-pip-version-check --upgrade \
+            'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
+          python3 src/runtime/package_accelerator_runtime.py \
+            --target rknn3566 \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --version "${{ inputs.version }}" \
+            --revision "$GITHUB_SHA"
+          python3 src/runtime/package_accelerator_runtime.py \
+            --target rknn3576 \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --version "${{ inputs.version }}" \
+            --revision "$GITHUB_SHA"
+          python3 src/runtime/package_accelerator_runtime.py \
+            --target rknn3588 \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --version "${{ inputs.version }}" \
+            --revision "$GITHUB_SHA"
+
+      - name: Verify Wheel payloads without Rockchip NPU execution
+        run: |
+          version="${{ inputs.version }}"
+          for target in rknn3566 rknn3576 rknn3588; do
+            wheel="dist/pinozcam_runtime_${target}-${version}-py3-none-linux_aarch64.whl"
+            python3 src/runtime/verify_runtime_wheel.py \
+              --target "$target" \
+              --wheel "$wheel" \
+              --revision "$GITHUB_SHA"
+          done
+          (cd dist && sha256sum --check --strict SHA256SUMS)
+
+      - name: Upload verified Rockchip runtimes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinozcam-runtime-rockchip-${{ github.sha }}
+          path: |
+            dist/*.whl
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

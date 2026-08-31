@@ -1,0 +1,72 @@
+{% import 'pinozcam_fields.jinja2' as f with context %}
+<div class="pinozcam-wizard">
+    <p>
+        {{ _('PiNozCam watches your print through the camera and tells you when it starts to fail. Everything runs on this machine &mdash; no account, no cloud, no images leaving your network.') }}
+    </p>
+
+    <h3>{{ _('1. Point it at a camera') }}</h3>
+    <p class="wizard-note" data-bind="visible: wizardCameraOk">
+        {{ _('A camera is already configured. PiNozCam will use it.') }}
+    </p>
+    <p class="wizard-note wizard-warn" data-bind="visible: !wizardCameraOk()">
+        {{ _('No camera answered. PiNozCam uses whatever OctoPrint is set up to use, so configure the webcam first &mdash; or set a Custom camera URL in PiNozCam&#x27;s settings for an IP camera.') }}
+    </p>
+
+    <h3>{{ _('2. Choose a starting sensitivity') }}</h3>
+    {% call f.slider(_('Sensitivity'), 'sensitivityLevel',
+                     'help-wizard-sensitivity', steps=5,
+                     label_bind='sensitivityLabel',
+                     field_prefix='wizard-pinozcam-') %}
+        {{ f.sensitivity_help() }}
+    {% endcall %}
+    {% call f.number(_('Black Box Length (s)'), 'newCountTime',
+                     'help-wizard-black-box-length',
+                     min=10, max=3600,
+                     field_prefix='wizard-pinozcam-') %}
+      This is the recent detection-history window used to decide whether an
+      action should trigger; it does not record or save video. Like a flight
+      recorder, it continually forgets results older than this many seconds.
+      The default is 120 seconds and Sensitivity does not change it.
+      <br><br>
+      This setting resets the active failure baseline. If you change it while a
+      print is running, PiNozCam restarts the running ratio from fresh data.
+    {% endcall %}
+    <p class="wizard-note">
+        {{ _('Every printer, camera, and mounting position is different, so there is no one setting that fits everyone. Keep Alert only while tuning.') }}
+        <strong>{{ _('Start at Loosest') }}</strong>{{ _(', then move toward Strictest until false alerts and missed failures reach the balance you want. Once you are close, fine-tune the individual values under Settings &rarr; PiNozCam Detection for the last bit of precision.') }}
+    </p>
+
+    <h3>{{ _('3. What should happen when it sees a failure') }}</h3>
+    <div class="pinozcam-row">
+        <select class="input-medium pinozcam-select" data-bind="value: newAction">
+            <option value="0">{{ _('Alert only') }}</option>
+            <option value="1">{{ _('Pause the print') }}</option>
+            <option value="2">{{ _('Stop the print') }}</option>
+        </select>
+    </div>
+    <p class="wizard-note">
+        {{ _('Start with Alert only. Let it run for a print or two and see whether what it flags matches what you would have flagged, before letting it touch the printer.') }}
+    </p>
+
+    <h3>{{ _('4. Watch your printer and get alerts on your phone') }}</h3>
+    <p class="wizard-note">
+        <strong>{{ _('AI detection and remote monitoring run together, not one instead of the other.') }}</strong>
+        {{ _('Configure Telegram or Discord under Settings &rarr; PiNozCam Monitoring &amp; Alerts. Press Check in Telegram or Discord (or send /hi in Telegram) to see the current camera view, and use the connection test to confirm that messages can reach you without waiting for a real failure.') }}
+        {{ f.helpbtn('help-wizard-examples') }}
+    </p>
+    <div class="help-block pinozcam-help-text pinozcam-wizard-examples" id="help-wizard-examples" hidden>
+        <div>{{ _('Examples: what Check looks like in Telegram and Discord') }}</div>
+        <img src="{{ url_for('plugin.pinozcam.static', filename='img/example_telegram_check.jpg') }}"
+             alt="{{ _('Telegram Check example') }}">
+        <img src="{{ url_for('plugin.pinozcam.static', filename='img/example_discord_check.jpg') }}"
+             alt="{{ _('Discord Check example') }}">
+    </div>
+    <p class="wizard-note">
+        <strong>{{ _('Carefully adjust detection for your own camera and printer.') }}</strong>
+        {{ _('After this wizard, review Sensitivity and the other controls under Settings &rarr; PiNozCam Detection. Keep Alert only selected while you find the right balance.') }}
+    </p>
+
+    <p class="wizard-note" data-bind="visible: backendError">
+        <strong>{{ _('Note:') }}</strong> <span data-bind="text: backendError"></span>
+    </p>
+</div>

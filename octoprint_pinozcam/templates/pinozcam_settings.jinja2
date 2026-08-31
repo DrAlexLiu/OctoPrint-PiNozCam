@@ -1,0 +1,297 @@
+
+{% import 'pinozcam_fields.jinja2' as f with context %}
+<form class="form-horizontal">
+<fieldset>
+    <h3>{{ _('PiNozCam Settings') }} <small>{{ _('Version') }} {{ plugin_pinozcam_plugin_version }}</small></h3>
+
+
+    <ul class="nav nav-pills">
+        <li class="active">
+            <a href="#pinozcam_pane_detection" data-toggle="tab">{{ _('Detection') }}</a>
+        </li>
+        <li>
+            <a href="#pinozcam_pane_performance" data-toggle="tab">{{ _('Performance') }}</a>
+        </li>
+        <li>
+            <a href="#pinozcam_pane_notify" data-toggle="tab">{{ _('Monitoring & Alerts') }}</a>
+        </li>
+        <li>
+            <a href="#pinozcam_pane_camera" data-toggle="tab">{{ _('Camera') }}</a>
+        </li>
+    </ul>
+
+
+    <div class="tab-content">
+    <div class="tab-pane active" id="pinozcam_pane_detection">
+    {% call f.checkbox(_('Enable AI Failure Analysis'), 'newEnableAI', 'help-enable-ai') %}
+      Turning this off only pauses the AI's failure analysis. The camera
+      feed and remote monitoring keep working either way -- you can still
+      watch the print from your phone -- this switch just stops the AI
+      from judging what it sees.
+    {% endcall %}
+
+    <fieldset data-bind="enable: newEnableAI,
+                         css: {'pinozcam-gated': !newEnableAI()}">
+    {# Disabled fieldsets remain accessible because JS drives the ARIA state for links and controls. #}
+
+    {% call f.slider(_('Sensitivity'), 'sensitivityLevel', 'help-detection-sensitivity',
+                     steps=5, label_bind='sensitivityLabel') %}
+      {{ f.sensitivity_help() }}
+    {% endcall %}
+
+    {% call f.number(_('Failure Area Threshold'), 'newImgSensitivity', 'help-failure-area-threshold', min=0.0001, max=1, step=0.001) %}
+      Image sensitivity = (All bounding box areas &#x27;higher than Detection Score Threshold&#x27;)/(Whole image area). Set the sensitivity according to how far the camera is from the nozzle and how big you expect print failures to be. A lower sensitivity will detect smaller bounding boxes as failures, while a higher sensitivity will only detect bigger, more obvious bounding boxes. Adjust this setting based on your specific printer setup, camera position, and how many false alerts or missed failures you&#x27;re okay with to get the best failure detection.
+      <br><br>
+      <strong>Overview camera</strong> (looking down at the whole bed): the defaults above already fit this.
+      <strong>Side-mounted camera:</strong> 0.01&ndash;0.03 tends to work better.
+      <strong>Nozzle camera:</strong> 0.02&ndash;0.04 tends to work better.
+      <br><br>
+      Changing this value resets the active failure baseline; the detector
+      starts fresh on the next status update and existing recent frames are not
+      carried over.
+    {% endcall %}
+
+    {% call f.number(_('Detection Score Threshold'), 'newScoresThreshold', 'help-detection-score-threshold', min=0, max=1, step=0.001) %}
+      Set the minimum score needed for detected bounding boxes (scores shown on the top right of each box must be higher) to count towards the failure total and trigger alerts or actions. If the score is higher than this number, it will be counted as a failure. If it&#x27;s lower, it will be ignored. Adjust this setting to control how many real failures are caught and how many false alarms happen.
+      <br><br>
+      Changing this value resets the active failure baseline; the detector
+      starts fresh on the next status update and existing recent frames are not
+      carried over.
+    {% endcall %}
+
+    {% call f.number(_('Failure Ratio Threshold'), 'newFailureRatio', 'help-failure-ratio-act', min=0.01, max=1, step=0.01) %}
+      What fraction of the frames in the Black Box must be judged alarming — their detected failure area above the Failure Area Threshold — before PiNozCam triggers the Action on Failure selected below (Alert only, Pause, or Stop). ⚠️ Each frame is judged on its own; nothing subtracts the scene, so anything permanently in view that the model mistakes for a failure needs an Undetect Zone drawn over it. This replaces the old Max Failure Count, which counted frames and so meant something different on every board: a 120 s Black Box holds about 24 frames on a Pi Zero 2 W / Pi CM0 and 440 on a Pi 5, giving a single false positive roughly 18 times more chances to trigger on the faster machine. A fraction is the same measurement everywhere. Raise it to require a longer-lasting problem before anything happens; lower it to react sooner.
+    {% endcall %}
+
+    {% call f.number(_('Black Box Length (s)'), 'newCountTime', 'help-black-box-length', min=10, max=3600) %}
+      This is the recent detection-history window used to decide whether the selected action should trigger. It does not record or save video. Like a flight recorder that continually overwrites old data, PiNozCam forgets results older than this many seconds and calculates the Failure Ratio from what remains. The default is 120 seconds for every Sensitivity level; moving the Sensitivity slider does not change it.
+      <br><br>
+      This setting resets the active failure baseline. If you change it while a
+      print is running, the running failure ratio restarts from an empty
+      window.
+    {% endcall %}
+
+    <div class="pinozcam-action-gap">
+    {% call f.select(_('Action on Failure'), 'newAction', 'help-action-on-failure', options=[('0', _('Alert only')), ('1', _('Pause')), ('2', _('Stop'))]) %}
+      <ul><li><strong>Alert only</strong> &mdash; Send a failure alert without touching the printer</li><li><strong>Pause</strong> &mdash; Pause the print when a failure is detected</li><li><strong>Stop</strong> &mdash; Stop the print when a failure is detected</li></ul>
+    {% endcall %}
+    </div>
+
+    {% call f.number(_('Detection Start Delay (s)'), 'newAiStartDelay', 'help-detection-start-delay', min=0, max=60000) %}
+      Delay in seconds before PiNozCam starts detecting failures after Octoprint begins a print. It&#x27;s recommended to set this delay to allow for the completion of bed leveling and other initial print processes. Once the set delay has passed, PiNozCam&#x27;s AI will begin monitoring for potential print failures.
+    {% endcall %}
+
+    {{ f.section(_('Advanced'), note=_('Display and queue tuning for the detector pipeline.')) }}
+
+
+    <div class="control-group">
+        <div class="controls">
+            <button type="button" class="btn"
+                    data-bind="click: toggleAdvanced, text: advancedLabel">{{ _('Show advanced settings') }}</button>
+        </div>
+    </div>
+
+    <div data-bind="visible: showAdvanced" style="display:none;">
+
+    {% call f.number(_('Display Score Threshold'), 'newPrintLayoutThreshold', 'help-display-score-threshold', min=0, max=1, step=0.001) %}
+      Only display the bounding boxes with scores (score shown on the top right of each box) higher the threshold. Setting this number lower will show more boxes, even for things the AI isn&#x27;t very sure are failures. Setting it higher will only show boxes for failures the AI is really sure about. Change this number to control how many boxes you see based on how sensitive you want the display to be.
+    {% endcall %}
+
+    {% call f.number(_('Frame Sampling Interval (ms)'), 'newFrameSampleInterval', 'help-frame-sampling-interval', min=10, max=1000, step=10) %}
+      Only matters for a camera that pushes an MJPEG stream (OctoPrint's classic webcam, and most IP cameras' stream endpoint) -- a plain HTTP snapshot URL or a static test file already produce a fresh candidate about ten times a second on their own and ignore this setting entirely. A background thread (not the AI) is the only thing that ever touches the camera: the AI takes the best-scoring candidate from a short queue, waits when the queue is momentarily empty, and never fetches one itself -- so there is no off value here (to pause detection, use Enable AI). For an MJPEG camera, frames keep arriving in the background regardless of this value; while the queue is still shallow, every arriving frame is decoded and kept immediately, whatever this is set to. Once the queue already holds a few candidates -- well before it is full -- this interval decides how often an arriving frame is worth decoding and scoring for sharpness against what is already held: one that arrives before the interval has elapsed is discarded unopened, and one that arrives after it is decoded and, if the queue is still deep enough to be worth ranking, scored -- so a sharper frame can still replace a blurrier one already sitting there. What this interval controls is how often that comparison happens, not how many candidates the AI gets to choose from: capacity is set by Candidate Frame Capacity, staleness by Maximum Candidate Age, and a sharp frame can still be chosen after a short blur period depending on those two limits. A shorter interval re-ranks more often, at the cost of decoding more of what the camera pushes; a longer one decodes less often but reacts more slowly to a scene turning sharp again after a blurry patch. The value worth having is one comfortably below the time your board takes per check (the tab reports that) -- ranking faster than the AI can look at the result mostly costs CPU without changing what gets chosen.
+      <br><br>
+      This setting resets the active failure baseline. If you change it while a print
+      is running, PiNozCam restarts the running ratio from fresh data.
+    {% endcall %}
+
+    {% call f.number(_('Maximum Candidate Age (s)'), 'newFrameBufferMaxAge', 'help-frame-buffer-max-age', min=4, max=16) %}
+      The maximum lifetime of one candidate frame before it is discarded as stale. This is a staleness bound, not a guarantee that the buffer covers this many seconds. A longer age can preserve a sharp image through a blur episode, but it can also let the AI analyse an older scene; 16 seconds means a selected frame may be almost 16 seconds old. Takes effect the next time detection starts.
+    {% endcall %}
+
+    {% call f.number(_('Candidate Frame Capacity (frames)'), 'newFrameBufferCapacity', 'help-frame-buffer-capacity', min=4, max=16) %}
+      How many decoded, full-resolution candidate images the buffer may keep. A larger value gives the AI more frames to choose from but consumes camera-resolution-dependent memory: at capacity 16, RGB pixels alone are about 44 MB at 720p and 100 MB at 1080p, which may exhaust a low-memory board. Takes effect the next time detection starts.
+    {% endcall %}
+
+    </div>
+    </fieldset>
+    </div>
+
+
+
+    <div class="tab-pane" id="pinozcam_pane_performance">
+
+    <fieldset data-bind="enable: newEnableAI,
+                         css: {'pinozcam-gated': !newEnableAI()}">
+    <p>{{ _('How much of the machine the detector may use. Both settings exist to keep it out of the way of the thread streaming gcode to the printer. The CPU core limit does not restrict NPU or GPU model execution; it applies only to the small amount of CPU-side work performed by their runners.') }}</p>
+
+    {% call f.select(_('Compute Backend'), 'newAiBackend',
+                 'help-compute-backend',
+                 options=[('auto', _('Auto-detect')), ('cpu', _('CPU')),
+                          ('rknn', _('Rockchip NPU')), ('awnn', _('a733 NPU')),
+                          ('vulkan', _('GPU')),
+                          ('coreml', _('Apple Neural Engine'))]) %}
+      <ul><li><strong>Auto-detect</strong> &mdash; use an NPU if this board has one (a Rockchip RK3566, RK3576 or RK3588, or an a733/Allwinner board), then a Vulkan GPU on Jetson Orin or an x86-64 AMD, NVIDIA or Intel machine, otherwise the CPU. If the selected GPU cannot start or complete warm-up, PiNozCam uses the CPU fallback bundled in the same runtime package for that detector session. Right for almost everyone; the other choices force one specific backend for testing or to rule one out.</li><li><strong>CPU</strong> &mdash; run with ExecuTorch/XNNPACK even when an accelerator is present. Available on Linux armhf, aarch64 and x86_64.</li><li><strong>Rockchip NPU</strong> &mdash; require the Rockchip NPU. Refuses to start if this board is not an RK3566, RK3576 or RK3588 with the RKNN runtime installed, rather than silently falling back to the CPU.</li><li><strong>a733 NPU</strong> &mdash; require the a733&#x27;s NPU. Refuses to start if it is not detected.</li><li><strong>GPU</strong> &mdash; require the ExecuTorch Vulkan backend. Release Wheels are hardware-qualified on Jetson Orin and x86-64 NVIDIA/AMD GPUs; Intel and another 64-bit ARM or x86-64 Vulkan device may be used when model load and warm-up succeed.</li><li><strong>Apple Neural Engine</strong> &mdash; require CoreML on an Apple silicon Mac. Refuses to start elsewhere. Under Auto-detect this is already what a Mac uses, falling back to the CPU model in the same package if CoreML cannot load it. Note that Apple&#x27;s GPU is not a useful target here: measured on the same machine and graph, the Neural Engine runs this model 6x faster than the CPU while the GPU is marginally slower than the CPU.</li></ul>
+      <br><br>
+      &#x27;&#x27;&#x27;Takes effect the next time detection starts&#x27;&#x27;&#x27;
+      &mdash; the same as Detection Start Delay, above &mdash; not on an
+      already-running print. Save this, then start or restart the print.
+    {% endcall %}
+
+    {% call f.select(_('CPU Cores Used'), 'newCpuSpeedControl',
+                 'help-cpu-cores-used',
+                 options=[('0.25', _('25%% of performance cores')), ('0.5', _('50%% of performance cores')),
+                          ('0.75', _('75%% of performance cores')), ('1', _('100%% of performance cores'))],
+                 test='testInference', test_label=_('Speed Test')) %}
+      <p>This controls CPU affinity &mdash; where the AI process may run &mdash; not how many worker threads a runtime creates.</p>
+      <ul><li><strong>Heterogeneous CPUs</strong> &mdash; PiNozCam detects the faster performance-core pool from Linux CPU topology and applies the selected percentage only to that pool. Efficiency cores are left to OctoPrint and the system; even 100% means all performance cores, not every big and LITTLE core.</li><li><strong>Homogeneous CPUs</strong> &mdash; every CPU allowed by Linux belongs to the pool, so Raspberry Pi, CM4, RK3566 and qualified Orin systems keep the existing percentage behaviour.</li><li><strong>NPU and GPU backends</strong> &mdash; the core setting does not limit accelerator execution. It only places the runner&#x27;s CPU-side input submission, driver, output collection and post-processing work on the selected performance cores.</li><li><strong>Lower settings</strong> &mdash; trade throughput for more CPU headroom. With the real detector running continuously, a latency-sensitive 10 ms thread measured 0.20 ms p99 wake delay at 25% versus 2.87 ms at 100% on a CM4; on a Pi Zero 2 W / Pi CM0 tier the result was 0.50 ms versus 5.40 ms. The full table and interpretation are in the performance guide.</li></ul>
+      <br><br>
+      <strong>Speed Test</strong> runs one check on this board and reports the
+      time the &#x27;&#x27;&#x27;model&#x27;&#x27;&#x27; took &mdash; not the
+      camera fetch, which is the camera&#x27;s and the network&#x27;s speed
+      rather than this board&#x27;s and varies from 18 ms on a local file to
+      hundreds over wifi. Nothing predicts the model time from the hardware
+      name: the same binary is 271 ms on a 64-bit Pi 5 and 7.7 s on a Pi 3B+.
+      If no camera frame is available, Speed Test uses the built-in no-camera
+      image and says so in the result.
+      <br><br>
+      &#x27;&#x27;&#x27;Speed Test uses the CPU Cores Used value currently shown, even
+      before you save.&#x27;&#x27;&#x27; The test does not change the saved setting.
+    {% endcall %}
+
+    {% call f.number(_('Minimum Check Interval (s)'), 'newDetectionInterval', 'help-minimum-check-interval', min=0, max=3600) %}
+      Minimum seconds between two AI checks. &#x27;&#x27;&#x27;0 means as fast as the hardware allows&#x27;&#x27;&#x27;, which is the default: the Failure Ratio Threshold is measured as a fraction, so more frames simply means a better estimate rather than a different threshold. Raise it only if you need to cap CPU use &mdash; sustained 100% CPU during a print has been reported to show up as blobs on the printed surface. The detector is already run at low scheduling priority so it yields to the thread streaming gcode to the printer.
+    {% endcall %}
+
+
+    </fieldset>
+    </div>
+
+    <div class="tab-pane" id="pinozcam_pane_notify">
+
+    <fieldset data-bind="enable: newEnableAI,
+                         css: {'pinozcam-gated': !newEnableAI()}">
+    <p><strong>{{ _('Monitor on demand:') }}</strong>
+       {{ _('press Check in Telegram or Discord, send /hi in Telegram, or send !check in Discord to request the current camera view and printer status.') }}
+       <br>
+       <strong>{{ _('Failure alerts:') }}</strong>
+       {{ _('when detection triggers, PiNozCam sends the analysed frame and the selected printer action. Leave a channel disabled if you do not want either feature to use that service; anything sent goes through a third party.') }}</p>
+
+
+    {% call f.number(_('Maximum Alerts per Print'), 'newMaxNotification', 'help-notification-limit', min=0, max=60000) %}
+      How many alerts PiNozCam may send in one print. It stops after that
+      until the print finishes or is stopped. 0 means no limit.
+      <br><br>
+      Only a message that actually reached you spends one: an alert with no
+      channel configured, or one every channel refused, does not count.
+    {% endcall %}
+
+    {% call f.number(_('Minimum Alert Interval (s)'), 'newNotifyInterval', 'help-notify-interval', min=0, max=3600) %}
+      The shortest gap between two alerts. 0 sends every one.
+      <br><br>
+      A failure that simply continues is reported &#x27;&#x27;&#x27;once&#x27;&#x27;&#x27;
+      whatever this is set to &mdash; that has always been the rule, and it
+      is why 20 minutes of the same problem is one message. This setting is
+      about a &#x27;&#x27;&#x27;second&#x27;&#x27;&#x27; problem starting
+      shortly after the first: within the gap, PiNozCam stays quiet about
+      it.
+      <br><br>
+      An alert skipped this way is &#x27;&#x27;&#x27;not sent
+      later&#x27;&#x27;&#x27; &mdash; there is no catch-up message. That is
+      safe because it only affects messages: pausing or stopping the print
+      is decided by the Failure Ratio and still happens immediately, so
+      what you lose is being told a second time, not the response.
+    {% endcall %}
+
+    {{ f.section(_('Telegram')) }}
+    <p><strong>{{ _('Monitoring:') }}</strong>
+       {{ _('send /hi or press Check for the current camera view.') }}<br>
+       <strong>{{ _('Alerts:') }}</strong>
+       {{ _('a detected failure sends the analysed frame with its boxes.') }}</p>
+
+
+    {{ f.checkbox(_('Enable Telegram'), 'newEnableTelegram') }}
+
+    <fieldset data-bind="enable: newEnableTelegram,
+                         css: {'pinozcam-gated': !newEnableTelegram()}">
+
+    {% call f.text(_('Telegram Bot Token'), 'newTelegramBotToken', 'help-telegram-bot-token', link='https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a') %}
+      Token for authenticating with your Telegram bot. ⚠️ <strong>One bot token per printer</strong> — a shared CHAT is fine, a shared token is not. Telegram hands the update stream to one client per token, so two printers on the same token compete and each button press reaches only one of them, unpredictably. Unlike Discord this cannot be fixed by labelling the buttons: an update taken by the wrong printer is consumed, not misrouted, so the right one never sees it. PiNozCam now recognises the 409 Telegram returns and says so on the chip instead of reporting a network error — but the fix is a second bot, which takes two minutes in @BotFather and can post into the same chat.
+    {% endcall %}
+
+    {% call f.text(_('Telegram Chat ID'), 'newTelegramChatId', 'help-telegram-chat-id', link='https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a', error_for='newTelegramChatId', inputmode='text') %}
+      ID of the Telegram chat where PiNozCam sends monitoring replies and failure alerts. It must be at least 5 digits; group and supergroup IDs start with a minus sign.
+    {% endcall %}
+
+    {% call f.action(_('Connection Test'), 'help-test-telegram',
+                     'testTelegram', 'testTelegramLabel',
+                     _('Test Telegram connection'),
+                     state='testTelegram', result='testTelegramResult',
+                     disabled='newTelegramChatId.error()') %}
+      Sends the current camera view through this channel and reports what happened. This confirms the path used by both on-demand monitoring and failure alerts. ⚠️ One test per channel on purpose: fixing one service must not send repeated test messages through the other service.
+    {% endcall %}
+
+    </fieldset>
+
+    {{ f.section(_('Discord')) }}
+    <p><strong>{{ _('Monitoring:') }}</strong>
+       {{ _('send !check or press Check for the current camera view.') }}<br>
+       <strong>{{ _('Alerts:') }}</strong>
+       {{ _('a detected failure sends the analysed frame with its boxes.') }}</p>
+
+    {{ f.checkbox(_('Enable Discord'), 'newEnableDiscord') }}
+
+    <fieldset data-bind="enable: newEnableDiscord,
+                         css: {'pinozcam-gated': !newEnableDiscord()}">
+
+    {% call f.text(_('Discord Bot Token'), 'newDiscordBotToken', 'help-discord-bot-token', link='https://discord.com/developers/applications') %}
+      Needed together with the Channel ID below; the two fields enable both monitoring commands and failure alerts. Create an application at the link, open its Bot page and copy the token — that is the bot token, not the Client Secret or Application ID from General Information. Then invite the bot to your server with permission to view the channel, send messages and attach files. Leave both fields empty to turn Discord off.
+    {% endcall %}
+
+
+    {% call f.text(_('Discord Channel ID'), 'newDiscordChannelID', 'help-discord-channel-id', link='https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID#h_01HRSTXPS5WGDKT73WADV2HGCH', error_for='newDiscordChannelID', inputmode='numeric') %}
+      Which channel PiNozCam posts to and reads commands from. Turn on Developer Mode in Discord (User Settings, Advanced), then right-click the channel and choose Copy Channel ID — 17 to 20 digits, not a link. Needed together with the bot token above; neither field does anything on its own. <strong>Several printers may share one bot token and one channel.</strong> Each installation stamps its own hidden identity into every button it posts, so a press only ever reaches the printer whose message you tapped — Discord delivers the press to all of them, and the others drop it without answering. Every alert opens with a &quot;Printer:&quot; line so you can tell them apart: OctoPrint&#x27;s Settings → Appearance → Name when you have set one, otherwise printer- plus the first eight characters of this installation&#x27;s id. So several machines are already distinguishable; setting the name just makes them memorable. ⚠️ Two things a shared channel does not cover: buttons in messages posted BEFORE this version carry no identity and are still answered by every printer, so press one on a newer alert; and typed commands (<code>!check</code>, <code>!stop</code>) have no target either, so in a shared channel every printer runs them — use the buttons instead.
+    {% endcall %}
+
+    {% call f.action(_('Connection Test'), 'help-test-discord',
+                     'testDiscord', 'testDiscordLabel',
+                     _('Test Discord connection'),
+                     state='testDiscord', result='testDiscordResult',
+                     disabled='newDiscordChannelID.error()') %}
+      Sends the current camera view through this channel and reports what happened. This confirms the path used by both on-demand monitoring and failure alerts. ⚠️ One test per channel on purpose: fixing one service must not send repeated test messages through the other service.
+    {% endcall %}
+
+    </fieldset>
+    </fieldset>
+    </div>
+
+    <div class="tab-pane" id="pinozcam_pane_camera">
+
+    <fieldset data-bind="enable: newEnableAI,
+                         css: {'pinozcam-gated': !newEnableAI()}">
+
+    {% call f.text(_('Custom camera URL'), 'newCustomSnapshotURL',
+                   'help-custom-snapshot-url', test='testSnapshot') %}
+      Custom URL for this camera instead of OctoPrint's default webcam.
+      A still-image snapshot URL, an MJPEG stream URL, or a local
+      file:// path is accepted &mdash; PiNozCam detects which one it
+      is automatically. Examples:
+      http://192.168.0.xxx/webcam/?action=snapshot (snapshot),
+      http://192.168.0.xxx/webcam/?action=stream (MJPEG stream), or
+      file:///home/pi/snapshot.jpg (local file). (RTSP protocol is
+      not supported) If the MJPEG stream disconnects, PiNozCam keeps
+      retrying that same stream &mdash; it does not fall back to
+      snapshot polling.
+      <br><br>
+      <strong>Test</strong> answers one question: is there an image there,
+      and can it be used. It names where the image came from &mdash; a local
+      file, this URL, or OctoPrint's own webcam if this field is empty &mdash;
+      so a pass cannot be mistaken for the wrong source having worked. If it
+      fails, the message says why. How FAST a frame arrives is the Speed
+      Test's job, on the Performance tab.
+    {% endcall %}
+
+    </fieldset>
+    </div>
+    </div>
+</fieldset>
+</form>

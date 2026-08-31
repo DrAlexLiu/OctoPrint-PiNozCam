@@ -1,0 +1,229 @@
+name: Build RDK X5 BPU runtime
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime wheel version
+        required: true
+        default: "1.1.0"
+
+permissions:
+  contents: read
+
+jobs:
+  build-cpu-fallback:
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out PiNozCam
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential cmake git python3-venv
+
+      - name: Build the AArch64 CPU fallback
+        run: |
+          src/executorch/bootstrap_aarch64_cpu.sh \
+            "$RUNNER_TEMP/pinozcam-aarch64-build" \
+            "$GITHUB_WORKSPACE/runtime-artifacts"
+
+      - name: Upload CPU fallback for the X5 job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rdkx5-cpu-fallback-${{ github.sha }}
+          path: runtime-artifacts/bin/nozcam_daemon.aarch64.static
+          if-no-files-found: error
+          retention-days: 1
+
+  build-rdkx5-runtime:
+    needs: build-cpu-fallback
+    runs-on: ubuntu-22.04-arm
+    # Ubuntu 22.04, not the 20.04 image the other accelerator jobs pin.
+    # libdnn itself references sem_getvalue@GLIBC_2.34, so nothing linking
+    # it can have a floor below 2.34 and the 20.04 container cannot link it
+    # at all. The board runs Ubuntu 22.04 with glibc 2.35, so this matches
+    # the target rather than undershooting it.
+    container:
+      image: ubuntu:22.04
+    timeout-minutes: 120
+    env:
+      # The BPU headers and runtime come from D-Robotics' own public apt
+      # repository. The .deb is fetched and unpacked directly rather than
+      # added as an apt source: this container is not the board's Ubuntu
+      # 22.04, and only these files are wanted, not a distribution's worth
+      # of dependencies. Pinned to the exact build validated on hardware.
+      DNN_DEB_URL: http://archive.d-robotics.cc/ubuntu-rdk-x5/pool/main/jammy/rdk_linux/hobot-dnn_3.0.4-20260409110123_arm64.deb
+      DNN_DEB_SHA256: ced453765dbab3b197650bf52f7a19f964aea1b91cbf09907f9634831c0a3485
+      # libdnn also needs libhbmem, libcnn_intf and libalog. They come from
+      # the multimedia package, and they install under /usr/hobot/lib rather
+      # than /usr/lib -- looking only in the latter finds the headers and
+      # libdnn itself but leaves the link failing on their symbols.
+      MM_DEB_URL: http://archive.d-robotics.cc/ubuntu-rdk-x5/pool/main/jammy/rdk_linux/hobot-multimedia_3.0.5-20260409105737_arm64.deb
+      MM_DEB_SHA256: 683113b72131ddf51bfe6103cecd646e5c884d83a6ecf1aa2f5b7d3991e7bf2a
+      # Models come from the Hugging Face model repository, pinned to a
+      # commit. A commit SHA is immutable; a release asset can be replaced
+      # under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/545fd6e67ee57349118eee7f95015d91c2ef486b
+      HF_REVISION: 545fd6e67ee57349118eee7f95015d91c2ef486b
+      CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
+      BPU_MODEL_SHA256: fbe9fe29334194e4b3c341fd1a2f146f395c77354e7235d0e98516401c56e536
+      PACKAGE_PYTHON: python3
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Install hosted build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install --yes \
+            --no-install-recommends \
+            ca-certificates curl file g++ gcc python3 python3-venv \
+            binutils xz-utils zstd unzip
+
+      - name: Check out PiNozCam
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download the CPU fallback
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: rdkx5-cpu-fallback-${{ github.sha }}
+          path: runtime-artifacts/bin
+
+      - name: Fetch the pinned BPU SDK
+        run: |
+          mkdir -p "$RUNNER_TEMP/dnn"
+          curl --fail --silent --show-error --location --retry 5 \
+            --output "$RUNNER_TEMP/hobot-dnn.deb" "$DNN_DEB_URL"
+          echo "$DNN_DEB_SHA256  $RUNNER_TEMP/hobot-dnn.deb" | sha256sum --check
+          # dpkg-deb is not installed in this minimal image; ar plus tar is
+          # all a .deb actually is. The payload is zstd-compressed, which is
+          # why zstd is installed above.
+          (cd "$RUNNER_TEMP/dnn" && ar x "$RUNNER_TEMP/hobot-dnn.deb" \
+             && tar xf data.tar.*)
+          curl --fail --silent --show-error --location --retry 5 \
+            --output "$RUNNER_TEMP/hobot-mm.deb" "$MM_DEB_URL"
+          echo "$MM_DEB_SHA256  $RUNNER_TEMP/hobot-mm.deb" | sha256sum --check
+          (cd "$RUNNER_TEMP/dnn" && ar x "$RUNNER_TEMP/hobot-mm.deb" \
+             && tar xf data.tar.*)
+          test -f "$RUNNER_TEMP/dnn/usr/include/dnn/hb_dnn.h"
+          test -f "$RUNNER_TEMP/dnn/usr/lib/libdnn.so"
+          test -f "$RUNNER_TEMP/dnn/usr/hobot/lib/libhbmem.so.1"
+
+      - name: Fetch pinned model inputs
+        # Two independent checks per file: the commit the request resolved
+        # to, and the bytes. x-repo-commit is only on huggingface.co's own
+        # 307, so it is read without --location. No --retry-all-errors: this
+        # container's curl 7.68 predates it and exits rather than ignore it.
+        run: |
+          mkdir -p runtime-artifacts/models
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 "$HF_BASE/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "$HF_REVISION" ]; then
+              echo "$remote resolved to commit '$commit', expected $HF_REVISION"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location --retry 5 \
+              --output "runtime-artifacts/models/$local_name" \
+              "$HF_BASE/$remote"
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | sha256sum --check
+          }
+          fetch_pinned cpu/nozcam-cpu.pte "$CPU_MODEL_SHA256"
+          fetch_pinned npu/nozcam-x5.bin "$BPU_MODEL_SHA256"
+
+      - name: Build daemon + package the X5 runtime
+        run: |
+          "$PACKAGE_PYTHON" -m venv "$RUNNER_TEMP/package-venv"
+          "$RUNNER_TEMP/package-venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            'packaging==24.2' 'setuptools==75.3.2' 'wheel==0.45.1'
+          g++ -O2 -std=c++14 -Wall -Wextra -Werror \
+            -Wno-format-truncation \
+            -I src/common -I "$RUNNER_TEMP/dnn/usr/include" \
+            src/drobotics/nozcam_drobotics_daemon.cpp \
+            src/common/nozcam_postprocess.cpp \
+            -L "$RUNNER_TEMP/dnn/usr/lib" \
+            -Wl,-rpath-link,"$RUNNER_TEMP/dnn/usr/lib:$RUNNER_TEMP/dnn/usr/hobot/lib" \
+            -Wl,-rpath,/usr/lib:/usr/hobot/lib \
+            -ldnn -lpthread -lm -Wl,-z,noexecstack \
+            -o runtime-artifacts/bin/nozcam_daemon.drobotics.aarch64
+          "$RUNNER_TEMP/package-venv/bin/python" \
+            src/runtime/package_accelerator_runtime.py \
+            --target bpu_x5 \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --version "$VERSION" \
+            --revision "$GITHUB_SHA"
+
+      - name: Verify daemon and wheel payload
+        run: |
+          daemon=runtime-artifacts/bin/nozcam_daemon.drobotics.aarch64
+          file "$daemon"
+          # The ceiling is 2.34 here rather than the 2.29 the other
+          # accelerators hold to, because libdnn itself references
+          # sem_getvalue@GLIBC_2.34: no consumer of it can be lower. The
+          # board ships glibc 2.35.
+          max_glibc=$(readelf --version-info "$daemon" \
+            | grep -Eo 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' \
+            | sort -Vu | tail -n 1)
+          if [ "$(printf '%s\n' "$max_glibc" 2.34 | sort -V | tail -n 1)" != 2.34 ]; then
+            echo "X5 daemon requires GLIBC_$max_glibc, above the 2.34 ceiling"
+            exit 1
+          fi
+          readelf --dynamic "$daemon" > "$RUNNER_TEMP/x5.dynamic"
+          grep -F 'Shared library: [libdnn.so]' "$RUNNER_TEMP/x5.dynamic"
+          # The board installs libdnn in /usr/lib and its dependencies in
+          # /usr/hobot/lib; -rpath-link only tells the linker where to look
+          # and leaves no trace in the binary, which is the point. An RPATH
+          # pointing at this job's temporary unpack directory would resolve
+          # here and fail there, and no test on a runner without a BPU could
+          # catch that.
+          if grep -F "$RUNNER_TEMP" "$RUNNER_TEMP/x5.dynamic"; then
+            echo "X5 daemon records an ephemeral CI library path"
+            exit 1
+          fi
+          file dist/*.whl
+          "$RUNNER_TEMP/package-venv/bin/python" -m pip install \
+            --disable-pip-version-check --no-deps \
+            --target "$RUNNER_TEMP/wheel-install" dist/*.whl
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runtime_rdkx5"
+          test -x "$module/bin/nozcam_daemon.aarch64.static"
+          test -x "$module/bin/nozcam_daemon.drobotics.aarch64"
+          test -f "$module/models/nozcam-cpu.pte"
+          test -f "$module/models/nozcam-x5.bin"
+          "$RUNNER_TEMP/package-venv/bin/python" \
+            src/runtime/verify_runtime_wheel.py \
+            --target bpu_x5 --wheel dist/*.whl --revision "$GITHUB_SHA"
+          # Only the CPU fallback can run here; the BPU needs an X5.
+          "$PACKAGE_PYTHON" src/executorch/smoke_test.py \
+            --daemon "$module/bin/nozcam_daemon.aarch64.static" \
+            --model "$module/models/nozcam-cpu.pte" --timeout 900
+          if unzip -l dist/*.whl | grep -E 'lib(dnn|hbrt)'; then
+            echo "X5 Wheel must not bundle board runtime libraries"
+            exit 1
+          fi
+          test -f dist/SHA256SUMS
+          (cd dist && sha256sum --check SHA256SUMS)
+
+      - name: Upload runtime artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinozcam-runtime-rdkx5-${{ github.sha }}
+          path: |
+            dist/*.whl
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

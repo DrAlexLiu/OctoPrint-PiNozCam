@@ -1,0 +1,156 @@
+name: Build macOS arm64 CPU runtime
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Runtime Wheel version
+        required: true
+        default: "1.1.0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-macos-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test:
+    # macos-14 and later are Apple Silicon. The daemon is arm64 Mach-O and
+    # cannot be cross-produced from the Linux runners: macOS has no static
+    # libSystem and Apple ld spells the link options differently, which is
+    # why this target has its own bootstrap and build script.
+    runs-on: macos-14
+    timeout-minutes: 120
+    env:
+      # Model inputs come from the Hugging Face model repository,
+      # pinned to a commit. A commit SHA is immutable; a release
+      # asset can be replaced under an unchanged tag.
+      HF_BASE: https://huggingface.co/DrAlexLiu/PiNozCam/resolve/d33d2c4ae2c238de9c420fcb5f11d129bd64c7a2
+      HF_REVISION: d33d2c4ae2c238de9c420fcb5f11d129bd64c7a2
+      CPU_MODEL_SHA256: 1057e47d5341bec038f9f7ccdacd3b01ff6b8eb196a7ae72d3e263d7df013221
+      COREML_MODEL_SHA256: eda4503429e917b737cbd6eae8e040fc658a7dab71ef2150aab29a69cd6436cb
+
+    steps:
+      - name: Check out PiNozCam
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Report the toolchain
+        run: |
+          sw_vers
+          clang --version | head -1
+          cmake --version | head -1
+
+      - name: Build ExecuTorch and the PiNozCam daemon
+        run: |
+          src/executorch/bootstrap_macos_arm64.sh \
+            "$RUNNER_TEMP/pinozcam-macos-build" \
+            "$GITHUB_WORKSPACE/runtime-artifacts"
+
+      - name: Fetch pinned model inputs
+        # Pinned to a commit in the model repository: a commit SHA
+        # is immutable, where a release asset can be replaced under
+        # an unchanged tag. x-repo-commit is read without --location
+        # because only huggingface.co's own 307 carries it.
+        run: |
+          mkdir -p runtime-artifacts/models
+          fetch_pinned() {
+            remote=$1
+            expected=$2
+            local_name=${remote##*/}
+            commit=$(curl --fail --silent --show-error --head \
+              --retry 5 --retry-all-errors "$HF_BASE/$remote" \
+              | tr -d '\r' | awk 'tolower($1) == "x-repo-commit:" {print $2}')
+            if [ "$commit" != "$HF_REVISION" ]; then
+              echo "$remote resolved to commit '$commit', expected $HF_REVISION"
+              exit 1
+            fi
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-all-errors \
+              --output "runtime-artifacts/models/$local_name" \
+              "$HF_BASE/$remote"
+            # shasum, not sha256sum: macOS ships BSD tools, and GNU
+            # coreutils is not installed on the hosted runner.
+            echo "$expected  runtime-artifacts/models/$local_name" \
+              | shasum -a 256 --check
+          }
+          fetch_pinned cpu/nozcam-cpu.pte "$CPU_MODEL_SHA256"
+          # Two models, one daemon. CoreML normally runs; the CPU model is
+          # what the plugin falls back to when CoreML will not load, so both
+          # have to be in the Wheel and both have to be exercised below.
+          fetch_pinned npu/nozcam-coreml.pte "$COREML_MODEL_SHA256"
+
+      - name: Exercise the production pipe protocol and inference
+        # Both models, because "the daemon runs" does not imply "the CoreML
+        # delegate is registered in it": backends register through static
+        # constructors, and a link that drops them still produces a binary
+        # that passes every CPU test and then fails to load a CoreML .pte.
+        # The GitHub macOS runner is Apple silicon, so this is a real
+        # execution of the delegate rather than a load-only check.
+        run: |
+          for model in nozcam-coreml.pte nozcam-cpu.pte; do
+            echo "=== $model ==="
+            python3 src/executorch/smoke_test.py \
+              --daemon runtime-artifacts/bin/nozcam_daemon.macos.arm64 \
+              --model "runtime-artifacts/models/$model"
+          done
+
+      - name: Build the runtime Wheel
+        # A virtualenv, not the runner's python3: macOS runners ship
+        # Homebrew Python, which is PEP 668 externally-managed and refuses
+        # `pip install` into itself. The Linux runners have no such guard,
+        # which is why only this target needs the extra step.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/packaging-venv"
+          "$RUNNER_TEMP/packaging-venv/bin/python" -m pip install \
+            --disable-pip-version-check --upgrade \
+            'setuptools==75.3.2' 'wheel==0.45.1'
+          "$RUNNER_TEMP/packaging-venv/bin/python" \
+            src/runtime/package_cpu_runtime.py \
+            --artifact-root runtime-artifacts \
+            --output dist \
+            --target macos_arm64 \
+            --version "${{ inputs.version }}" \
+            --revision "$GITHUB_SHA"
+
+      - name: Verify the installed Wheel payload
+        # No check_manylinux here: that asserts a glibc floor, and Mach-O
+        # has no glibc. The equivalent claim for this target is "everything
+        # it links ships with macOS", which bootstrap_macos_arm64.sh asserts
+        # with otool before the Wheel is ever built.
+        run: |
+          "$RUNNER_TEMP/packaging-venv/bin/python" -m pip install \
+            --disable-pip-version-check --no-deps \
+            --target "$RUNNER_TEMP/wheel-install" dist/*.whl
+          module="$RUNNER_TEMP/wheel-install/pinozcam_runner"
+          test -x "$module/bin/nozcam_daemon.macos.arm64"
+          test -f "$module/models/nozcam-cpu.pte"
+          test -f "$module/models/nozcam-coreml.pte"
+          for model in nozcam-coreml.pte nozcam-cpu.pte; do
+            python3 src/executorch/smoke_test.py \
+              --daemon "$module/bin/nozcam_daemon.macos.arm64" \
+              --model "$module/models/$model"
+          done
+          # The daemon must carry the CoreML delegate, not merely tolerate
+          # the framework being on the machine. Checked against the binary
+          # so a build that silently lost the backend cannot ship.
+          otool -L "$module/bin/nozcam_daemon.macos.arm64" \
+            | grep -F 'CoreML.framework/Versions/A/CoreML'
+          (cd dist && shasum -a 256 --check SHA256SUMS)
+
+      - name: Upload the verified runtime
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pinozcam-runner-macos-arm64-${{ github.sha }}
+          path: |
+            dist/*.whl
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

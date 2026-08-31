@@ -1,192 +1,147 @@
-<!-- pinozcam_tab.jinja2 -->
-<form class="form-horizontal">
-    <style>
-        /* Apply general styles to input elements within the form */
-        form.form-horizontal .custom-input,
-        form.form-horizontal .input-block-level {
-            width: 25%; /* Set a shorter width for general inputs */
-        }
-
-        /* Specific style for Snapshot URL input to make it longer */
-        form.form-horizontal .controls .snapshot-url-input {
-            width: 100%; /* Set a longer width specifically for Snapshot URL */
-        }
-
-        .save-button-container {
-            text-align: right;
-            margin-top: 20px;
-        }
-
-        .help-text {
-            font-size: 18px;
-        }
-    </style>
     <div id="printout-threads-container">
-        <!-- ID is ai-image -->
-        <img id="ai-image" src="" alt="AI Image" style="max-width: 100%; height: auto;">
-        
-        <div style="display: flex; margin-top: 10px;">
-            <div style="flex: 1;">
-                <!-- Placeholder for Printing Status -->
-                <div id="ai-status">AI Status: OFF</div>
-                <div id="telegram-status">Telegram Status: OFF</div>
-                <div id="cpu-temperature">CPU Temperature: --°C</div>
-                <!-- Placeholder for Failure Count -->
-                <div id="failure-count">Failure Count: 0</div>
+
+
+        <div id="ai-image-wrap">
+
+            <img id="ai-image" data-bind="attr: {src: displaySrc}, style: {transform: liveTransform}" alt="">
+            <canvas id="ai-overlay"></canvas>
+        </div>
+        <div class="pinozcam-panel">
+            <div class="pinozcam-panel-head">
+                <h4 class="pinozcam-status-heading">{{ _('Status') }}</h4>
+                <div class="pinozcam-actions">
+                    <button class="btn btn-primary pinozcam-icon-btn" type="button"
+                            data-bind="click: openMaskDialog"
+                            title="{{ _('Set Undetect Zone \u2014 mark areas the detector should ignore') }}"
+                            aria-label="{{ _('Set Undetect Zone') }}"><i
+                            class="fas fa-eye-slash" aria-hidden="true"></i></button>
+                    <button class="btn pinozcam-icon-btn" type="button"
+                            data-bind="click: openSettings"
+                            title="{{ _('PiNozCam settings') }}"
+                            aria-label="{{ _('PiNozCam settings') }}"><i
+                            class="fas fa-wrench" aria-hidden="true"></i></button>
+                </div>
             </div>
-            
-            <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                <!-- Mask Image Button -->
-                <button id="open-dialog-btn" class="btn btn-primary" type="button" title="Open the mask dialog to create a custom mask that excludes specific areas of the image from failure detection. Draw on the canvas to define the regions you want the AI to ignore, allowing you to focus the detection on critical parts of the print. The mask will be superimposed on the original image during analysis.">Set Undetect Zone</button>
-                
-                <!-- Discord link -->
-                <div style="margin-top: 10px;">
-                    <a href="https://discord.gg/gv4tKJ2ZKr" target="_blank" style="font-size: 14px; color: #7289da; text-decoration: none; transition: color 0.3s;">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" style="vertical-align: middle; margin-right: 5px;">
-                            <path fill="currentColor" d="M20.317 4.3698C18.7873 3.70243 17.1499 3.24428 15.4479 3.02089C15.4007 3.01339 15.3522 3.02748 15.3139 3.05949C14.9911 3.38082 14.6424 3.8111 14.3767 4.14111C12.5572 3.86032 10.7238 3.86032 8.90623 4.14111C8.64054 3.80654 8.28819 3.38082 7.96892 3.05949C7.93053 3.02764 7.88211 3.01339 7.83488 3.02089C6.13298 3.24428 4.4956 3.70243 2.96588 4.3698C2.94211 4.37646 2.92026 4.39079 2.90227 4.41049C0.463112 8.67768 -0.243922 12.8592 0.0953659 16.9916C0.0985729 17.0238 0.11089 17.0549 0.128178 17.0809C1.85701 18.5207 3.55079 19.4457 5.21149 20.0002C5.24462 20.0087 5.27961 19.9993 5.30719 19.9744C5.78988 19.4803 6.23065 18.9509 6.62182 18.3914C6.65186 18.3338 6.63368 18.2596 6.58269 18.221C6.06877 17.9002 5.57649 17.5431 5.10595 17.1546C5.05362 17.114 5.04743 17.0403 5.08823 17.0036C5.17719 16.9206 5.26615 16.8359 5.35273 16.7527C5.38117 16.7213 5.42094 16.7081 5.45817 16.7157C9.01527 18.1131 12.9856 18.1131 16.526 16.7157C16.5633 16.7065 16.603 16.7213 16.6315 16.7527C16.7181 16.8359 16.807 16.9206 16.8959 17.0036C16.9367 17.0403 16.9321 17.114 16.8782 17.1546C16.4077 17.5481 15.9154 17.9002 15.4015 18.221C15.3505 18.2596 15.3339 18.3354 15.3639 18.3914C15.7567 18.9509 16.1975 19.4803 16.6802 19.9744C16.7077 19.9993 16.7427 20.0087 16.7759 20.0002C18.4398 19.4457 20.1368 18.5207 21.8656 17.0809C21.8829 17.0549 21.8952 17.0238 21.8984 16.9916C22.2835 12.2572 21.1736 8.11505 18.8065 4.41033C18.7902 4.39079 18.7683 4.37646 18.7446 4.3698V4.3698ZM8.14189 14.2794C7.0261 14.2794 6.11379 13.2653 6.11379 12.0155C6.11379 10.7656 6.99648 9.75155 8.14189 9.75155C9.2888 9.75155 10.1826 10.7734 10.165 12.0155C10.165 13.2653 9.28568 14.2794 8.14189 14.2794ZM15.8656 14.2794C14.7498 14.2794 13.8375 13.2653 13.8375 12.0155C13.8375 10.7656 14.7202 9.75155 15.8656 9.75155C17.0111 9.75155 17.9049 10.7734 17.8889 12.0155C17.8889 13.2653 17.0111 14.2794 15.8656 14.2794Z"/>
+
+            <div class="pinozcam-panel-head">
+                <div class="pinozcam-chips">
+                    <span data-bind="text: aiChipText, css: aiChipClass" class="chip chip-off">{{ _('AI not started') }}</span>
+                    <span data-bind="css: telegramChipClass" class="chip chip-off"
+                          title="{{ _('Telegram monitoring and alerts') }}"><i
+                          class="fab fa-telegram" aria-hidden="true"></i><span
+                          data-bind="text: telegramChipText">{{ _('not set') }}</span></span>
+                    <span data-bind="css: discordChipClass" class="chip chip-off"
+                          title="{{ _('Discord monitoring and alerts') }}"><i
+                          class="fab fa-discord" aria-hidden="true"></i><span
+                          data-bind="text: discordChipText">{{ _('not set') }}</span></span>
+                    <span data-bind="text: tempChipText, css: tempChipClass" class="chip">--&deg;C</span>
+                </div>
+                <div class="pinozcam-actions">
+                    {# External links keep rel="noopener noreferrer" so popup windows cannot access window.opener. #}
+                    <a href="https://github.com/DrAlexLiu/OctoPrint-PiNozCam"
+                       target="_blank" rel="noopener noreferrer"
+                       class="pinozcam-brand-btn pinozcam-icon-btn pinozcam-brand-github"
+                       title="{{ _('Source code, releases and issue tracker') }}"
+                       aria-label="{{ _('PiNozCam on GitHub') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"
+                        width="18" height="18" aria-hidden="true"
+                        focusable="false">
+                        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
                         </svg>
-                         
+                    </a>
+                    <a href="https://discord.gg/gv4tKJ2ZKr" target="_blank"
+                       rel="noopener noreferrer"
+                       class="pinozcam-brand-btn pinozcam-icon-btn"
+                       title="{{ _('Get help and share results with other PiNozCam users') }}"
+                       aria-label="{{ _('Join us on Discord') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        width="18" height="18" aria-hidden="true"
+                        focusable="false">
+                        <path fill="currentColor" d="M20.317 4.3698C18.7873 3.70243 17.1499 3.24428 15.4479 3.02089C15.4007 3.01339 15.3522 3.02748 15.3139 3.05949C14.9911 3.38082 14.6424 3.8111 14.3767 4.14111C12.5572 3.86032 10.7238 3.86032 8.90623 4.14111C8.64054 3.80654 8.28819 3.38082 7.96892 3.05949C7.93053 3.02764 7.88211 3.01339 7.83488 3.02089C6.13298 3.24428 4.4956 3.70243 2.96588 4.3698C2.94211 4.37646 2.92026 4.39079 2.90227 4.41049C0.463112 8.67768 -0.243922 12.8592 0.0953659 16.9916C0.0985729 17.0238 0.11089 17.0549 0.128178 17.0809C1.85701 18.5207 3.55079 19.4457 5.21149 20.0002C5.24462 20.0087 5.27961 19.9993 5.30719 19.9744C5.78988 19.4803 6.23065 18.9509 6.62182 18.3914C6.65186 18.3338 6.63368 18.2596 6.58269 18.221C6.06877 17.9002 5.57649 17.5431 5.10595 17.1546C5.05362 17.114 5.04743 17.0403 5.08823 17.0036C5.17719 16.9206 5.26615 16.8359 5.35273 16.7527C5.38117 16.7213 5.42094 16.7081 5.45817 16.7157C9.01527 18.1131 12.9856 18.1131 16.526 16.7157C16.5633 16.7065 16.603 16.7213 16.6315 16.7527C16.7181 16.8359 16.807 16.9206 16.8959 17.0036C16.9367 17.0403 16.9321 17.114 16.8782 17.1546C16.4077 17.5481 15.9154 17.9002 15.4015 18.221C15.3505 18.2596 15.3339 18.3354 15.3639 18.3914C15.7567 18.9509 16.1975 19.4803 16.6802 19.9744C16.7077 19.9993 16.7427 20.0087 16.7759 20.0002C18.4398 19.4457 20.1368 18.5207 21.8656 17.0809C21.8829 17.0549 21.8952 17.0238 21.8984 16.9916C22.2835 12.2572 21.1736 8.11505 18.8065 4.41033C18.7902 4.39079 18.7683 4.37646 18.7446 4.3698V4.3698ZM8.14189 14.2794C7.0261 14.2794 6.11379 13.2653 6.11379 12.0155C6.11379 10.7656 6.99648 9.75155 8.14189 9.75155C9.2888 9.75155 10.1826 10.7734 10.165 12.0155C10.165 13.2653 9.28568 14.2794 8.14189 14.2794ZM15.8656 14.2794C14.7498 14.2794 13.8375 13.2653 13.8375 12.0155C13.8375 10.7656 14.7202 9.75155 15.8656 9.75155C17.0111 9.75155 17.9049 10.7734 17.8889 12.0155C17.8889 13.2653 17.0111 14.2794 15.8656 14.2794Z"/>
+                        </svg>
                     </a>
                 </div>
             </div>
+
+
+            <div class="pinozcam-gauge"
+                 title="{{ _('What fraction of the recent window was alarming (detected failure area above the threshold). The bar fills toward the point where PiNozCam acts; the tick marks that threshold.') }}">
+                <div class="gauge-head">
+                    <span class="gauge-name">{{ _('Failure ratio') }}</span>
+                    <span class="gauge-value" data-bind="text: gaugeValue">{{ _('no data yet') }}</span>
+                </div>
+                <div class="gauge-track" data-bind="attr: {title: gaugeLabel}">
+                    <div class="gauge-fill" data-bind="style: {width: gaugeWidth}, css: gaugeClass"></div>
+                    <div class="gauge-mark gauge-mark-act" data-bind="style: actMarkStyle"></div>
+                </div>
+                <div class="gauge-detail" data-bind="text: gaugeDetail"></div>
+            </div>
+
+            <div class="ai-detail" data-bind="text: rateDetail"></div>
+
+
+            <div class="alert alert-error" data-bind="visible: backendError, text: backendError" style="display:none;"></div>
+            <div class="alert alert-error" data-bind="visible: cameraWarning, text: cameraWarning" style="display:none;"></div>
+            <div class="alert" data-bind="visible: maskWarning, text: maskWarning" style="display:none;"></div>
         </div>
-        
-        <!-- Mask Dialog -->
+
         <dialog id="mask-dialog">
             <div class="dialog-content">
-                <h3>Draw Mask</h3>
-                <canvas id="mask-canvas" width="640" height="480" title="Draw a mask on the image to exclude certain areas from failure detection. Areas covered by the mask will be ignored by the AI, allowing you to focus on specific regions of interest. Click and drag your mouse to draw the mask. The mask will be applied on top of the original image."></canvas>
+
+                <h3>{{ _('Set Undetect Zone') }}</h3>
+                {% set head_link %}<a href="https://github.com/DrAlexLiu/OctoPrint-PiNozCam/issues/22" target="_blank" rel="noopener noreferrer">{{ _('print head') }}</a>{% endset %}
+                <p class="dialog-intro">{{ _('Paint over anything the detector should ignore \u2014 the %(link)s, its grill, a paper clip, a logo, a guitar string.', link=head_link) }}</p>
+                <div class="mask-toolbar">
+                    <span class="mask-tools">
+                        <button type="button" data-bind="click: function () { pickTool('brush'); }, css: {active: maskTool() === 'brush'}" class="btn" title="Paint areas the AI should ignore. Use the -/+ buttons to change the brush size.">{{ _('Brush') }}</button>
+                        <button type="button" data-bind="click: function () { pickTool('erase'); }, css: {active: maskTool() === 'erase'}" class="btn" title="Remove areas from the mask. The old editor could only add, so a stray stroke meant clearing everything and starting over.">{{ _('Eraser') }}</button>
+                        <button type="button" data-bind="click: function () { pickTool('rect'); }, css: {active: maskTool() === 'rect'}" class="btn" title="Drag a rectangle to mask a whole region at once. Most real exclusions are rectangular: a bed edge, a logo on the bed, the print head parking spot.">{{ _('Rectangle') }}</button>
+                        <button type="button" data-bind="click: function () { pickTool('rectErase'); }, css: {active: maskTool() === 'rectErase'}" class="btn" title="Drag a rectangle to unmask a region.">{{ _('Rect erase') }}</button>
+                    </span>
+                    <span class="mask-brush">
+                        {{ _('Brush') }}
+                        <button type="button" class="btn" data-bind="click: brushSmaller" title="Smaller brush">&minus;</button>
+                        <span data-bind="text: brushCells">3</span>
+                        <button type="button" class="btn" data-bind="click: brushBigger" title="Larger brush">+</button>
+                    </span>
+                    <span class="mask-tools">
+                        <button type="button" class="btn" data-bind="click: maskUndo, disable: !canUndo()" title="Undo the last stroke">{{ _('Undo') }}</button>
+                        <button type="button" class="btn" data-bind="click: maskRedo, disable: !canRedo()" title="Redo">{{ _('Redo') }}</button>
+
+                        <button type="button" class="btn" data-bind="click: maskClear" title="Clear the whole mask (undoable)">{{ _('Clear') }}</button>
+                    </span>
+                    <span class="mask-meta">{{ _('Masked') }} <span data-bind="text: maskCoverage">0.0%</span></span>
+                </div>
+                <canvas id="mask-canvas" width="854" height="480"
+                        data-bind="maskCanvas: {mask: draftMaskImageData, gridSize: maskGridSize, editor: maskEditor, status: onMaskStatus}"
+                        title="Draw the areas the AI should ignore. Drawn blocks are excluded from failure detection, which is how you stop the plugin alarming on a fixed object such as the print head, a bed clip or a logo. The view is the live camera frame WITHOUT the current mask applied, so clearing works as expected."></canvas>
+                <div class="mask-meta" data-bind="text: maskStatus"></div>
                 <div class="dialog-buttons">
-                    <button id="save-mask-btn" class="btn btn-primary" type="button" title="Save the current mask and close the dialog">Save</button>
-                    <button id="clear-mask-btn" class="btn btn-secondary" type="button" title="Clear the current mask, removing all drawn areas">Clear</button>
-                    <button id="cancel-mask-btn" class="btn btn-secondary" type="button" title="Cancel drawing the mask and close the dialog without saving">Cancel</button>
+                    <button type="button" class="btn btn-primary" data-bind="click: saveMask" title="Save exactly what is shown and close">{{ _('Save') }}</button>
+
+                    <button type="button" class="btn" data-bind="click: cancelMask" title="Close without saving; anything drawn since opening is lost">{{ _('Discard') }}</button>
                 </div>
             </div>
         </dialog>
 
-        <!-- Line -->
+        <div class="evidence-strip" data-bind="visible: hasEvidence" style="display:none;">
+            <div class="evidence-title">{{ _('Recent detections') }}
+                <span class="mask-meta">{{ _('most recent alarms, newest first') }}</span>
+            </div>
+            <div class="evidence-items" data-bind="foreach: evidence">
+                <div class="evidence-card">
+
+                    <img class="evidence-thumb" alt=""
+                         data-bind="attr: {src: image}, visible: image, click: $parent.openEvidence">
+                    <div class="evidence-meta">
+                        <span data-bind="text: age"></span>{{ _('s ago') }}
+                        &middot; {{ _('severity') }} <span data-bind="text: severity"></span>
+                        &middot; {{ _('sustained') }} <span data-bind="text: failureCount"></span>
+                        {{ _('of') }} <span data-bind="text: windowFrames"></span> {{ _('frames') }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <hr style="margin-top: 20px; margin-bottom: 20px;">
     </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Enable AI Detection') }}</label>
-        <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline" title="Enable the AI detection function of PiNozCam">
-                <input type="radio" name="enableAI" value="true" data-bind="checked: newEnableAI"> ON
-            </label>
-            <label class="radio-inline" title="Disable the AI detection function of PiNozCam">
-                <input type="radio" name="enableAI" value="false" data-bind="checked: newEnableAI"> OFF
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Action after Detection') }}</label>
-        <div class="controls">
-            <label class="radio-inline" title="Send a notification when a failure is detected">
-                <input type="radio" name="action" value="0" data-bind="checked: newAction"> Notification
-            </label>
-            <label class="radio-inline" title="Pause the print when a failure is detected">
-                <input type="radio" name="action" value="1" data-bind="checked: newAction"> Pause
-            </label>
-            <label class="radio-inline" title="Stop the print when a failure is detected">
-                <input type="radio" name="action" value="2" data-bind="checked: newAction"> Stop
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('AI Start Delay (s)') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newAiStartDelay, attr: {min: 0, max: 60000}" title="Delay in seconds before PiNozCam starts detecting failures after Octoprint begins a print. It's recommended to set this delay to allow for the completion of bed leveling and other initial print processes. Once the set delay has passed, PiNozCam's AI will begin monitoring for potential print failures."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Boxes Display Threshold') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newPrintLayoutThreshold, attr: {min: '0', max: '1', step: '0.001'}" title="Only display the bounding boxes with scores (score shown on the top right of each box) higher the threshold. Setting this number lower will show more boxes, even for things the AI isn't very sure are failures. Setting it higher will only show boxes for failures the AI is really sure about. Change this number to control how many boxes you see based on how sensitive you want the display to be."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Image Sensitivity') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newImgSensitivity, attr: {min: '0', max: '1', step: '0.001'}" title="Image sensitivity = (All bounding box areas 'higher than Failure Scores Threshold')/(Whole image area). Set the sensitivity according to how far the camera is from the nozzle and how big you expect print failures to be. A lower sensitivity will detect smaller bounding boxes as failures, while a higher sensitivity will only detect bigger, more obvious bounding boxes. Adjust this setting based on your specific printer setup, camera position, and how many false alerts or missed failures you're okay with to get the best failure detection."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Failure Scores Threshold') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newScoresThreshold, attr: {min: '0', max: '1', step: '0.001'}" title="Set the minimum score needed for detected bounding boxes (scores shown on the top right of each box must be higher) to count towards the failure total and trigger alerts or actions. If the score is higher than this number, it will be counted as a failure. If it's lower, it will be ignored. Adjust this setting to control how many real failures are caught and how many false alarms happen."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Max Failure Count') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxCount, attr: {min: 0, max: 100}" title="Set the maximum number of failures allowed within the Failure Consider Time before PiNozCam pauses or stops the print as configured in Action after Detection. A value 2 or above is recommended to avoid false alarms."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Notify Mode') }}</label>
-        <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline" title="Send a notification for each failure detected">
-                <input type="radio" name="enableMaxFailureCountNotification" value="false" data-bind="checked: newEnableMaxFailureCountNotification"> Each failure
-            </label>
-            <label class="radio-inline" title="Send a notification only after reaching the Max Failure Count">
-                <input type="radio" name="enableMaxFailureCountNotification" value="true" data-bind="checked: newEnableMaxFailureCountNotification"> After reaching the Max Failure Count
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Failure Consider Time (s)') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newCountTime, attr: {min: 0, max: 60000}" title="This setting is like a plane's black box that only records the last X seconds of flight data. Just like the black box overwrites old data, this setting forgets failures that happened before the specified time window. It's a moving window that only remembers and counts the most recent failures towards the Max Failure Count for triggering actions or notifications."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('CPU Speed Control') }}</label>
-        <div class="controls" style="padding-top: 5px;">
-            <label class="radio-inline" title="Use half of the available CPU core numbers for AI processing. Note that the actual processing speed may vary and is not solely determined by the number of cores used. It's recommended to perform real-world tests to assess performance.">
-                <input type="radio" name="cpuSpeedControl" value="0.5" data-bind="checked: newCpuSpeedControl"> Half
-            </label>
-            <label class="radio-inline" title="Use all available CPU core numbers for AI processing. Note that the actual processing speed may vary and is not solely determined by the number of cores used. It's recommended to perform real-world tests to assess performance.">
-                <input type="radio" name="cpuSpeedControl" value="1" data-bind="checked: newCpuSpeedControl"> Full
-            </label>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Custom Snapshot URL') }}</label>
-        <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newCustomSnapshotURL" title="Custom URL for fetching snapshots instead of the default snapshot URL for your IP camera. Examples: http://192.168.0.xxx/webcam/?action=snapshot. (RTSP protocol is not supported)">
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">{{ _('Max Notification Count') }}</label>
-        <div class="controls">
-            <input type="number" class="input-block-level custom-input help-text" data-bind="value: newMaxNotification, attr: {min: 0, max: 100}" title="Set the maximum number of messages PiNozCam will send before it stops sending more until the print is finished or stopped. If you set it to 0, there will be no limit and it will keep sending messages."/>
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">
-            <a href="https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a" target="_blank">{{ _('Telegram Bot Token') }}</a>
-        </label>
-        <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramBotToken" title="Token for authenticating with your Telegram bot">
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">
-            <a href="https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a" target="_blank">{{ _('Telegram Chat ID') }}</a>
-        </label>
-        <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newTelegramChatId" title="ID of the Telegram chat where notifications will be sent">
-        </div>
-    </div>
-    <div class="control-group">
-        <label class="control-label">
-            <a href="https://progr.interplanety.org/en/how-to-get-the-discord-channel-webhook-url/" target="_blank">{{ _('Discord Webhook URL') }}</a>
-        </label>
-        <div class="controls">
-            <input type="text" class="input-block-level custom-input snapshot-url-input" data-bind="value: newDiscordWebhookURL" title="URL of the Discord webhook where notifications will be sent">
-        </div>
-    </div>
-    <div class="save-button-container">
-        <button type="button" class="btn btn-primary" data-bind="click: saveSettings" title="Save the current settings">Save</button>
-    </div>
-</form>

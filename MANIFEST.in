@@ -1,4 +1,9 @@
 include README.md
+include LICENSE
 recursive-include octoprint_pinozcam/templates *
-recursive-include octoprint_pinozcam/translations *
 recursive-include octoprint_pinozcam/static *
+
+# Keep the daemon source and third-party notices in the source distribution.
+# Compiled runners and models are distributed only in platform runtime Wheels.
+recursive-include THIRD_PARTY_LICENSES *
+recursive-include src *
