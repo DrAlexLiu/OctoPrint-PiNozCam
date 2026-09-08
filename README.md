@@ -2,7 +2,7 @@
 
 <p align="center"><strong>🔎 Detect failures. 📱 Check your printer. ⏸️ Pause or stop from your phone.</strong></p>
 <p align="center">AI failure detection + phone monitoring &amp; control for OctoPrint —<br>
-all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. Detection runs on your printer, and there is no subscription.</p>
+all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. Detection runs on your board locally, and there is no subscription.</p>
 
 <div align="center">
   <img src="assets/images/failure_detection1.jpg" alt="PiNozCam detecting a print failure" width="40%">
