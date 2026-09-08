@@ -3,24 +3,16 @@
 import glob
 import os
 import struct
+import sys
 import sysconfig
 
 from setuptools import setup
 
 
-plugin_identifier = "pinozcam"
-plugin_package = "octoprint_pinozcam"
-plugin_name = "OctoPrint-PiNozCam"
 plugin_version = "1.1.0"
 runtime_version = "1.1.0"
-plugin_description = (
-    "AI print-failure detection that runs entirely on your printer's own "
-    "board. Runs on Linux (ARM32, ARM64, x86-64) and Apple Silicon macOS."
-)
-plugin_author = "DrAlexLiu"
-plugin_author_email = "liu1111w@uwindsor.ca"
-plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCam"
 plugin_license = "AGPL-3.0-only"
+plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCam"
 
 # Native inference is supplied by a target-specific runtime dependency.
 plugin_requires = [
@@ -28,32 +20,6 @@ plugin_requires = [
     "pyTelegramBotAPI",
     "websocket-client",
 ]
-
-# Templates, static files and translations are included automatically. Update
-# MANIFEST.in too if this list gains files, so source distributions include
-# them as well.
-plugin_additional_data = []
-
-# Additional packages outside <plugin_package>.*.
-plugin_additional_packages = []
-
-# Packages below <plugin_package>.* that should not be installed.
-plugin_ignored_packages = []
-
-additional_setup_parameters = {
-    "python_requires": ">=3.7,<4",
-    "dependency_links": [],
-    "classifiers": [
-        "Development Status :: 4 - Beta",
-        "Environment :: Web Environment",
-        "Framework :: OctoPrint",
-        "Intended Audience :: End Users/Desktop",
-        "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: C++",
-        "Topic :: Printing",
-    ],
-}
 
 # Build metadata selects one target runtime. Accelerator variants share the
 # aarch64 platform tag and are distinguished by distribution/version name.
@@ -101,8 +67,6 @@ if struct.calcsize("P") * 8 == 32 and _host_cpu_arch == "aarch64":
 _TARGET_ARCH = os.environ.get("PINOZCAM_ARCH", "").strip()
 if _TARGET_ARCH and _TARGET_ARCH not in _ARCH_PLAT:
     print("PINOZCAM_ARCH must be one of: %s" % ", ".join(sorted(_ARCH_PLAT)))
-    import sys
-
     sys.exit(-1)
 _TARGET_PLAT = _ARCH_PLAT.get(_TARGET_ARCH)
 
@@ -117,8 +81,6 @@ if not _TARGET_ARCH and not os.environ.get("PINOZCAM_ALLOW_HOST_WHEEL"):
     # ones that can run the daemon perfectly well.
     _host_plat_for_check = _ARCH_PLAT.get(_host_cpu_arch, _host)
     if _host_plat_for_check not in _runnable_plats:
-        import sys
-
         print("This host (%s) has no shipped daemon binary, so a wheel "
               "built here would install but never infer." % _host)
         print("Set the target architecture explicitly:")
@@ -130,14 +92,18 @@ if not _TARGET_ARCH and not os.environ.get("PINOZCAM_ALLOW_HOST_WHEEL"):
 
 
 # Keep build-time hardware probes independent of runtime dependencies.
-def _detect_rockchip_chip():
-    """Return the Rockchip SoC name from the device tree, if present."""
+def _device_tree_compatible():
+    """Return the device tree's compatible entries, empty when there is none."""
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
-            compatible = handle.read()
+            return handle.read().split(b"\x00")
     except (IOError, OSError):
-        return None
-    for entry in compatible.split(b"\x00"):
+        return []
+
+
+def _detect_rockchip_chip():
+    """Return the Rockchip SoC name from the device tree, if present."""
+    for entry in _device_tree_compatible():
         if not entry.startswith(b"rockchip,"):
             continue
         candidate = entry[len(b"rockchip,"):]
@@ -189,12 +155,7 @@ _AWNN_V113_LIB_DIRS = (
 
 def _detect_allwinner_vip_chip():
     """Return the Allwinner SoC name from the device tree, or None."""
-    try:
-        with open("/proc/device-tree/compatible", "rb") as handle:
-            entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
-        return None
-    for entry in entries:
+    for entry in _device_tree_compatible():
         if entry.startswith(b"allwinner,"):
             return entry[len(b"allwinner,"):].decode("ascii", "replace")
     return None
@@ -228,12 +189,7 @@ _SUPPORTED_BPU_CHIPS = ("x5",)
 
 def _detect_drobotics_chip():
     """Return the D-Robotics SoC name from the device tree, or None."""
-    try:
-        with open("/proc/device-tree/compatible", "rb") as handle:
-            entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
-        return None
-    for entry in entries:
+    for entry in _device_tree_compatible():
         text = entry.decode("ascii", "replace").strip()
         if "," not in text:
             continue
@@ -256,12 +212,8 @@ def _bpu_runtime_present():
 
 def _detect_nvidia_tegra():
     """Return whether the device tree identifies an NVIDIA Tegra SoC."""
-    try:
-        with open("/proc/device-tree/compatible", "rb") as handle:
-            entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
-        return False
-    return any(entry.startswith(b"nvidia,tegra") for entry in entries)
+    return any(entry.startswith(b"nvidia,tegra")
+               for entry in _device_tree_compatible())
 
 
 def _vulkan_runtime_present():
@@ -344,58 +296,16 @@ else:
     # A source installation does not require Wheel build support.
     _WHEEL_CMDCLASS = {}
 
-try:
-    import octoprint_setuptools
-except ImportError:
-    print(
-        "Could not import OctoPrint's setuptools. Are you running under "
-        "the same python installation that OctoPrint is installed under?"
-    )
-    import sys
-
-    sys.exit(-1)
-
-setup_parameters = octoprint_setuptools.create_plugin_setup_parameters(
-    identifier=plugin_identifier,
-    package=plugin_package,
-    name=plugin_name,
-    version=plugin_version,
-    description=plugin_description,
-    author=plugin_author,
-    mail=plugin_author_email,
-    url=plugin_url,
-    license=plugin_license,
-    requires=plugin_requires,
-    additional_packages=plugin_additional_packages,
-    ignored_packages=plugin_ignored_packages,
-    additional_data=plugin_additional_data,
-)
-
-if len(additional_setup_parameters):
-    from octoprint.util import dict_merge
-
-    setup_parameters = dict_merge(setup_parameters, additional_setup_parameters)
-
-# OctoPrint already supplies an explicit package_data list for static files,
-# templates and translations. Disable setuptools' second, implicit discovery
-# pass so those data directories are not misclassified as namespace packages.
-setup_parameters["include_package_data"] = False
+setup_parameters = {
+    "license": plugin_license,
+    "version": plugin_version,
+    "install_requires": list(plugin_requires),
+    "url": plugin_url,
+    "project_urls": {"Homepage": plugin_url},
+}
 
 if _WHEEL_CMDCLASS:
     setup_parameters.setdefault("cmdclass", {}).update(_WHEEL_CMDCLASS)
-
-# Binary-distribution notices must be inside the Wheel, not merely beside it
-# in the source archive. Keep one canonical copy in THIRD_PARTY_LICENSES and
-# install it under the environment's share/doc directory; duplicating the
-# files inside the Python package would create two copies that can drift.
-# Keep source paths relative. setuptools rejects absolute paths when the
-# caller places egg-info/build outside the checkout (which our Wheel test and
-# reproducible release build deliberately do).
-_NOTICE_FILES = sorted(glob.glob(os.path.join(
-    "THIRD_PARTY_LICENSES", "*")))
-setup_parameters["data_files"] = [
-    ("share/doc/OctoPrint-PiNozCam/THIRD_PARTY_LICENSES", _NOTICE_FILES)
-]
 
 # Metadata describing which external runtime setup.py requests. Accelerator
 # runtime Wheels contain their CPU fallback; the plugin Wheel contains neither.
@@ -583,19 +493,5 @@ if _runtime_target in _RUNTIME_REQUIREMENTS:
         _runtime_requirement)
     print("PiNozCam runtime target: %s" % _runtime_target)
     print("PiNozCam runtime dependency: %s" % _runtime_requirement)
-
-# exclude_package_data is a second mechanical guard. The files have been
-# removed from Git, but a developer may stage local artifacts under static/
-# while testing; they still must never leak into the plugin Wheel.
-_exclude = setup_parameters.setdefault(
-    "exclude_package_data", {}).setdefault(plugin_package, [])
-# Runtime payloads belong exclusively to external runtime Wheels. Exclude
-# every known native file even while the tracked copies remain in this branch
-# for the migration test; once validation passes they are removed from Git as
-# well, which is what makes GitHub's automatically generated tag ZIP small.
-_exclude.extend([
-    "static/bin/*",
-    "static/models/*",
-])
 
 setup(**setup_parameters)
