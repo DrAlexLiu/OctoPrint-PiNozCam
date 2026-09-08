@@ -515,7 +515,10 @@ class PinozcamPlugin(ConfirmMixin,
         """True if some camera source is configured. Does not fetch."""
         if self.custom_snapshot_url:
             return True
-        if self._settings.global_get(["webcam", "snapshot"]):
+        # ⚠️ Not the raw webcam.snapshot key: OctoPrint 1.9 migrates it into
+        # the classicwebcam plugin and removes the original, so reading it
+        # directly reports "no camera" on a 1.9+ machine that has one.
+        if self._default_snapshot_url():
             return True
         return bool(self.cameras)
 

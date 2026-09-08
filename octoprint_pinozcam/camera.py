@@ -70,12 +70,78 @@ class CameraMixin(object):
                 + base64.b64encode(self._no_camera_jpeg()).decode("utf-8"))
 
     def _global_flips(self):
-        """OctoPrint's global webcam transform flags, as plain bools."""
+        """The user's webcam transform, from wherever this OctoPrint keeps it.
+
+        ⚠️ NOT simply `webcam.flipH` any more. OctoPrint 1.9's classicwebcam
+        plugin migrates flipH, flipV and rotate90 into its own settings and
+        then calls `global_remove(["webcam", "flipH"])` on the originals
+        (plugins/classicwebcam/__init__.py, on_settings_migrate). Reading the
+        old keys on 1.9+ therefore returns the DEFAULT rather than the user's
+        choice -- so a flip the user had ticked was silently not applied to
+        the frame the model sees, and this detector is not flip invariant.
+
+        The provider path never had this problem: it reads flipH/flipV/
+        rotate90 off the webcam's own configuration. This is the fallback
+        for the two paths that have no provider config to read -- a custom
+        snapshot URL, and the default-snapshot fallback -- and it now asks
+        the same place the provider path does before dropping back to the
+        old keys, which remain correct on OctoPrint < 1.9.
+        """
+        if self.snap_new_method:
+            config = self._default_webcam_config()
+            if config is not None:
+                return (bool(getattr(config, "flipH", False)),
+                        bool(getattr(config, "flipV", False)),
+                        bool(getattr(config, "rotate90", False)))
         return (
             bool(self._settings.global_get_boolean(["webcam", "flipH"])),
             bool(self._settings.global_get_boolean(["webcam", "flipV"])),
             bool(self._settings.global_get_boolean(["webcam", "rotate90"])),
         )
+
+    def _default_snapshot_url(self):
+        """The snapshot URL for the last-resort path, or "".
+
+        ⚠️ `webcam.snapshot` is one of the eleven keys OctoPrint 1.9's
+        classicwebcam plugin migrates and then global_remove()s, so reading
+        it alone made this fallback DEAD on 1.9+: it could only ever find
+        nothing and log "No snapshot URL configured". Ask the designated
+        snapshot webcam first -- that is where the value lives now -- and
+        keep the old key for OctoPrint < 1.9.
+
+        Reached only when the provider path found no webcam that answered,
+        so a line saying which source rescued it is worth having: the two
+        failure modes look identical from the outside.
+        """
+        config = self._default_webcam_config() if self.snap_new_method \
+            else None
+        if config is not None:
+            compat = getattr(config, "compat", None)
+            url = getattr(compat, "snapshot", None) if compat else None
+            if url:
+                self._logger.debug(
+                    "Default snapshot URL came from the snapshot webcam's "
+                    "configuration, not the legacy webcam.snapshot setting")
+                return url
+        return self._settings.global_get(["webcam", "snapshot"])
+
+    def _default_webcam_config(self):
+        """The snapshot webcam's configuration object, or None.
+
+        Separate from _provider_candidates() on purpose: that one enumerates
+        every webcam to find one that answers, which is the right question
+        when actually taking a picture. Here the question is only "what
+        transform did the user configure", so the designated snapshot webcam
+        is the answer, and a camera that happens to be unreachable does not
+        change it.
+        """
+        try:
+            import octoprint.webcams
+            provided = octoprint.webcams.get_snapshot_webcam()
+        except Exception as exc:                              # noqa: BLE001
+            self._logger.debug("get_snapshot_webcam failed: %s", exc)
+            return None
+        return getattr(provided, "config", None) if provided else None
 
     # One JPEG frame is single-digit MB even at 4K. The realistic runaway
     # is a provider answering take_webcam_snapshot() with its MJPEG
@@ -256,11 +322,16 @@ class CameraMixin(object):
         return ("global", "") + self._global_flips()
 
     def _global_webcam_flags(self):
-        """Read webcam flip and rotate flags in one call."""
-        return (bool(self._settings.global_get_boolean(["webcam", "flipH"])),
-                bool(self._settings.global_get_boolean(["webcam", "flipV"])),
-                bool(self._settings.global_get_boolean(["webcam",
-                                                        "rotate90"])))
+        """Read webcam flip and rotate flags in one call.
+
+        ⚠️ Kept as a name, not as a second implementation. The two
+        differed in docstring and formatting -- one returned a wrapped
+        tuple, the other a single-line one -- but read the identical three
+        settings paths and returned the identical value, which is exactly
+        why the OctoPrint 1.9 fix had to be made in both places or neither:
+        two call sites went through this name, two through the other.
+        """
+        return self._global_flips()
 
     def transform_image(self, img, must_flip_h, must_flip_v, must_rotate):
         # Only call Pillow if we need to transpose anything
@@ -427,7 +498,7 @@ class CameraMixin(object):
         # toggle stays hidden rather than guessing.
         self.snapshot_source_name = None
         snapshot = None
-        snapshot_url = self._settings.global_get(["webcam", "snapshot"])
+        snapshot_url = self._default_snapshot_url()
         if not snapshot_url:
             if not quiet:
                 self._logger.error("No snapshot URL configured")

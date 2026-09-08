@@ -55,10 +55,20 @@ its messages are easy to recognise.
 
 ## Privacy notes
 
-| Optional configuration | Data sent outside your network |
-|---|---|
-| Telegram credentials enabled | analysed camera image and print status to Telegram |
-| Discord credentials enabled | analysed camera image and print status to Discord; commands read from the configured channel |
+Nothing leaves your network unless you configure Telegram or Discord.
+Once one is on, more than failure alerts go through it -- every operation
+below sends a camera image and message text; only the first two also
+carry live printer/status information:
+
+| Operation | Image | Text |
+|---|---|---|
+| **Failure alert** | the analysed frame, detection boxes drawn on it | printer state, progress, temperatures |
+| **Check** (either bot) / **`/hi`** (Telegram) | the CURRENT camera view, unmasked -- not the analysed frame an alert carries | printer state, progress, temperatures |
+| **Connection test** | a masked camera frame (or a placeholder if none is configured) | a fixed test message, no live status |
+| **Welcome message** (once, after setup) | a masked camera frame (or a placeholder) | fixed setup instructions, no live status |
+
+Discord additionally reads typed commands (`!check`, `!help`, ...) from
+the configured channel to answer them.
 
 Anyone allowed to operate the configured chat/channel controls may request a
 view or operate the printer, so use a private destination and protect bot

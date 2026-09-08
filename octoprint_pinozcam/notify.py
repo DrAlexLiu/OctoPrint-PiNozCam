@@ -63,6 +63,18 @@ class NotifyMixin(object):
                   "to see the camera meanwhile.")
     UNMUTED_TEXT = "🔊 Alerts are back on."
 
+    # ⚠️ Referenced by handle_discord_command's "help" branch below, which
+    # existed with no constant defined -- an AttributeError the Discord
+    # worker's own try/except (discord_bot.py) swallows into a log line, so
+    # !help produced no reply at all, silently, for anyone who typed it.
+    DISCORD_HELP = (
+        "PiNozCam commands: `!check` -- the current camera view and "
+        "printer status. `!status` -- printer status only, no image. "
+        "`!pause` / `!resume` / `!stop` -- control the print (asks you "
+        "to confirm first). `!mute` / `!unmute` -- toggle alerts. "
+        "`!help` -- this message."
+    )
+
     # Re-export shared credential helpers through the plugin mixin.
     TELEGRAM_TOKEN_RE = credentials.TELEGRAM_TOKEN_RE
     TELEGRAM_CHAT_RE = credentials.TELEGRAM_CHAT_RE
@@ -282,9 +294,10 @@ class NotifyMixin(object):
         self._timed("welcome send to %s" % ",".join(media), lambda:
                     self.notify_all(
                         "Welcome to PiNozCam! Press the buttons on an "
-                        "alert, or send /hi (Telegram) or !help "
+                        "alert, or send /hi (Telegram) or !check "
                         "(Discord) to see the camera and the printer "
-                        "status.",
+                        "status. Send !help in Discord for the full "
+                        "command list.",
                         image=image, buttons=False, silent=True,
                         respect_mute=False, only=media))
 

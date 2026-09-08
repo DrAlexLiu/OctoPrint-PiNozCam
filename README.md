@@ -2,7 +2,7 @@
 
 <p align="center"><strong>🔎 Detect failures. 📱 Check your printer. ⏸️ Pause or stop from your phone.</strong></p>
 <p align="center">AI failure detection + phone monitoring &amp; control for OctoPrint —<br>
-all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. No cloud, no subscription.</p>
+all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. Detection runs on your printer, and there is no subscription.</p>
 
 <div align="center">
   <img src="assets/images/failure_detection1.jpg" alt="PiNozCam detecting a print failure" width="40%">
@@ -17,8 +17,10 @@ all yours on a <strong>~US$45 Raspberry Pi 5 (1 GB)</strong>. No cloud, no subsc
 </p>
 
 PiNozCam watches your OctoPrint camera, spots failures, and alerts you —
-or pauses or stops the print for you. Everything runs on your own machine,
-and camera frames never leave your network.
+or pauses or stops the print for you. Detection runs on your own machine,
+and no frame is uploaded for the model to look at. See
+[Private by default](#-private-by-default) for what the optional Telegram
+and Discord integrations do send.
 
 | 🔎 **AI Failure Detection** | 📱 **Remote Printer Monitor & Control** |
 |---|---|
@@ -48,7 +50,12 @@ Setup guide: [docs/notifications.md](docs/notifications.md)
 
 ## ✨ Why PiNozCam
 
-- **100% local AI** — no account, no cloud, no telemetry, no fee.
+- **The AI runs on your machine** — no account, no telemetry, no fee, and
+  no frame is uploaded for the model to look at. ⚠️ Telegram and Discord
+  are the exception, and it is more than just alerts: Check, `/hi`,
+  connection tests and the welcome message all send a camera image
+  through those services too, once you turn either one on. See
+  [Private by default](#-private-by-default).
 - **Cheap hardware is enough** — a ~US$45 Raspberry Pi 5 with 1 GB RAM
   runs it comfortably.
 - **CPU, NPU, and GPU support** — Raspberry Pi, x86, selected Rockchip and
@@ -190,10 +197,24 @@ Placement photos and the full checklist: [docs/camera.md](docs/camera.md)
 
 ## 🔒 Private by default
 
-Frames, results, and settings stay on your OctoPrint machine. Nothing leaves
-your network unless **you** connect Telegram or Discord — and then only the
-analysed image and print status go out. Keep bot tokens secret like
-passwords.
+Detection runs on your OctoPrint machine and uploads no frame to do it.
+Nothing leaves your network unless **you** connect Telegram or Discord —
+and once you do, more than alerts go through them. Each of these sends a
+camera image and message text to that service; failure alerts and Check
+also include printer/status information:
+
+- a **failure alert**, with the detection boxes drawn on the frame, and
+  printer state and progress;
+- **Check** in either bot, or **/hi** in Telegram — the CURRENT camera
+  view, unmasked, not the analysed frame an alert carries, with the same
+  printer/status information;
+- the **connection test**, so you can confirm messages reach you without
+  waiting for a real failure — a masked camera frame and a fixed test
+  message, no live printer status;
+- the one-time **welcome message** after setup — a masked camera frame
+  and fixed setup instructions, likewise no live status.
+
+Keep bot tokens secret like passwords.
 
 ## 🖥️ OctoPrint interface
 
