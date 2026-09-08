@@ -75,7 +75,7 @@ if struct.calcsize("P") * 8 == 32 and _host_cpu_arch == "aarch64":
 
 _TARGET_ARCH = os.environ.get("PINOZCAM_ARCH", "").strip()
 if _TARGET_ARCH and _TARGET_ARCH not in _ARCH_PLAT:
-    print("PINOZCAM_ARCH must be one of: %s" % ", ".join(sorted(_ARCH_PLAT)))
+    print("PINOZCAM_ARCH must be one of: {}".format(", ".join(sorted(_ARCH_PLAT))))
     sys.exit(-1)
 _TARGET_PLAT = _ARCH_PLAT.get(_TARGET_ARCH)
 
@@ -90,11 +90,11 @@ if not _TARGET_ARCH and not os.environ.get("PINOZCAM_ALLOW_HOST_WHEEL"):
     # ones that can run the daemon perfectly well.
     _host_plat_for_check = _ARCH_PLAT.get(_host_cpu_arch, _host)
     if _host_plat_for_check not in _runnable_plats:
-        print("This host (%s) has no shipped daemon binary, so a wheel "
-              "built here would install but never infer." % _host)
+        print(f"This host ({_host}) has no shipped daemon binary, so a wheel "
+              "built here would install but never infer.")
         print("Set the target architecture explicitly:")
         for _arch in sorted(_RUNNABLE_ARCHES):
-            print("    PINOZCAM_ARCH=%-14s -> %s" % (_arch, _ARCH_PLAT[_arch]))
+            print(f"    PINOZCAM_ARCH={_arch:<14} -> {_ARCH_PLAT[_arch]}")
         print("or PINOZCAM_ALLOW_HOST_WHEEL=1 for a UI-only local "
               "development wheel.")
         sys.exit(-1)
@@ -106,7 +106,7 @@ def _device_tree_compatible():
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
             return handle.read().split(b"\x00")
-    except (IOError, OSError):
+    except OSError:
         return []
 
 
@@ -239,8 +239,8 @@ def _vulkan_runtime_present():
     if multiarch is None:
         return False
     return any(os.path.exists(p) for p in (
-        "/lib/%s/libvulkan.so.1" % multiarch,
-        "/usr/lib/%s/libvulkan.so.1" % multiarch,
+        f"/lib/{multiarch}/libvulkan.so.1",
+        f"/usr/lib/{multiarch}/libvulkan.so.1",
         "/usr/local/lib/libvulkan.so.1",
     ))
 
@@ -251,11 +251,11 @@ def _detect_x86_vulkan_gpu():
         return False
     for device in glob.glob("/sys/bus/pci/devices/*"):
         try:
-            with open(os.path.join(device, "class"), "r") as handle:
+            with open(os.path.join(device, "class")) as handle:
                 pci_class = handle.read().strip().lower()
-            with open(os.path.join(device, "vendor"), "r") as handle:
+            with open(os.path.join(device, "vendor")) as handle:
                 vendor = handle.read().strip().lower()
-        except (IOError, OSError):
+        except OSError:
             continue
         if (pci_class.startswith("0x03")
                 and vendor in _X86_VULKAN_GPU_VENDORS):
@@ -443,15 +443,15 @@ _runtime_target = _ARCH_RUNTIME.get(_target_arch)
 if _runtime_target in _RUNTIME_REQUIREMENTS:
     _runtime_dist, _runtime_wheel = _RUNTIME_REQUIREMENTS[_runtime_target]
     if _runtime_dist in _PYPI_PUBLISHED_DISTS:
-        _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
+        _runtime_requirement = f"{_runtime_dist}=={runtime_version}"
     else:
-        _runtime_url = "%s/%s/%s" % (
-            _RUNTIME_RELEASE_BASE, runtime_version,
-            _runtime_wheel % runtime_version)
-        _runtime_requirement = "%s @ %s" % (_runtime_dist, _runtime_url)
+        _runtime_filename = _runtime_wheel % runtime_version
+        _runtime_url = (f"{_RUNTIME_RELEASE_BASE}/{runtime_version}/"
+                        f"{_runtime_filename}")
+        _runtime_requirement = f"{_runtime_dist} @ {_runtime_url}"
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
-    print("PiNozCam runtime target: %s" % _runtime_target)
-    print("PiNozCam runtime dependency: %s" % _runtime_requirement)
+    print(f"PiNozCam runtime target: {_runtime_target}")
+    print(f"PiNozCam runtime dependency: {_runtime_requirement}")
 
 setup(**setup_parameters)

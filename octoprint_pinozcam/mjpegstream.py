@@ -39,7 +39,7 @@ def parse_boundary(content_type):
     media_type = message.get_content_type()
     if media_type != "multipart/x-mixed-replace":
         raise MultipartError(
-            "expected multipart/x-mixed-replace, got %r" % media_type)
+            f"expected multipart/x-mixed-replace, got {media_type!r}")
     boundary = message.get_param("boundary")
     if isinstance(boundary, tuple):
         # RFC 2231 extended parameters are (charset, language, value).
@@ -56,7 +56,7 @@ _PROGRESS = object()
 _INVALID_LENGTH = object()
 
 
-class MultipartParser(object):
+class MultipartParser:
     """Incremental parser scoped to one connection."""
 
     _SEEK_BOUNDARY, _HEADERS, _BODY_KNOWN, _BODY_SCAN, _DONE = range(5)
@@ -118,8 +118,8 @@ class MultipartParser(object):
         if idx == -1:
             if len(self._buf) > self._max_gap_bytes:
                 raise MultipartError(
-                    "no boundary found in the first %d bytes"
-                    % self._max_gap_bytes)
+                    f"no boundary found in the first "
+                    f"{self._max_gap_bytes} bytes")
             return _NEED_MORE
         after = idx + len(self._delim)
         if len(self._buf) < after + 2:
@@ -143,8 +143,7 @@ class MultipartParser(object):
         if sep_idx is None:
             if len(self._buf) > self._max_headers_total:
                 raise MultipartError(
-                    "part headers exceed %d bytes"
-                    % self._max_headers_total)
+                    f"part headers exceed {self._max_headers_total} bytes")
             return _NEED_MORE
         block = bytes(self._buf[:sep_idx])
         del self._buf[:sep_idx + sep_len]
@@ -218,8 +217,8 @@ class MultipartParser(object):
             return Part(headers, body)
         if len(buf) > self._max_part_bytes:
             raise MultipartError(
-                "part exceeds %d bytes with no boundary found"
-                % self._max_part_bytes)
+                f"part exceeds {self._max_part_bytes} bytes with no "
+                "boundary found")
         return _NEED_MORE
 
     # ---- small helpers ---------------------------------------------------
@@ -253,7 +252,7 @@ class MultipartParser(object):
                 continue
             if len(raw_line) > self._max_header_line:
                 raise MultipartError(
-                    "header line exceeds %d bytes" % self._max_header_line)
+                    f"header line exceeds {self._max_header_line} bytes")
             line = raw_line.decode("latin-1")
             if ":" not in line:
                 continue

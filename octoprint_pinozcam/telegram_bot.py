@@ -50,9 +50,9 @@ def confirm_buttons(action, token):
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.row(
         telebot.types.InlineKeyboardButton(
-            'Yes', callback_data='yes:%s:%s' % (action, token)),
+            'Yes', callback_data=f'yes:{action}:{token}'),
         telebot.types.InlineKeyboardButton(
-            'No', callback_data='no:%s:%s' % (action, token)),
+            'No', callback_data=f'no:{action}:{token}'),
     )
     return keyboard
 
@@ -68,7 +68,7 @@ def send_draft(token, chat_id, image=None, caption=""):
                          disable_notification=True)
 
 
-class TelegramBot(object):
+class TelegramBot:
     """Long-poll client plus the REST calls that go with it.
 
     Sending does not need the poller: send() is an ordinary REST call, and
@@ -169,7 +169,7 @@ class TelegramBot(object):
 
     def verify(self):
         """Return an error string if Telegram rejects the credentials."""
-        url = "https://api.telegram.org/bot%s/getChat" % self.token
+        url = f"https://api.telegram.org/bot{self.token}/getChat"
         try:
             response = self._timed(
                 "telegram verify",
@@ -178,8 +178,7 @@ class TelegramBot(object):
             if response.status_code == 200:
                 self.last_error = None
                 return None
-            error = ("Telegram refused the credentials (HTTP %s)."
-                     % response.status_code)
+            error = (f"Telegram refused the credentials (HTTP {response.status_code}).")
         except Exception as exc:                            # noqa: BLE001
             error = credentials.redact(str(exc))
         self._logger.error("Telegram check failed: %s", error)
@@ -318,8 +317,8 @@ class TelegramBot(object):
                         "without staying up; stopping. Check the token and "
                         "the network, then save the settings to retry.",
                         consecutive)
-                    self.last_error = ("polling gave up after %d failures"
-                                       % consecutive)
+                    self.last_error = (f"polling gave up after "
+                                       f"{consecutive} failures")
                     self.running = False
                     return
                 self._logger.info(

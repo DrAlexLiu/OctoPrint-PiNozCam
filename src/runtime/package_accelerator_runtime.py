@@ -169,7 +169,7 @@ def _sha256(path):
 def _copy(source, destination, executable=False):
     """Copy one required artifact into the staged package."""
     if not os.path.isfile(source):
-        raise RuntimeError("missing runtime artifact: %s" % source)
+        raise RuntimeError(f"missing runtime artifact: {source}")
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     shutil.copy2(source, destination)
     if executable:
@@ -189,7 +189,7 @@ def _record_payload(package, spec):
         directory = os.path.join(package, relative)
         for name in sorted(os.listdir(directory)):
             path = os.path.join(directory, name)
-            files["%s/%s" % (relative, name)] = {
+            files[f"{relative}/{name}"] = {
                 "bytes": os.path.getsize(path),
                 "sha256": _sha256(path),
             }
@@ -248,8 +248,7 @@ def _stage(stage, artifacts, target, version, revision):
         "plugin_version": version,
         "runner_protocol": 1,
         "source": (
-            "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/%s"
-            % revision
+            f"https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/{revision}"
         ),
         "target": target,
     }
@@ -265,10 +264,9 @@ def _stage(stage, artifacts, target, version, revision):
             "ROOT = os.path.dirname(os.path.abspath(__file__))\n"
             'BIN_DIR = os.path.join(ROOT, "bin")\n'
             'MODEL_DIR = os.path.join(ROOT, "models")\n'
-            "TARGET = %r\n"
-            "VERSION = %r\n"
-        )
-        % (target, version),
+            f"TARGET = {target!r}\n"
+            f"VERSION = {version!r}\n"
+        ),
     )
 
     setup_source = '''from setuptools import Distribution, setup
@@ -351,7 +349,7 @@ def main():
     os.makedirs(output, exist_ok=True)
     spec = TARGETS[args.target]
     with tempfile.TemporaryDirectory(
-            prefix="pinozcam_runtime_%s_" % args.target) as stage:
+            prefix=f"pinozcam_runtime_{args.target}_") as stage:
         _stage(
             stage,
             artifacts,
@@ -366,29 +364,25 @@ def main():
             check=True,
         )
 
-    filename = "%s-%s-py3-none-%s.whl" % (
+    filename = "{}-{}-py3-none-{}.whl".format(
         spec["dist"].replace("-", "_"),
         args.version,
         spec["platform"],
     )
     wheel = os.path.join(output, filename)
     if not os.path.isfile(wheel):
-        raise RuntimeError("expected Wheel was not produced: %s" % wheel)
+        raise RuntimeError(f"expected Wheel was not produced: {wheel}")
     wheels = sorted(
         name for name in os.listdir(output) if name.endswith(".whl")
     )
     _write(
         os.path.join(output, "SHA256SUMS"),
         "".join(
-            "%s  %s\n" % (_sha256(os.path.join(output, name)), name)
+            f"{_sha256(os.path.join(output, name))}  {name}\n"
             for name in wheels
         ),
     )
-    print("%s  %s  %d" % (
-        _sha256(wheel),
-        filename,
-        os.path.getsize(wheel),
-    ))
+    print(f"{_sha256(wheel)}  {filename}  {os.path.getsize(wheel)}")
 
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ def tag(printer_id, command):
     """Tag a command with its printer instance for shared-channel routing."""
     if not printer_id:
         return command
-    return "%s:%s:%s" % (ID_PREFIX, printer_id, command)
+    return f"{ID_PREFIX}:{printer_id}:{command}"
 
 
 def untag(custom_id):
@@ -112,17 +112,17 @@ def confirm_buttons(printer_id, action, token):
     return [{
         "type": 1,
         "components": [
-            {"type": 2, "style": 4, "label": "Yes, %s" % action,
+            {"type": 2, "style": 4, "label": f"Yes, {action}",
              "custom_id": tag(printer_id,
-                              "confirm:%s:%s" % (action, token))},
+                              f"confirm:{action}:{token}")},
             {"type": 2, "style": 2, "label": "Cancel",
              "custom_id": tag(printer_id,
-                              "cancel:%s:%s" % (action, token))},
+                              f"cancel:{action}:{token}")},
         ],
     }]
 
 
-class DiscordBot(object):
+class DiscordBot:
     """Single-threaded Gateway client with independent REST delivery."""
 
     def __init__(self, token, channel_id, logger, on_command,
@@ -161,7 +161,7 @@ class DiscordBot(object):
     def _headers(self):
         """Authorization and User-Agent for every REST call."""
         return {
-            "Authorization": "Bot %s" % self.token,
+            "Authorization": f"Bot {self.token}",
             "User-Agent": "PiNozCam (https://github.com/DrAlexLiu, 1.1)",
         }
 
@@ -188,20 +188,21 @@ class DiscordBot(object):
         try:
             response = self._timed(
                 "discord verify",
-                lambda: requests.get("%s/channels/%s" % (API, self.channel_id),
+                lambda: requests.get(f"{API}/channels/{self.channel_id}",
                                      headers=self._headers(),
                                      timeout=(5, 15)))
         except requests.exceptions.RequestException as exc:
             # last_error is shown in the UI and logged, and a gateway error
             # can quote the URL it was given.
-            self.last_error = "cannot reach Discord: %s" % redact(exc)
+            self.last_error = f"cannot reach Discord: {redact(exc)}"
             return False
         if response.status_code == 200:
             return True
         self.last_error = (
-            "Discord refused the credentials (HTTP %s). Check the bot token, "
-            "that the bot was invited to the server, and that it can see the "
-            "channel." % response.status_code)
+            f"Discord refused the credentials "
+            f"(HTTP {response.status_code}). Check the bot token, that the "
+            "bot was invited to the server, and that it can see the "
+            "channel.")
         return False
 
     def send(self, content="", image=None, components=None, silent=False):
@@ -227,7 +228,7 @@ class DiscordBot(object):
                 response = self._timed(
                     "discord send (with image)",
                     lambda: requests.post(
-                        "%s/channels/%s/messages" % (API, self.channel_id),
+                        f"{API}/channels/{self.channel_id}/messages",
                         headers=self._headers(),
                         data={"payload_json": json.dumps(payload)},
                         files={
@@ -241,7 +242,7 @@ class DiscordBot(object):
                 headers = dict(self._headers())
                 headers["Content-Type"] = "application/json"
                 response = self._timed("discord send (text)", lambda: requests.post(
-                    "%s/channels/%s/messages" % (API, self.channel_id),
+                    f"{API}/channels/{self.channel_id}/messages",
                     headers=headers, data=json.dumps(payload),
                     timeout=(5, 20)))
             if response.status_code in (200, 201):
@@ -265,7 +266,7 @@ class DiscordBot(object):
             # Discord's 3 second window, so waiting 5 s for a read is
             # waiting past the point where it can still help.
             response = self._timed("discord ack (3s deadline)", lambda: requests.post(
-                "%s/interactions/%s/%s/callback" % (
+                "{}/interactions/{}/{}/callback".format(
                     API, interaction["id"], interaction["token"]),
                 json={"type": CB_DEFERRED_UPDATE}, timeout=(1.5, 1.5)))
             if response.status_code not in (200, 204):
@@ -294,7 +295,7 @@ class DiscordBot(object):
             payload["components"] = components
         if silent:
             payload["flags"] = FLAG_SUPPRESS_NOTIFICATIONS
-        url = "%s/webhooks/%s/%s" % (API, interaction["application_id"],
+        url = "{}/webhooks/{}/{}".format(API, interaction["application_id"],
                                      interaction["token"])
         try:
             if image is not None:
@@ -410,7 +411,7 @@ class DiscordBot(object):
         self._started_at = time.monotonic()
         url = self._resume_url or "wss://gateway.discord.gg"
         ws = websocket.create_connection(
-            "%s/?v=10&encoding=json" % url.rstrip("/"), timeout=30)
+            "{}/?v=10&encoding=json".format(url.rstrip("/")), timeout=30)
         # A short recv timeout is what lets a single loop also send
         # heartbeats, avoiding a second thread writing to the same socket.
         ws.settimeout(1.0)
@@ -552,9 +553,9 @@ class DiscordBot(object):
             return False
 
         self.last_error = (
-            "Discord rejected the connection after IDENTIFY %d times (%s). "
-            "Check that the bot token is correct and the bot is invited to "
-            "the channel." % (self._identify_rejections, reason))
+            f"Discord rejected the connection after IDENTIFY "
+            f"{self._identify_rejections} times ({reason}). Check that the "
+            "bot token is correct and the bot is invited to the channel.")
         self._logger.error("%s Giving up; fix the setting and save again "
                            "to retry.", self.last_error)
         return True
@@ -576,7 +577,7 @@ class DiscordBot(object):
             self._intents = INTENTS_BUTTONS_ONLY
             self._session_id = None
             return False
-        self.last_error = "gateway close code %s: %s" % (code, redact(exc))
+        self.last_error = f"gateway close code {code}: {redact(exc)}"
         return True
 
     def _dispatch(self, message):
@@ -700,8 +701,8 @@ class DiscordBot(object):
         """Post a short notice that a command was dropped because busy."""
         try:
             self.send(content="PiNozCam is busy running an earlier "
-                              "command; `%s` was not queued. Try again in "
-                              "a moment." % name)
+                              f"command; `{name}` was not queued. Try again in "
+                              "a moment.")
         except Exception as exc:                        # noqa: BLE001
             self._logger.error("Could not post the busy notice: %s",
                                redact(str(exc)))
