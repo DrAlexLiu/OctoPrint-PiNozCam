@@ -26,7 +26,7 @@ DEFAULT_MAX_AGE = 4.0
 Candidate = namedtuple("Candidate", "image score captured_at")
 
 
-class FrameBuffer(object):
+class FrameBuffer:
     """Thread-safe candidate cache with bounded depth and age.
 
     Rules that protect correctness:

@@ -11,7 +11,7 @@ JPEG_CACHE = 3
 CAMERA_FRESH = 2.0
 
 
-class FrameStore(object):
+class FrameStore:
     """Store UI frames while serialising state and JPEG-cache updates."""
 
     def __init__(self):
@@ -69,10 +69,10 @@ class FrameStore(object):
         """Return the exact frame for an analysis ETag, or None."""
         with self._lock:
             latest = self._analysis
-            if latest is not None and etag == "a%d" % latest['frame_id']:
+            if latest is not None and etag == f"a{latest['frame_id']}":
                 return latest['frame']
             for fid, held in self._history:
-                if etag == "a%d" % fid:
+                if etag == f"a{fid}":
                     return held
         return None
 

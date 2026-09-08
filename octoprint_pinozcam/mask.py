@@ -62,7 +62,7 @@ def _grid_to_string(grid):
     return "".join("1" if cell else "0" for row in grid for cell in row)
 
 
-class MaskMixin(object):
+class MaskMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     def _camera_signature(self):
@@ -106,10 +106,10 @@ class MaskMixin(object):
         detail = signature.get("detail")
         if signature.get("source") == "custom":
             detail = None
-        return "%s%s, aspect %s, %s" % (
+        return "{}{}, aspect {}, {}".format(
             signature.get("source") or "?",
             " " + detail if detail else "",
-            "%.3f" % aspect if aspect else "unknown",
+            f"{aspect:.3f}" if aspect else "unknown",
             "+".join(flips) if flips else "no flip",
         )
 
@@ -200,11 +200,9 @@ class MaskMixin(object):
 
             if self._camera_moved(stored, current):
                 warning = (
-                    "Undetect Zone was drawn on a different camera frame (%s) "
-                    "than the one being analysed now (%s). It cannot be "
+                    f"Undetect Zone was drawn on a different camera frame ({self._describe_signature(stored)}) "
+                    f"than the one being analysed now ({self._describe_signature(current)}). It cannot be "
                     "converted automatically -- please redraw it."
-                    % (self._describe_signature(stored),
-                       self._describe_signature(current))
                 )
                 # Only log on a change of state: this runs whenever the
                 # observed frame geometry moves, and a camera that alternates

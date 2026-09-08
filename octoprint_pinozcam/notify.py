@@ -30,7 +30,7 @@ MUTED_LINE = ("All alerts are muted for this print -- on Telegram AND "
 TELEGRAM_HEALTHY_RUN = 120.0
 
 
-class AlertReceipt(object):
+class AlertReceipt:
     """Collect final delivery outcomes and report once when all finish."""
 
     def __init__(self, expected, on_final, logger):
@@ -56,7 +56,7 @@ class AlertReceipt(object):
             self._logger.exception("Alert receipt callback failed.")
 
 
-class NotifyMixin(object):
+class NotifyMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     MUTED_TEXT = ("🔇 " + MUTED_LINE + " Send /hi (Telegram) or press Check "
@@ -145,8 +145,8 @@ class NotifyMixin(object):
             verdict = self._consume_confirm(action, nonce, "telegram")
             if verdict == "expired":
                 self.telegram_send_with_reply(
-                    caption="You have to respond within %d seconds."
-                            % self.CONFIRM_TTL,
+                    caption=f"You have to respond within "
+                            f"{self.CONFIRM_TTL} seconds.",
                     reply_buttons=0, disable_notification=True)
             elif verdict != "ok":
                 self._logger.warning(
@@ -223,7 +223,7 @@ class NotifyMixin(object):
             self._logger.info("User clicked '%s' button for message ID: %s",
                               call.data.capitalize(), message_id)
             self.telegram_send_with_reply(
-                caption="Are you sure you want to %s the print job?" % action,
+                caption=f"Are you sure you want to {action} the print job?",
                 reply_buttons=2, disable_notification=True,
                 confirm=(action, self._issue_confirm(action, "telegram")))
         return None
@@ -279,7 +279,7 @@ class NotifyMixin(object):
 
     def _welcome_send(self, media, image):
         """Deliver the welcome to the channels that are still current."""
-        self._timed("welcome send to %s" % ",".join(media), lambda:
+        self._timed("welcome send to {}".format(",".join(media)), lambda:
                     self.notify_all(
                         "Welcome to PiNozCam! Press the buttons on an "
                         "alert, or send /hi (Telegram) or !help "
@@ -507,7 +507,7 @@ class NotifyMixin(object):
                 work = queue.Queue(maxsize=self.NOTIFY_QUEUE_MAX)
                 thread = threading.Thread(
                     target=self._medium_worker, args=(name, send, work),
-                    name="pinozcam-notify-%s" % name)
+                    name=f"pinozcam-notify-{name}")
                 thread.daemon = True
                 self.notify_queues[name] = (work, thread)
                 thread.start()
@@ -737,11 +737,10 @@ class NotifyMixin(object):
             reply(self.DISCORD_HELP)
         elif command == "status":
             title, state, progress, nozzle, bed, meta = self.get_printer_status()
-            body = ("Printer: %s\nStatus: %s\nProgress: %s\n"
-                    "Nozzle: %s\u00b0C\nBed: %s\u00b0C"
-                    % (title, state, progress, nozzle, bed))
+            body = (f"Printer: {title}\nStatus: {state}\nProgress: {progress}\n"
+                    f"Nozzle: {nozzle}\u00b0C\nBed: {bed}\u00b0C")
             if meta:
-                body += "\nFile: %s" % meta.get("name", "Unknown")
+                body += "\nFile: {}".format(meta.get("name", "Unknown"))
             reply(body)
         elif command == "check":
             # Camera and printer availability are independent.
@@ -775,8 +774,8 @@ class NotifyMixin(object):
                 reply(problem)
                 return
             token = self._issue_confirm(action, "discord")
-            reply("Confirm: %s the print? (valid for %ds)"
-                  % (action, self.CONFIRM_TTL),
+            reply(f"Confirm: {action} the print? "
+                  f"(valid for {self.CONFIRM_TTL}s)",
                   components=discord_confirm_buttons(
                       self.printer_id, action, token))
 
@@ -826,7 +825,7 @@ class NotifyMixin(object):
         if name and str(name).strip():
             return str(name).strip()
         if self.printer_id:
-            return "printer-%s" % self.printer_id[:8]
+            return f"printer-{self.printer_id[:8]}"
         # No name and no id yet: only reachable before the first settings
         # load, and "Unnamed" is at least not the word None.
         return "Unnamed printer"
@@ -874,7 +873,7 @@ class NotifyMixin(object):
         else:
             # Still reachable: OctoPrint can add states, and it is better to
             # show the raw id than to hide it behind a question mark.
-            state = "❓ %s" % state_id
+            state = f"❓ {state_id}"
             progress = 0
 
         # Initialize temperature variables

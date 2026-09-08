@@ -9,7 +9,7 @@ from . import settings_schema as schema
 from . import credentials
 
 
-class ConfigMixin(object):
+class ConfigMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     def get_settings_restricted_paths(self):

@@ -37,7 +37,7 @@ def _sample_undervoltage(logger):
         return None
 
 
-class ApiMixin(object):
+class ApiMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     def _affinity_core_summary(self):
@@ -148,7 +148,7 @@ class ApiMixin(object):
             if want is not None and want.startswith("a"):
                 return None, None
             return self._cached_masked_snapshot()
-        etag = "a%d" % analysis['frame_id']
+        etag = f"a{analysis['frame_id']}"
         frame = analysis['frame']
         if want is not None and want.startswith("a") and want != etag:
             # Serve only still-current IDs to keep boxes aligned to the same
@@ -173,7 +173,7 @@ class ApiMixin(object):
         analysis = self._fresh_analysis()
         if analysis is not None:
             frame_kind = "analysis"
-            frame_id = "a%d" % analysis['frame_id']
+            frame_id = f"a{analysis['frame_id']}"
             frame_boxes = analysis['boxes']
             frame_severity = round(analysis['severity'], 3)
             # The criterion's own per-frame judgement -- what the live
@@ -187,7 +187,7 @@ class ApiMixin(object):
             # monotonic clock does exactly that, and /frame.jpg's own
             # ETag is what guarantees correctness.
             frame_kind = "camera"
-            frame_id = "c%d" % int(time.monotonic())
+            frame_id = f"c{int(time.monotonic())}"
             frame_boxes = []
             frame_severity = None
             frame_alarming = False
@@ -403,7 +403,7 @@ class ApiMixin(object):
         wanted = (flask.request.args.get("channel") or "").strip().lower()
         if wanted and wanted not in ("telegram", "discord"):
             return Response(
-                json.dumps({"error": "unknown channel %r" % wanted}),
+                json.dumps({"error": f"unknown channel {wanted!r}"}),
                 status=400, mimetype="application/json")
         # Read once and never log the draft credentials.
         draft = self._draft("telegramBotToken", "telegramChatID",
@@ -471,8 +471,8 @@ class ApiMixin(object):
                 detail = self.redact(str(exc))
                 hint = self.describe_telegram_problem(use_token, use_chat)
                 if hint:
-                    detail = "%s (%s)" % (detail, hint)
-                results["telegram"] = "failed: %s" % detail
+                    detail = f"{detail} ({hint})"
+                results["telegram"] = f"failed: {detail}"
         else:
             results["telegram"] = "not configured"
 
@@ -490,9 +490,8 @@ class ApiMixin(object):
             if not (use_token and use_channel):
                 if use_token or use_channel:
                     results["discord"] = (
-                        "failed: %s"
-                        % self.describe_discord_problem(use_token,
-                                                        use_channel))
+                        "failed: {}".format(self.describe_discord_problem(use_token,
+                                                        use_channel)))
                 else:
                     results["discord"] = "not configured"
             else:
@@ -521,8 +520,8 @@ class ApiMixin(object):
                     hint = self.describe_discord_problem(use_token,
                                                          use_channel)
                     if hint:
-                        detail = "%s (%s)" % (detail, hint)
-                    results["discord"] = "failed: %s" % detail
+                        detail = f"{detail} ({hint})"
+                    results["discord"] = f"failed: {detail}"
 
         if wanted != "telegram" and (self.discord_bot_token
                                      and self.discord_channel_id):
@@ -545,7 +544,7 @@ class ApiMixin(object):
                             "message": "Nothing configured for this "
                                        "channel."}),
                 mimetype="application/json")
-        message = ", ".join("%s: %s" % (k, v)
+        message = ", ".join(f"{k}: {v}"
                             for k, v in sorted(results.items()))
         # Button connectivity is diagnostic. A REST message that arrived is
         # still a successful connection test while the gateway reconnects.
@@ -596,8 +595,7 @@ class ApiMixin(object):
         except Exception as exc:
             return Response(
                 json.dumps({"ok": False,
-                            "message": "%s: %s" % (type(exc).__name__,
-                                                   self.redact(str(exc)))}),
+                            "message": f"{type(exc).__name__}: {self.redact(str(exc))}"}),
                 mimetype="application/json")
         if image is None:
             return Response(json.dumps({
@@ -618,7 +616,7 @@ class ApiMixin(object):
             where = "the URL"
         return Response(json.dumps({
             "ok": True,
-            "message": "An image was read from %s and can be used." % where}),
+            "message": f"An image was read from {where} and can be used."}),
             mimetype="application/json")
 
     @octoprint.plugin.BlueprintPlugin.route(
@@ -682,8 +680,7 @@ class ApiMixin(object):
             except Exception as exc:
                 return Response(json.dumps({
                     "ok": False,
-                    "message": "Inference backend unavailable: %s"
-                               % self.redact(str(exc))}),
+                    "message": f"Inference backend unavailable: {self.redact(str(exc))}"}),
                     mimetype="application/json")
         if temporary:
             try:
@@ -703,8 +700,7 @@ class ApiMixin(object):
                     pass
                 return Response(json.dumps({
                     "ok": False,
-                    "message": "Backend would not start: %s"
-                               % self.redact(str(exc))}),
+                    "message": f"Backend would not start: {self.redact(str(exc))}"}),
                     mimetype="application/json")
         started = time.monotonic()
         try:
@@ -726,8 +722,7 @@ class ApiMixin(object):
         except Exception as exc:
             return Response(json.dumps({
                 "ok": False,
-                "message": "%s: %s" % (type(exc).__name__,
-                                       self.redact(str(exc)))}),
+                "message": f"{type(exc).__name__}: {self.redact(str(exc))}"}),
                             mimetype="application/json")
         finally:
             if temporary:
@@ -763,6 +758,8 @@ class ApiMixin(object):
                       "which throttles it below its rated clock; a better "
                       "power supply should raise this"
                       if undervoltage else "")
+        frame_note = ("; using the built-in no-camera test image"
+                      if frame_source == "placeholder" else "")
         return Response(json.dumps({
             "ok": True,
             "model_ms": round(model_ms, 1),
@@ -771,13 +768,11 @@ class ApiMixin(object):
             "frame_source": frame_source,
             "per_min_basis": "model_ms",
             "undervoltage": undervoltage,
-            "message": ("%.0f ms per inference = at most %.0f checks/min, "
-                        "on %d of %d %s%s%s%s"
-                        % (model_ms, per_min, cores, pool_cores, pool_label,
-                           "" if pool_cores == 1 else "s",
-                           ("; using the built-in no-camera test image"
-                            if frame_source == "placeholder" else ""),
-                           power_note))}),
+            "message": (f"{model_ms:.0f} ms per inference = at most "
+                        f"{per_min:.0f} checks/min, on {cores} of "
+                        f"{pool_cores} {pool_label}"
+                        f"{'' if pool_cores == 1 else 's'}"
+                        f"{frame_note}{power_note}")}),
                         mimetype="application/json")
 
     def _inference_test_frame(self):

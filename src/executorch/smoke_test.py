@@ -36,8 +36,8 @@ def _responses(data, expected):
         offset = end
     if offset != len(data):
         raise RuntimeError(
-            "unexpected stdout bytes after protocol frames: %d" %
-            (len(data) - offset)
+            f"unexpected stdout bytes after protocol frames: "
+            f"{len(data) - offset}"
         )
     return result
 
@@ -77,26 +77,26 @@ def main():
     stdout, stderr = process.communicate(wire, timeout=args.timeout)
     if process.returncode != 0:
         raise RuntimeError(
-            "daemon exited %d: %s" %
-            (process.returncode, stderr.decode("utf-8", "replace"))
+            f"daemon exited {process.returncode}: "
+            f"{stderr.decode('utf-8', 'replace')}"
         )
 
     ping, info_frame, infer_frame, shutdown = _responses(stdout, 4)
     if ping != (0, b"pong"):
-        raise RuntimeError("bad PING response: %r" % (ping,))
+        raise RuntimeError(f"bad PING response: {ping!r}")
     if shutdown != (0, b"bye"):
-        raise RuntimeError("bad SHUTDOWN response: %r" % (shutdown,))
+        raise RuntimeError(f"bad SHUTDOWN response: {shutdown!r}")
 
     if info_frame[0] != 0:
-        raise RuntimeError("INFO failed: %r" % (info_frame,))
+        raise RuntimeError(f"INFO failed: {info_frame!r}")
     info = json.loads(info_frame[1].decode("utf-8"))
     if info["proc_w"] != WIDTH or info["proc_h"] != HEIGHT:
-        raise RuntimeError("wrong input geometry: %r" % (info,))
+        raise RuntimeError(f"wrong input geometry: {info!r}")
     if info["n_outputs"] != 10:
-        raise RuntimeError("wrong output count: %r" % (info,))
+        raise RuntimeError(f"wrong output count: {info!r}")
 
     if infer_frame[0] != 0:
-        raise RuntimeError("INFER failed: %r" % (infer_frame,))
+        raise RuntimeError(f"INFER failed: {infer_frame!r}")
     result = json.loads(infer_frame[1].decode("utf-8"))
     if result["req_id"] != request_id:
         raise RuntimeError("request ID was not preserved")
@@ -108,8 +108,8 @@ def main():
         raise RuntimeError("score/box counts differ")
 
     print(
-        "PASS: PING/INFO/INFER/SHUTDOWN; %d boxes; severity %.6f" %
-        (len(result["boxes"]), float(result["severity"]))
+        f"PASS: PING/INFO/INFER/SHUTDOWN; {len(result['boxes'])} boxes; "
+        f"severity {float(result['severity']):.6f}"
     )
 
 
