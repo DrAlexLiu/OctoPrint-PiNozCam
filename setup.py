@@ -1,5 +1,3 @@
-# coding=utf-8
-
 import glob
 import os
 import struct
@@ -22,7 +20,8 @@ plugin_requires = [
 ]
 
 # Build metadata selects one target runtime. Accelerator variants share the
-# aarch64 platform tag and are distinguished by distribution/version name.
+# platform tag of their CPU architecture and are distinguished by
+# distribution/version name.
 _ARCH_PLAT = {
     "armhf": "linux_armv7l",
     "aarch64": "linux_aarch64",
@@ -39,15 +38,25 @@ _ARCH_PLAT = {
 }
 # Targets with a published native runtime.
 _RUNNABLE_ARCHES = {
-    "armhf", "aarch64", "aarch64-rknn3566", "aarch64-rknn3576",
-    "aarch64-rknn3588", "aarch64-awnn", "aarch64-awnnt527",
-    "aarch64-vulkan", "x86_64",
+    "armhf",
+    "aarch64",
+    "aarch64-rknn3566",
+    "aarch64-rknn3576",
+    "aarch64-rknn3588",
+    "aarch64-awnn",
+    "aarch64-bpu-x5",
+    "aarch64-awnnt527",
+    "aarch64-vulkan",
+    "x86_64",
     "x86_64-vulkan",
     "macos_arm64",
 }
 # Map platform tags to CPU ABI; accelerator type is detected separately.
-_HOST_CPU_ARCH = {"linux_armv7l": "armhf", "linux_aarch64": "aarch64",
-                  "linux_x86_64": "x86_64"}
+_HOST_CPU_ARCH = {
+    "linux_armv7l": "armhf",
+    "linux_aarch64": "aarch64",
+    "linux_x86_64": "x86_64",
+}
 _X86_VULKAN_GPU_VENDORS = frozenset(("0x1002", "0x10de", "0x8086"))
 
 _host = sysconfig.get_platform().replace("-", "_").replace(".", "_")
@@ -307,64 +316,21 @@ setup_parameters = {
 if _WHEEL_CMDCLASS:
     setup_parameters.setdefault("cmdclass", {}).update(_WHEEL_CMDCLASS)
 
-# Metadata describing which external runtime setup.py requests. Accelerator
-# runtime Wheels contain their CPU fallback; the plugin Wheel contains neither.
-_TARGET_CONTENT = {
-    "armhf": {
-        "cpu_arch": "armhf", "rknn_chip": None,
-        "awnn": False, "vulkan": False,
-    },
-    "aarch64": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": False, "vulkan": False,
-    },
-    "aarch64-rknn3566": {
-        "cpu_arch": "aarch64", "rknn_chip": "rk3566",
-        "awnn": False, "vulkan": False,
-    },
-    "aarch64-rknn3576": {
-        "cpu_arch": "aarch64", "rknn_chip": "rk3576",
-        "awnn": False, "vulkan": False,
-    },
-    "aarch64-rknn3588": {
-        "cpu_arch": "aarch64", "rknn_chip": "rk3588",
-        "awnn": False, "vulkan": False,
-    },
-    "aarch64-awnn": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": True, "vulkan": False,
-    },
-    "aarch64-bpu-x5": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": False, "bpu_chip": "x5", "vulkan": False,
-    },
-    # Both Allwinner targets set "awnn"; "awnn_chip" separates them because
-    # their NBG files carry incompatible hardware target IDs and their
-    # daemons link different VIPLite library names.
-    "aarch64-awnnt527": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": True, "awnn_chip": "t527", "vulkan": False,
-    },
-    "aarch64-acl": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": False, "acl": True, "vulkan": False,
-    },
-    "aarch64-vulkan": {
-        "cpu_arch": "aarch64", "rknn_chip": None,
-        "awnn": False, "vulkan": True,
-    },
-    "macos_arm64": {
-        "cpu_arch": "macos_arm64", "rknn_chip": None,
-        "awnn": False, "vulkan": False,
-    },
-    "x86_64": {
-        "cpu_arch": "x86_64", "rknn_chip": None,
-        "awnn": False, "vulkan": False,
-    },
-    "x86_64-vulkan": {
-        "cpu_arch": "x86_64", "rknn_chip": None,
-        "awnn": False, "vulkan": True,
-    },
+# Metadata describing which external runtime setup.py requests.
+_ARCH_RUNTIME = {
+    "armhf": "armhf",
+    "aarch64": "aarch64",
+    "aarch64-rknn3566": "rknn3566",
+    "aarch64-rknn3576": "rknn3576",
+    "aarch64-rknn3588": "rknn3588",
+    "aarch64-awnn": "awnn",
+    "aarch64-awnnt527": "awnnt527",
+    "aarch64-bpu-x5": "bpu_x5",
+    "aarch64-acl": "acl",
+    "aarch64-vulkan": "vulkan",
+    "macos_arm64": "macos_arm64",
+    "x86_64": "x86_64",
+    "x86_64-vulkan": "vulkan_x86_64",
 }
 #  This runs for the AMBIENT case too: it is the real distribution path.
 # OctoPrint's Plugin Manager runs `pip install <source archive>` directly on
@@ -376,37 +342,38 @@ _TARGET_CONTENT = {
 # the one it will be installed on (e.g. a CI box with no NPU hardware of
 # its own, producing an aarch64-rknn3588 wheel for later distribution).
 if _TARGET_ARCH:
-    _content = _TARGET_CONTENT[_TARGET_ARCH]
+    _target_arch = _TARGET_ARCH
 elif _host_cpu_arch == "aarch64":
     _chip = _detect_rockchip_chip()
-    _rknn_target = ("aarch64-rknn%s" % (
-        _chip[2:] if _chip.startswith("rk") else _chip)
-        if _chip else None)
-    if (_rknn_target in _TARGET_CONTENT and
-            _rknn_runtime_present()):
-        _content = _TARGET_CONTENT[_rknn_target]
+    _rknn_arch = (
+        "aarch64-rknn%s" % (_chip[2:] if _chip.startswith("rk") else _chip)
+        if _chip
+        else None
+    )
+    if _rknn_arch in _ARCH_RUNTIME and _rknn_runtime_present():
+        _target_arch = _rknn_arch
     elif _awnn_t527_runtime_present():
-        _content = _TARGET_CONTENT["aarch64-awnnt527"]
-    elif (_detect_drobotics_chip() in _SUPPORTED_BPU_CHIPS
-          and _bpu_runtime_present()):
-        _content = _TARGET_CONTENT["aarch64-bpu-x5"]
+        _target_arch = "aarch64-awnnt527"
+    elif _detect_drobotics_chip() in _SUPPORTED_BPU_CHIPS and _bpu_runtime_present():
+        _target_arch = "aarch64-bpu-x5"
     elif _awnn_runtime_present():
-        _content = _TARGET_CONTENT["aarch64-awnn"]
+        _target_arch = "aarch64-awnn"
     elif _acl_runtime_present():
-        _content = _TARGET_CONTENT["aarch64-acl"]
+        _target_arch = "aarch64-acl"
     elif _detect_nvidia_tegra() and _vulkan_runtime_present():
-        _content = _TARGET_CONTENT["aarch64-vulkan"]
+        _target_arch = "aarch64-vulkan"
     else:
-        _content = _TARGET_CONTENT["aarch64"]
-elif (_host_cpu_arch == "x86_64" and _detect_x86_vulkan_gpu()
-      and _vulkan_runtime_present()):
-    _content = _TARGET_CONTENT["x86_64-vulkan"]
+        _target_arch = "aarch64"
+elif (
+    _host_cpu_arch == "x86_64"
+    and _detect_x86_vulkan_gpu()
+    and _vulkan_runtime_present()
+):
+    _target_arch = "x86_64-vulkan"
 else:
     # An unrecognised host falls back to "ship nothing platform-specific"
     # rather than guessing.
-    _content = _TARGET_CONTENT.get(_host_cpu_arch,
-                                   {"cpu_arch": None, "rknn_chip": None,
-                                    "awnn": False, "vulkan": False})
+    _target_arch = _host_cpu_arch
 
 # The GitHub source archive contains only the plugin. The outer pip process
 # installs one immutable target Wheel, pinned to this exact version. The
@@ -415,38 +382,54 @@ else:
 # and keeps depending on the matching GitHub Release asset by direct PEP 508
 # URL, not a nested installer or custom downloader.
 _RUNTIME_REQUIREMENTS = {
-    "armhf": "pinozcam-runtime",
-    "aarch64": "pinozcam-runtime",
-    "x86_64": "pinozcam-runtime",
-    "macos_arm64": "pinozcam-runtime",
-    "rknn3566": "pinozcam-runtime-rknn3566",
-    "rknn3576": "pinozcam-runtime-rknn3576",
-    "rknn3588": "pinozcam-runtime-rknn3588",
-    "awnn": "pinozcam-runtime-a733",
-    "bpu_x5": "pinozcam-runtime-rdkx5",
-    "awnnt527": "pinozcam-runtime-t527",
-    "vulkan": "pinozcam-runtime-gpu",
-    "vulkan_x86_64": "pinozcam-runtime-gpu",
-}
-_RUNTIME_WHEEL_NAMES = {
-    "armhf": "pinozcam_runtime-%s-py3-none-manylinux2014_armv7l.whl",
-    "aarch64": "pinozcam_runtime-%s-py3-none-manylinux2014_aarch64.whl",
-    "x86_64": "pinozcam_runtime-%s-py3-none-manylinux2014_x86_64.whl",
+    "armhf": (
+        "pinozcam-runtime",
+        "pinozcam_runtime-%s-py3-none-manylinux2014_armv7l.whl",
+    ),
+    "aarch64": (
+        "pinozcam-runtime",
+        "pinozcam_runtime-%s-py3-none-manylinux2014_aarch64.whl",
+    ),
+    "x86_64": (
+        "pinozcam-runtime",
+        "pinozcam_runtime-%s-py3-none-manylinux2014_x86_64.whl",
+    ),
     "macos_arm64": (
-        "pinozcam_runtime-%s-py3-none-macosx_14_0_arm64.whl"),
+        "pinozcam-runtime",
+        "pinozcam_runtime-%s-py3-none-macosx_14_0_arm64.whl",
+    ),
     "rknn3566": (
-        "pinozcam_runtime_rknn3566-%s-py3-none-linux_aarch64.whl"),
+        "pinozcam-runtime-rknn3566",
+        "pinozcam_runtime_rknn3566-%s-py3-none-linux_aarch64.whl",
+    ),
     "rknn3576": (
-        "pinozcam_runtime_rknn3576-%s-py3-none-linux_aarch64.whl"),
+        "pinozcam-runtime-rknn3576",
+        "pinozcam_runtime_rknn3576-%s-py3-none-linux_aarch64.whl",
+    ),
     "rknn3588": (
-        "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl"),
-    "awnn": "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
-    "bpu_x5": "pinozcam_runtime_rdkx5-%s-py3-none-linux_aarch64.whl",
-    "awnnt527": "pinozcam_runtime_t527-%s-py3-none-linux_aarch64.whl",
+        "pinozcam-runtime-rknn3588",
+        "pinozcam_runtime_rknn3588-%s-py3-none-linux_aarch64.whl",
+    ),
+    "awnn": (
+        "pinozcam-runtime-a733",
+        "pinozcam_runtime_a733-%s-py3-none-linux_aarch64.whl",
+    ),
+    "bpu_x5": (
+        "pinozcam-runtime-rdkx5",
+        "pinozcam_runtime_rdkx5-%s-py3-none-linux_aarch64.whl",
+    ),
+    "awnnt527": (
+        "pinozcam-runtime-t527",
+        "pinozcam_runtime_t527-%s-py3-none-linux_aarch64.whl",
+    ),
     "vulkan": (
-        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_aarch64.whl"),
+        "pinozcam-runtime-gpu",
+        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_aarch64.whl",
+    ),
     "vulkan_x86_64": (
-        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_x86_64.whl"),
+        "pinozcam-runtime-gpu",
+        "pinozcam_runtime_gpu-%s-py3-none-manylinux_2_35_x86_64.whl",
+    ),
 }
 _RUNTIME_RELEASE_BASE = (
     "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/releases/download")
@@ -455,39 +438,16 @@ _RUNTIME_RELEASE_BASE = (
 # PyPI project and must keep resolving from the GitHub Release asset.
 _PYPI_PUBLISHED_DISTS = frozenset(("pinozcam-runtime", "pinozcam-runtime-gpu"))
 
-if _content["rknn_chip"]:
-    _chip = _content["rknn_chip"]
-    _runtime_target = "rknn%s" % (
-        _chip[2:] if _chip.startswith("rk") else _chip)
-elif _content.get("bpu_chip"):
-    _runtime_target = "bpu_%s" % _content["bpu_chip"]
-elif _content["awnn"]:
-    _runtime_target = ("awnn%s" % _content["awnn_chip"]
-                       if _content.get("awnn_chip") else "awnn")
-elif _content.get("acl"):
-    # No entry in _RUNTIME_REQUIREMENTS yet: the Ascend runtime Wheel is
-    # not published, so it is installed from a local file instead of being
-    # pulled in as a PEP 508 dependency. Naming the target here still stops
-    # this board from being mistaken for a plain aarch64 CPU one and
-    # dragging in the wrong runtime.
-    _runtime_target = "acl"
-elif _content["vulkan"]:
-    _runtime_target = (
-        "vulkan_x86_64"
-        if _content["cpu_arch"] == "x86_64" else "vulkan"
-    )
-else:
-    _runtime_target = _content["cpu_arch"]
+_runtime_target = _ARCH_RUNTIME.get(_target_arch)
 
 if _runtime_target in _RUNTIME_REQUIREMENTS:
-    _runtime_dist = _RUNTIME_REQUIREMENTS[_runtime_target]
+    _runtime_dist, _runtime_wheel = _RUNTIME_REQUIREMENTS[_runtime_target]
     if _runtime_dist in _PYPI_PUBLISHED_DISTS:
         _runtime_requirement = "%s==%s" % (_runtime_dist, runtime_version)
     else:
-        _runtime_filename = (
-            _RUNTIME_WHEEL_NAMES[_runtime_target] % runtime_version)
         _runtime_url = "%s/%s/%s" % (
-            _RUNTIME_RELEASE_BASE, runtime_version, _runtime_filename)
+            _RUNTIME_RELEASE_BASE, runtime_version,
+            _runtime_wheel % runtime_version)
         _runtime_requirement = "%s @ %s" % (_runtime_dist, _runtime_url)
     setup_parameters.setdefault("install_requires", []).append(
         _runtime_requirement)
