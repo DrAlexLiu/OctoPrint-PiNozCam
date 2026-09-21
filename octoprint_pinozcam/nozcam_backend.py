@@ -108,13 +108,13 @@ def _machine_tag():
         if machine in ("aarch64", "arm64"):
             return "macos_arm64"
         raise BackendUnavailable(
-            "no nozcam_daemon binary for macOS on %s" % machine)
+            f"no nozcam_daemon binary for macOS on {machine}")
     if machine in ("x86_64", "amd64"):
         return "x86_64"
     if machine in ("aarch64", "arm64"):
         return "aarch64"
     raise BackendUnavailable(
-        "no nozcam_daemon binary for %d-bit %s" % (bits, machine)
+        f"no nozcam_daemon binary for {bits}-bit {machine}"
     )
 
 
@@ -127,7 +127,7 @@ def _detect_rockchip_chip():
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
             compatible = handle.read()
-    except (IOError, OSError):
+    except OSError:
         return None
     for entry in compatible.split(b"\x00"):
         if not entry.startswith(b"rockchip,"):
@@ -187,7 +187,7 @@ def _detect_allwinner_vip_chip():
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
             entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
+    except OSError:
         return None
     for entry in entries:
         if entry.startswith(b"allwinner,"):
@@ -232,7 +232,7 @@ def _detect_drobotics_chip():
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
             entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
+    except OSError:
         return None
     for entry in entries:
         text = entry.decode("ascii", "replace").strip()
@@ -307,7 +307,7 @@ def _detect_nvidia_tegra():
     try:
         with open("/proc/device-tree/compatible", "rb") as handle:
             entries = handle.read().split(b"\x00")
-    except (IOError, OSError):
+    except OSError:
         return False
     return any(entry.startswith(b"nvidia,tegra") for entry in entries)
 
@@ -330,8 +330,8 @@ def _vulkan_runtime_present():
     if multiarch is None:
         return False
     return any(os.path.exists(path) for path in (
-        "/lib/%s/libvulkan.so.1" % multiarch,
-        "/usr/lib/%s/libvulkan.so.1" % multiarch,
+        f"/lib/{multiarch}/libvulkan.so.1",
+        f"/usr/lib/{multiarch}/libvulkan.so.1",
         "/usr/local/lib/libvulkan.so.1",
     ))
 
@@ -351,11 +351,11 @@ def _detect_x86_vulkan_gpu():
     for name in devices:
         device = os.path.join(pci_root, name)
         try:
-            with open(os.path.join(device, "class"), "r") as handle:
+            with open(os.path.join(device, "class")) as handle:
                 pci_class = handle.read().strip().lower()
-            with open(os.path.join(device, "vendor"), "r") as handle:
+            with open(os.path.join(device, "vendor")) as handle:
                 vendor = handle.read().strip().lower()
-        except (IOError, OSError):
+        except OSError:
             continue
         if (pci_class.startswith("0x03")
                 and vendor in _X86_VULKAN_GPU_VENDORS):
@@ -472,7 +472,7 @@ def _runtime_target(kind, chip):
     if kind == "acl":
         return kind
     if kind == "bpu":
-        return "bpu_%s" % chip
+        return f"bpu_{chip}"
     if kind == "vulkan":
         return ("vulkan_x86_64"
                 if _machine_tag() == "x86_64" else "vulkan")
@@ -481,13 +481,13 @@ def _runtime_target(kind, chip):
     if detected_chip in _SUPPORTED_RKNN_CHIPS:
         suffix = (detected_chip[2:] if detected_chip.startswith("rk")
                   else detected_chip)
-        return "rknn%s" % suffix
+        return f"rknn{suffix}"
     if os.path.exists("/dev/vipcore"):
         return ("awnnt527" if _detect_allwinner_vip_chip() == "t527"
                 else "awnn")
     detected_bpu = _detect_drobotics_chip()
     if detected_bpu in _SUPPORTED_BPU_CHIPS:
-        return "bpu_%s" % detected_bpu
+        return f"bpu_{detected_bpu}"
     if _detect_nvidia_tegra():
         return "vulkan"
     if (_detect_x86_vulkan_gpu() and _vulkan_runtime_present()
@@ -506,7 +506,7 @@ def _runtime_directories(plugin_dir, kind, chip):
     module_names = _RUNTIME_MODULES.get(target)
     if module_names is None:
         raise BackendUnavailable(
-            "no PiNozCam runtime package is defined for target %s" % target)
+            f"no PiNozCam runtime package is defined for target {target}")
     if isinstance(module_names, str):
         module_names = (module_names,)
     for module_name in module_names:
@@ -521,12 +521,11 @@ def _runtime_directories(plugin_dir, kind, chip):
         packaged_target = getattr(module, "TARGET", None)
         if packaged_target != target:
             raise BackendUnavailable(
-                "runtime package %s identifies itself as %r, expected %r"
-                % (module_name, packaged_target, target))
+                f"runtime package {module_name} identifies itself as "
+                f"{packaged_target!r}, expected {target!r}")
         if not bin_dir or not model_dir:
             raise BackendUnavailable(
-                "runtime package %s has no BIN_DIR/MODEL_DIR metadata"
-                % module_name)
+                f"runtime package {module_name} has no BIN_DIR/MODEL_DIR metadata")
         return bin_dir, model_dir, target
 
     # Source-checkout fallback accepts either package or repository root.
@@ -540,8 +539,8 @@ def _runtime_directories(plugin_dir, kind, chip):
         if os.path.isdir(bin_dir) and os.path.isdir(model_dir):
             return bin_dir, model_dir, "legacy-in-tree"
     raise BackendUnavailable(
-        "native runtime is not installed: expected Python package %s"
-        % " or ".join(module_names))
+        "native runtime is not installed: expected Python package "
+        "{}".format(" or ".join(module_names)))
 
 
 def model_identity(path):
@@ -559,14 +558,13 @@ def model_identity(path):
             if size > 131072:
                 handle.seek(-65536, os.SEEK_END)
                 digest.update(handle.read(65536))
-        return "%s size=%d id=%s" % (
-            os.path.basename(path), size, digest.hexdigest()[:16]
-        )
-    except (IOError, OSError) as exc:
-        return "%s (unreadable: %s)" % (os.path.basename(path), exc)
+        return (f"{os.path.basename(path)} size={size} "
+                f"id={digest.hexdigest()[:16]}")
+    except OSError as exc:
+        return f"{os.path.basename(path)} (unreadable: {exc})"
 
 
-class NozcamBackend(object):
+class NozcamBackend:
     """Resident nozcam_daemon, restarted on demand.
 
     Thread safety: one lock serialises the whole request/response
@@ -614,7 +612,7 @@ class NozcamBackend(object):
             # Each RKNN runtime owns exactly one chip-specific model.
             self._model_path = self._pick_model(
                 model_name, os.path.join(
-                    self._model_dir, "nozcam-%s.rknn" % chip))
+                    self._model_dir, f"nozcam-{chip}.rknn"))
         elif kind == "awnn":
             # The two VIPLite stacks need different binaries: v1.13 links
             # libVIPlite/libVIPuser, v2.0 links libNBGlinker/libVIPhal. The
@@ -644,11 +642,11 @@ class NozcamBackend(object):
                 self._bin_dir, "nozcam_daemon.drobotics.aarch64")
             self._model_path = self._pick_model(
                 model_name,
-                os.path.join(self._model_dir, "nozcam-%s.bin" % chip))
+                os.path.join(self._model_dir, f"nozcam-{chip}.bin"))
         elif kind == "vulkan":
             self._tag = _machine_tag()
             self._daemon_path = os.path.join(
-                self._bin_dir, "nozcam_daemon.vulkan.%s" % self._tag)
+                self._bin_dir, f"nozcam_daemon.vulkan.{self._tag}")
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, "nozcam-gpu.pte"))
         elif kind == "coreml":
@@ -670,7 +668,7 @@ class NozcamBackend(object):
             # named without that suffix rather than lying about it.
             name = ("nozcam_daemon.macos.arm64"
                     if self._tag == "macos_arm64"
-                    else "nozcam_daemon.%s.static" % self._tag)
+                    else f"nozcam_daemon.{self._tag}.static")
             self._daemon_path = os.path.join(self._bin_dir, name)
             self._model_path = self._pick_model(
                 model_name, os.path.join(self._model_dir, DEFAULT_MODEL))
@@ -696,11 +694,11 @@ class NozcamBackend(object):
         """
         if not os.path.exists(self._daemon_path):
             raise BackendUnavailable(
-                "daemon binary missing: %s" % self._daemon_path
+                f"daemon binary missing: {self._daemon_path}"
             )
         if not os.path.exists(self._model_path):
             raise BackendUnavailable(
-                "model missing: %s" % self._model_path
+                f"model missing: {self._model_path}"
             )
         if not os.access(self._daemon_path, os.X_OK):
             try:
@@ -710,16 +708,15 @@ class NozcamBackend(object):
                 )
             except OSError as exc:
                 raise BackendUnavailable(
-                    "cannot make %s executable: %s"
-                    % (self._daemon_path, exc)
+                    f"cannot make {self._daemon_path} executable: {exc}"
                 )
 
     def describe(self):
         """One line naming the binary and model in use, for the log."""
         model = os.path.basename(self._model_path)
         if os.path.isdir(self._model_path):
-            model = "%s/ (auto-select for this chip)" % model
-        return "%s + %s" % (os.path.basename(self._daemon_path), model)
+            model = f"{model}/ (auto-select for this chip)"
+        return f"{os.path.basename(self._daemon_path)} + {model}"
 
     @property
     def kind(self):
@@ -778,8 +775,8 @@ class NozcamBackend(object):
             remaining = self._retry_after - time.monotonic()
             if remaining > 0:
                 raise BackendUnavailable(
-                    "backend failed %d times; next attempt in %.0fs"
-                    % (self._fail_count, remaining)
+                    f"backend failed {self._fail_count} times; "
+                    f"next attempt in {remaining:.0f}s"
                 )
             if self.is_alive():
                 self._logger.info(
@@ -820,9 +817,9 @@ class NozcamBackend(object):
                             failed_label, self._fail_count, delay, cpu_exc
                         )
                         raise BackendUnavailable(
-                            "automatic %s start failed (%s); bundled CPU "
-                            "fallback also failed (%s)"
-                            % (failed_kind, exc, cpu_exc)
+                            f"automatic {failed_kind} start failed "
+                            f"({exc}); bundled CPU fallback also failed "
+                            f"({cpu_exc})"
                         )
                     self._note_success()
                     return
@@ -861,7 +858,7 @@ class NozcamBackend(object):
             env = dict(os.environ)
             inherited = env.get("LD_LIBRARY_PATH")
             env["LD_LIBRARY_PATH"] = (
-                "%s:%s" % (lib_dir, inherited) if inherited else lib_dir)
+                f"{lib_dir}:{inherited}" if inherited else lib_dir)
             return env
         if self._kind != "acl":
             return None
@@ -919,7 +916,7 @@ class NozcamBackend(object):
             )
         except OSError as exc:
             raise BackendUnavailable(
-                "cannot start %s: %s" % (self._daemon_path, exc))
+                f"cannot start {self._daemon_path}: {exc}")
         # Non-blocking protocol fds make select-based deadlines effective;
         # stderr remains blocking for its dedicated readline drain.
         os.set_blocking(self._proc.stdin.fileno(), False)
@@ -996,12 +993,12 @@ class NozcamBackend(object):
                     struct.pack("<II", _CMD_SHUTDOWN, 0),
                     time.monotonic() + 1.0,
                 )
-            except (IOError, OSError, ValueError):
+            except (OSError, ValueError):
                 pass
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             try:
                 stream.close()
-            except (IOError, OSError):
+            except OSError:
                 pass
         # Teardown is best-effort after clearing the only process reference.
         try:
@@ -1076,7 +1073,7 @@ class NozcamBackend(object):
             except BlockingIOError:
                 continue
             except OSError as exc:
-                raise IOError("write to daemon failed: %s" % exc)
+                raise OSError(f"write to daemon failed: {exc}")
 
     def _write_exact(self, data, deadline):
         """Write every byte, honoring short writes and the deadline."""
@@ -1094,9 +1091,9 @@ class NozcamBackend(object):
             except BlockingIOError:
                 continue
             except OSError as exc:
-                raise IOError("read from daemon failed: %s" % exc)
+                raise OSError(f"read from daemon failed: {exc}")
             if not chunk:
-                raise IOError("daemon closed the pipe (crashed?)")
+                raise OSError("daemon closed the pipe (crashed?)")
             chunks.append(chunk)
             remaining -= len(chunk)
         return b"".join(chunks)
@@ -1125,15 +1122,15 @@ class NozcamBackend(object):
         status, length = struct.unpack("<II", self._read_exact(8, deadline))
         if length > MAX_RESPONSE:
             # A desynchronised length has no safe drain/resync point.
-            raise IOError(
-                "daemon announced a %d byte response (max %d); stream is "
-                "desynchronised" % (length, MAX_RESPONSE)
+            raise OSError(
+                f"daemon announced a {length} byte response "
+                f"(max {MAX_RESPONSE}); stream is desynchronised"
             )
         body = self._read_exact(length, deadline) if length else b""
         if status != 0:
-            raise IOError(
-                "daemon error %d: %s"
-                % (status, body.decode("utf-8", "replace"))
+            raise OSError(
+                f"daemon error {status}: "
+                f"{body.decode('utf-8', 'replace')}"
             )
         return body
 
@@ -1146,7 +1143,7 @@ class NozcamBackend(object):
             result = json.loads(body)
         except ValueError as exc:
             raise BackendMismatch(
-                "daemon's reply is not JSON (%s): %r" % (exc, body[:120]))
+                f"daemon's reply is not JSON ({exc}): {body[:120]!r}")
         self._validate_result(result, expect_id)
         return result
 
@@ -1155,14 +1152,14 @@ class NozcamBackend(object):
         if expect_id is not None and result.get("req_id") != expect_id:
             # The protocol has no resynchronisation point; restart is required.
             raise BackendMismatch(
-                "reply carries req_id %r, sent %d; the byte stream is "
-                "desynchronised or the daemon predates the request id"
-                % (result.get("req_id"), expect_id)
+                f"reply carries req_id {result.get('req_id')!r}, sent "
+                f"{expect_id}; the byte stream is desynchronised or the "
+                "daemon predates the request id"
             )
         for key in ("scores", "boxes", "labels", "severity",
                     "percentage_area", "total_area"):
             if key not in result:
-                raise BackendMismatch("result is missing '%s'" % key)
+                raise BackendMismatch(f"result is missing '{key}'")
         scores, boxes, labels = (result["scores"], result["boxes"],
                                  result["labels"])
         if not (isinstance(scores, list) and isinstance(boxes, list)
@@ -1170,24 +1167,24 @@ class NozcamBackend(object):
             raise BackendMismatch("scores/boxes/labels are not all lists")
         if not len(scores) == len(boxes) == len(labels):
             raise BackendMismatch(
-                "scores/boxes/labels lengths disagree: %d/%d/%d"
-                % (len(scores), len(boxes), len(labels))
+                f"scores/boxes/labels lengths disagree: "
+                f"{len(scores)}/{len(boxes)}/{len(labels)}"
             )
         for box in boxes:
             if not isinstance(box, list) or len(box) != 4:
-                raise BackendMismatch("a box is not four numbers: %r" % (box,))
+                raise BackendMismatch(f"a box is not four numbers: {box!r}")
             for value in box:
                 if not math.isfinite(value):
-                    raise BackendMismatch("a box holds %r" % (value,))
+                    raise BackendMismatch(f"a box holds {value!r}")
         for value in scores:
             if not math.isfinite(value):
-                raise BackendMismatch("a score is %r" % (value,))
+                raise BackendMismatch(f"a score is {value!r}")
         severity = result["severity"]
         if not math.isfinite(severity) or not 0.0 <= severity <= 1.0:
-            raise BackendMismatch("severity out of range: %r" % (severity,))
+            raise BackendMismatch(f"severity out of range: {severity!r}")
         if not math.isfinite(result["percentage_area"]):
             raise BackendMismatch(
-                "percentage_area is %r" % (result["percentage_area"],))
+                "percentage_area is {!r}".format(result["percentage_area"]))
         return len(scores)
 
     def _handshake_locked(self):
@@ -1202,26 +1199,26 @@ class NozcamBackend(object):
             info = json.loads(raw)
         except ValueError as exc:
             raise BackendMismatch(
-                "daemon's INFO reply is not JSON (%s): %r" % (exc, raw[:120]))
+                f"daemon's INFO reply is not JSON ({exc}): {raw[:120]!r}")
         # in_bytes describes image bytes, excluding request ID and rect.
         expect_bytes = PROC_WIDTH * PROC_HEIGHT * 3
         problems = []
         if ((info.get("proc_w"), info.get("proc_h"))
                 != (PROC_WIDTH, PROC_HEIGHT)):
             problems.append(
-                "daemon works at %sx%s, this code sends %dx%d"
-                % (info.get("proc_w"), info.get("proc_h"),
-                   PROC_WIDTH, PROC_HEIGHT)
+                f"daemon works at {info.get('proc_w')}x"
+                f"{info.get('proc_h')}, this code sends "
+                f"{PROC_WIDTH}x{PROC_HEIGHT}"
             )
         if info.get("in_bytes") != expect_bytes:
             problems.append(
-                "daemon expects %s input bytes, this code sends %d"
-                % (info.get("in_bytes"), expect_bytes)
+                f"daemon expects {info.get('in_bytes')} input bytes, "
+                f"this code sends {expect_bytes}"
             )
         if info.get("n_outputs") != EXPECTED_OUTPUTS:
             problems.append(
-                "output count %s does not match what the postprocess "
-                "needs" % (info.get("n_outputs"),)
+                "output count {} does not match what the postprocess "
+                "needs".format(info.get("n_outputs"))
             )
         if problems:
             raise BackendMismatch("; ".join(problems))
@@ -1241,7 +1238,7 @@ class NozcamBackend(object):
             try:
                 return json.loads(self._call_locked(
                     _CMD_INFO, timeout=min(10.0, self.start_timeout)))
-            except (IOError, OSError, ValueError, struct.error) as exc:
+            except (OSError, ValueError, struct.error) as exc:
                 return {"error": str(exc)}
 
     @staticmethod
@@ -1306,8 +1303,7 @@ class NozcamBackend(object):
             # Invalid replies require the same restart path as pipe failures.
             with self._lock:
                 result = self._infer_locked(payload, rect=rect)
-        except (IOError, OSError, ValueError, struct.error,
-                BackendMismatch) as exc:
+        except (OSError, ValueError, struct.error, BackendMismatch) as exc:
             # stop() must run outside _lock because it acquires that lock.
             delay = self._note_failure()
             self._logger.error(

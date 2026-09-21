@@ -33,7 +33,7 @@ NOTIFY_ATTEMPTS = 3
 SAMPLER_RESTARTS = 3
 
 
-class DetectMixin(object):
+class DetectMixin:
     """Mixed into PinozcamPlugin."""
 
     # Which sampler generation owns the camera. A class attribute so the
@@ -489,8 +489,8 @@ class DetectMixin(object):
             self._process_ai_image_impl()
         except Exception as exc:                           # noqa: BLE001
             self.ai_running = False
-            self.backend_error = "Detection thread stopped: %s" % self.redact(
-                str(exc))
+            self.backend_error = "Detection thread stopped: {}".format(self.redact(
+                str(exc)))
             self._logger.exception("Detection thread stopped unexpectedly: %s",
                                    exc)
         finally:
@@ -731,9 +731,9 @@ class DetectMixin(object):
             # turns 30 s of these into ONE chat notice.
             if self._camera_watch(False, now_grab) == "offline":
                 self._notify_camera(
-                    "⚠️ Camera lost: no frame for %d s. Print failure "
-                    "detection is BLIND until the camera returns."
-                    % int(CAMERA_OFFLINE_AFTER))
+                    f"⚠️ Camera lost: no frame for {int(CAMERA_OFFLINE_AFTER)} "
+                    "s. Print failure detection is BLIND until the camera "
+                    "returns.")
             # A CLOSED buffer returns None without waiting -- the
             # sampler closes it as it dies -- so make the empty cycle
             # cost the full tick either way: a dead sampler must poll
@@ -774,9 +774,9 @@ class DetectMixin(object):
         self._logger.info(
             "scores=%s severity=%.4f area=%.4f thr=%.4f alarming=%s "
             "ratio=%s age=%.2fs elapsed=%.3fs%s",
-            ["%.3f" % s for s in scores], severity, percentage_area,
+            [f"{s:.3f}" for s in scores], severity, percentage_area,
             self.img_sensitivity, alarming,
-            "n/a" if self.last_ratio is None else "%.2f" % self.last_ratio,
+            "n/a" if self.last_ratio is None else f"{self.last_ratio:.2f}",
             frame_age,
             elapsed_time,
             "" if self._armed(now) else " WARMUP",
@@ -888,14 +888,14 @@ class DetectMixin(object):
                             acted = True
                 if acted and not new_notify and did:
                     self.notify_all(
-                        "⚠️ %s. The failure is now sustained over %.0f%% of "
-                        "the last %ds, past the %.0f%% action threshold."
-                        % (did, ratio * 100, int(self.count_time),
-                           self.failure_ratio * 100),
+                        f"⚠️ {did}. The failure is now sustained over "
+                        f"{ratio * 100:.0f}% of the last "
+                        f"{int(self.count_time)}s, past the "
+                        f"{self.failure_ratio * 100:.0f}% action threshold.",
                         buttons=True, respect_confirm=True, wait=False)
                 elif action_failed and not new_notify:
                     self.notify_all(
-                        "⚠️ %s" % action_failed,
+                        f"⚠️ {action_failed}",
                         buttons=True, respect_confirm=True, wait=False)
 
         # Drawn and encoded HERE, on the notification edge, not per frame.
@@ -949,7 +949,7 @@ class DetectMixin(object):
         if file_metadata:
             status_message += f"\nFile: {file_metadata.get('name', 'Unknown')}"
         if action_failed:
-            status_message += "\n⚠️ %s" % action_failed
+            status_message += f"\n⚠️ {action_failed}"
 
         caption = (
             f"{status_message}\n"
@@ -1084,7 +1084,7 @@ class DetectMixin(object):
             for cpu_id in sorted(topology.allowed):
                 value = (raw.get("cpus", {}).get(cpu_id) or {}).get(metric)
                 if value is not None:
-                    values.append("%d=%d" % (cpu_id, value))
+                    values.append(f"{cpu_id}={value}")
             return ",".join(values) or "unavailable"
 
         self._logger.info(

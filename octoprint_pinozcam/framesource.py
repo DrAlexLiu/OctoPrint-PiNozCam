@@ -31,7 +31,7 @@ SourceSpec = namedtuple(
 EncodedFrame = namedtuple("EncodedFrame", "jpeg_bytes captured_at sequence")
 
 
-class FrameSource(object):
+class FrameSource:
     """Bounded, interruptible source of monotonically sequenced frames."""
 
     def start(self):
@@ -65,14 +65,13 @@ def _read_bounded(chunks, max_bytes, deadline, deadline_seconds):
     for chunk in chunks:
         total += len(chunk)
         if total > max_bytes:
-            raise IOError(
-                "snapshot passed %d MB and is still going -- this "
-                "looks like a stream, not a snapshot"
-                % (max_bytes // (1024 * 1024)))
+            raise OSError(
+                f"snapshot passed {max_bytes // (1024 * 1024)} MB and is "
+                "still going -- this looks like a stream, not a snapshot")
         if deadline is not None and time.monotonic() > deadline:
-            raise IOError(
-                "snapshot still arriving after %.0f s -- this looks "
-                "like a stream, not a snapshot" % deadline_seconds)
+            raise OSError(
+                f"snapshot still arriving after {deadline_seconds:.0f} s -- this looks "
+                "like a stream, not a snapshot")
         parts.append(chunk)
     return b"".join(parts)
 
@@ -89,9 +88,9 @@ def _fetch_snapshot_bytes(url, max_bytes, deadline_seconds):
         if declared is not None:
             try:
                 if int(declared) > max_bytes:
-                    raise IOError(
-                        "camera announced %s bytes, over the %d MB "
-                        "limit" % (declared, max_bytes // (1024 * 1024)))
+                    raise OSError(
+                        f"camera announced {declared} bytes, over the "
+                        f"{max_bytes // (1024 * 1024)} MB limit")
             except ValueError:
                 pass                # a junk header is not a reason to fail
         return _read_bounded(

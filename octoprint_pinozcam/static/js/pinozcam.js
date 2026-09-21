@@ -820,7 +820,8 @@ $(function () {
             var problems = self.validationErrors();
             if (problems.length) {
                 new PNotify({title: 'Not saved',
-                             text: problems.join('  '), type: 'error'});
+                             text: problems.join('  '), type: 'error',
+                             text_escape: true});
                 return;
             }
             var newSettings = self.settingsPayload();
@@ -1085,7 +1086,8 @@ $(function () {
             if (problems.length) {
                 self.showTabFor(self.firstInvalidField());
                 new PNotify({title: "PiNozCam setting not saved",
-                             text: problems.join("  "), type: "error"});
+                             text: problems.join("  "), type: "error",
+                             text_escape: true});
                 return;
             }
             var target = self.settingsViewModel.settings.plugins.pinozcam;

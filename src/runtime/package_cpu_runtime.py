@@ -64,7 +64,7 @@ def _sha256(path):
 def _copy(source, destination, executable=False):
     """Copy one required payload file and set its installed mode."""
     if not os.path.isfile(source):
-        raise RuntimeError("missing runtime input: %s" % source)
+        raise RuntimeError(f"missing runtime input: {source}")
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     shutil.copy2(source, destination)
     if executable:
@@ -107,7 +107,7 @@ def _stage(stage, artifacts, target, version, revision):
         directory = os.path.join(package, relative)
         for name in sorted(os.listdir(directory)):
             path = os.path.join(directory, name)
-            files["%s/%s" % (relative, name)] = {
+            files[f"{relative}/{name}"] = {
                 "bytes": os.path.getsize(path),
                 "sha256": _sha256(path),
             }
@@ -125,8 +125,7 @@ def _stage(stage, artifacts, target, version, revision):
         "plugin_version": version,
         "runner_protocol": 1,
         "source": (
-            "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/%s" %
-            revision
+            f"https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/{revision}"
         ),
         "target": target,
     }
@@ -138,8 +137,8 @@ def _stage(stage, artifacts, target, version, revision):
         "ROOT = os.path.dirname(os.path.abspath(__file__))\n"
         'BIN_DIR = os.path.join(ROOT, "bin")\n'
         'MODEL_DIR = os.path.join(ROOT, "models")\n'
-        "TARGET = %r\n"
-        "VERSION = %r\n" % (target, version)
+        f"TARGET = {target!r}\n"
+        f"VERSION = {version!r}\n"
     )
     _write(os.path.join(package, "__init__.py"), init_source)
 
@@ -225,7 +224,7 @@ def main():
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)
     with tempfile.TemporaryDirectory(
-            prefix="pinozcam_runtime_%s_" % args.target) as stage:
+            prefix=f"pinozcam_runtime_{args.target}_") as stage:
         _stage(stage, artifacts, args.target, args.version, args.revision)
         subprocess.run(
             [sys.executable, "setup.py", "bdist_wheel", "--dist-dir", output],
@@ -234,15 +233,15 @@ def main():
             check=True,
         )
 
-    filename = "pinozcam_runtime-%s-py3-none-%s.whl" % (
+    filename = "pinozcam_runtime-{}-py3-none-{}.whl".format(
         args.version, TARGETS[args.target]["platform"])
     wheel = os.path.join(output, filename)
     if not os.path.isfile(wheel):
-        raise RuntimeError("expected Wheel was not produced: %s" % wheel)
+        raise RuntimeError(f"expected Wheel was not produced: {wheel}")
     digest = _sha256(wheel)
     _write(os.path.join(output, "SHA256SUMS"),
-           "%s  %s\n" % (digest, filename))
-    print("%s  %s  %d" % (digest, filename, os.path.getsize(wheel)))
+           f"{digest}  {filename}\n")
+    print(f"{digest}  {filename}  {os.path.getsize(wheel)}")
 
 
 if __name__ == "__main__":

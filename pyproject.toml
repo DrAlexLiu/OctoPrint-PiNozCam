@@ -1,0 +1,71 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OctoPrint-PiNozCam"
+description = "AI print-failure detection that runs entirely on your printer's own board. Runs on Linux (ARM32, ARM64, x86-64) and Apple Silicon macOS."
+authors = [
+    { name = "DrAlexLiu" },
+    { email = "liu1111w@uwindsor.ca" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: OctoPrint",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Printing",
+]
+requires-python = ">=3.7,<4"
+dynamic = [
+    "license",
+    "version",
+    "dependencies",
+    "urls",
+]
+
+[project.entry-points."octoprint.plugin"]
+pinozcam = "octoprint_pinozcam"
+
+[project.optional-dependencies]
+develop = [
+    "go-task-bin",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = [
+    "octoprint_pinozcam",
+    "octoprint_pinozcam.*",
+]
+namespaces = false
+
+[tool.setuptools.package-data]
+octoprint_pinozcam = [
+    "static/**",
+    "templates/**",
+    "translations/**",
+]
+
+[tool.setuptools.exclude-package-data]
+octoprint_pinozcam = [
+    "static/bin/*",
+    "static/models/*",
+]
+
+[tool.setuptools.data-files]
+"share/doc/OctoPrint-PiNozCam/THIRD_PARTY_LICENSES" = [
+    "THIRD_PARTY_LICENSES/*",
+]

@@ -10,7 +10,7 @@ import secrets
 import time
 
 
-class ConfirmMixin(object):
+class ConfirmMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     CONFIRM_TTL = 60

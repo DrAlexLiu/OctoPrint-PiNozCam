@@ -34,17 +34,17 @@ def main():
     architecture = match.group(2)
     if architecture != args.architecture:
         raise RuntimeError(
-            "auditwheel reported architecture %s, expected %s"
-            % (architecture, args.architecture)
+            f"auditwheel reported architecture {architecture}, "
+            f"expected {args.architecture}"
         )
     if minor > args.max_glibc_minor:
         raise RuntimeError(
-            "Wheel requires GLIBC 2.%d, release contract allows at most 2.%d"
-            % (minor, args.max_glibc_minor)
+            f"Wheel requires GLIBC 2.{minor}, release contract allows "
+            f"at most 2.{args.max_glibc_minor}"
         )
     print(
-        "PASS: auditwheel ABI floor GLIBC 2.%d <= 2.%d"
-        % (minor, args.max_glibc_minor)
+        f"PASS: auditwheel ABI floor GLIBC 2.{minor} <= "
+        f"2.{args.max_glibc_minor}"
     )
 
 

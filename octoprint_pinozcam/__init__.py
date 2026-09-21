@@ -247,9 +247,9 @@ class PinozcamPlugin(ConfirmMixin,
     def cpu_is_raspberry_pi(self):
         """True when /proc/cpuinfo says this is a Raspberry Pi."""
         try:
-            with open("/proc/cpuinfo", "r") as f:
+            with open("/proc/cpuinfo") as f:
                 return "Raspberry Pi" in f.read()
-        except IOError:
+        except OSError:
             return False
 
     # Thermal zone `type` values meaning "this is the CPU", in preference
@@ -274,7 +274,7 @@ class PinozcamPlugin(ConfirmMixin,
             return 0
         for zone in zones:
             try:
-                with open(os.path.join(base, zone, "type"), "r") as f:
+                with open(os.path.join(base, zone, "type")) as f:
                     kind = f.read().strip()
             except OSError:
                 kind = ""
@@ -284,7 +284,7 @@ class PinozcamPlugin(ConfirmMixin,
                 candidates.append(zone)
         for zone in candidates:
             try:
-                with open(os.path.join(base, zone, "temp"), "r") as f:
+                with open(os.path.join(base, zone, "temp")) as f:
                     milli = int(f.read().strip())
             except (OSError, ValueError):
                 continue
@@ -302,8 +302,8 @@ class PinozcamPlugin(ConfirmMixin,
         except Exception as exc:                           # noqa: BLE001
             # Contain plugin startup failures inside the plugin lifecycle.
             self.ai_running = False
-            self.backend_error = "PiNozCam startup failed: %s" % self.redact(
-                str(exc))
+            self.backend_error = "PiNozCam startup failed: {}".format(self.redact(
+                str(exc)))
             self._logger.exception("PiNozCam startup failed: %s", exc)
 
     def _after_startup_impl(self):
@@ -354,12 +354,12 @@ class PinozcamPlugin(ConfirmMixin,
             where = " at %.0f%%" % (progress * 100 if progress <= 1
                                     else progress)
         name = str(payload.get("name") or payload.get("path") or "").strip()
-        text = ("🔌 The print stopped%s: OctoPrint lost the connection to "
-                "the printer." % where)
+        text = (f"🔌 The print stopped{where}: OctoPrint lost the connection to "
+                "the printer.")
         if name:
-            text += "\nFile: %s" % name
+            text += f"\nFile: {name}"
         if error:
-            text += "\nPrinter reported: %s" % error[:200]
+            text += f"\nPrinter reported: {error[:200]}"
         text += ("\nFailure detection has stopped for this print. Check the "
                  "USB cable and reconnect.")
         self._logger.warning("Print failed with reason=error; telling the "
