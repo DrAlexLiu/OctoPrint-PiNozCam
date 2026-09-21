@@ -9,8 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "OctoPrint-PiNozCam"
 description = "AI print-failure detection that runs entirely on your printer's own board. Runs on Linux (ARM32, ARM64, x86-64) and Apple Silicon macOS."
 authors = [
-    { name = "DrAlexLiu" },
-    { email = "liu1111w@uwindsor.ca" },
+    { name = "DrAlexLiu", email = "liu1111w@uwindsor.ca" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
