@@ -573,4 +573,8 @@ def __plugin_load__():
     global __plugin_hooks__
     __plugin_hooks__ = {
         "octoprint.plugin.softwareupdate.check_config": plugin.get_update_information,
+        # Without this line OctoPrint never creates PLUGIN_PINOZCAM_CONTROL,
+        # and _require_control() (api.py) quietly falls back to ADMIN-only:
+        # administrators notice nothing, the "users" group gets 403.
+        "octoprint.access.permissions": plugin.get_additional_permissions,
     }
