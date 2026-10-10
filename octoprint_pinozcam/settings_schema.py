@@ -5,7 +5,7 @@
 MASK_GRID = 128
 
 
-class Setting(object):
+class Setting:
     """One setting: what it is called, what it holds, what bounds it.
 
     `key`    the name in config.yaml and in the posted JSON

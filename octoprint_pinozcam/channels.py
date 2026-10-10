@@ -5,7 +5,7 @@ import threading
 CHANNELS = ("telegram", "discord")
 
 
-class ChannelManager(object):
+class ChannelManager:
     """Serialise channel rebuilds and reject superseded worker results."""
 
     def __init__(self, get_logger, shutting_down, setup, verify,

@@ -17,7 +17,7 @@ CpuSelection = namedtuple("CpuSelection", ["cpus", "description"])
 def _read_int_file(path):
     """Read one integer sysfs attribute, returning None if unavailable."""
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             return int(handle.read().strip())
     except (OSError, ValueError):
         return None
@@ -57,7 +57,7 @@ def _read_undervoltage(hwmon_root=DEFAULT_HWMON_ROOT):
     for entry in entries:
         device = os.path.join(hwmon_root, entry)
         try:
-            with open(os.path.join(device, "name"), "r",
+            with open(os.path.join(device, "name"),
                       encoding="utf-8") as handle:
                 if handle.read().strip() != "rpi_volt":
                     continue
@@ -98,7 +98,7 @@ def read_cpu_topology(sysfs_root=DEFAULT_SYSFS_ROOT, allowed_cpus=None):
                else _read_allowed_cpus())
     cpus = {}
     for cpu_id in sorted(allowed):
-        base = os.path.join(sysfs_root, "cpu%d" % cpu_id)
+        base = os.path.join(sysfs_root, f"cpu{cpu_id}")
         cpus[cpu_id] = {
             "capacity": _read_int_file(os.path.join(base, "cpu_capacity")),
             "max_freq": _read_int_file(
@@ -239,9 +239,9 @@ def select_ai_cpus(cpu_speed_control, topology):
     pct = int(round(cpu_speed_control * 100))
     cpu_list = ",".join(str(cpu_id) for cpu_id in sorted(chosen))
     if topology.is_heterogeneous:
-        description = ("AI affinity: %s (%d%% of %d performance cores)"
-                       % (cpu_list, pct, pool_size))
+        description = (f"AI affinity: {cpu_list} "
+                       f"({pct}% of {pool_size} performance cores)")
     else:
-        description = ("AI affinity: %s (%d%% of %d cores)"
-                       % (cpu_list, pct, pool_size))
+        description = (f"AI affinity: {cpu_list} "
+                       f"({pct}% of {pool_size} cores)")
     return CpuSelection(cpus=frozenset(chosen), description=description)

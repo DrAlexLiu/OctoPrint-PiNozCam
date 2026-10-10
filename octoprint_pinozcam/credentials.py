@@ -58,7 +58,7 @@ def describe_pieces(value):
     if not pieces:
         return "nothing but whitespace"
     if len(pieces) == 1:
-        return "one piece of %d characters" % len(pieces[0])
+        return f"one piece of {len(pieces[0])} characters"
 
     def kind(part):
         """Name one piece's character class, without quoting it."""
@@ -69,9 +69,9 @@ def describe_pieces(value):
         return "mixed"
 
     lengths = ", ".join(str(len(part)) for part in pieces[:-1])
-    return ("%d pieces of %s and %d characters (%s)"
-            % (len(pieces), lengths, len(pieces[-1]),
-               ", ".join(kind(part) for part in pieces)))
+    kinds = ", ".join(kind(part) for part in pieces)
+    return (f"{len(pieces)} pieces of {lengths} and "
+            f"{len(pieces[-1])} characters ({kinds})")
 
 
 def describe_telegram_problem(token, chat_id):
@@ -90,28 +90,27 @@ def describe_telegram_problem(token, chat_id):
                     "Everything else is there -- replace that space with a "
                     "colon, so it reads <digits>:<the rest>.")
         return ("the Bot Token has no colon and contains whitespace. "
-                "What arrived is %s. A token is one piece: 6 or more "
-                "digits, a colon, then about 35 letters, digits, "
-                "underscores or dashes." % describe_pieces(token))
+                f"What arrived is {describe_pieces(token)}. A token is one "
+                "piece: 6 or more digits, a colon, then about 35 letters, "
+                "digits, underscores or dashes.")
     if any(ch.isspace() for ch in token):
         return ("the Bot Token contains a space or a line break: it "
-                "arrived as %s. A token has none -- re-copy it from "
-                "@BotFather in one piece." % describe_pieces(token))
+                f"arrived as {describe_pieces(token)}. A token has none -- "
+                "re-copy it from @BotFather in one piece.")
     if TELEGRAM_CHAT_RE.match(token):
         return ("the Bot Token field holds what looks like a chat id "
-                "(%d digits, no colon). The two fields may be swapped: "
-                "a token looks like 123456789:AA... " % len(token))
+                f"({len(token)} digits, no colon). The two fields may be "
+                "swapped: a token looks like 123456789:AA... ")
     if ":" not in token:
         return ("the Bot Token has no colon. A token is the bot's numeric "
                 "id, then a colon, then about 35 more characters -- this "
-                "value is %d characters with no colon, so it looks like "
-                "only part of one was pasted." % len(token))
+                f"value is {len(token)} characters with no colon, so it "
+                "looks like only part of one was pasted.")
     if not TELEGRAM_TOKEN_RE.match(token):
         head, _, tail = token.partition(":")
-        return ("the Bot Token is not the right shape: %d digits before "
-                "the colon and %d characters after it. BotFather issues 6 "
-                "or more digits and about 35 characters."
-                % (len(head), len(tail)))
+        return (f"the Bot Token is not the right shape: {len(head)} digits "
+                f"before the colon and {len(tail)} characters after it. "
+                "BotFather issues 6 or more digits and about 35 characters.")
     chat_error = telegram_chat_id_error(chat_id)
     if chat_error:
         return chat_error
@@ -143,17 +142,17 @@ def describe_discord_problem(token, channel_id):
             return ("the Channel ID is a URL, not an id. A channel link "
                     "ends with the id; Copy Channel ID gives just the "
                     "digits.")
-        return ("%s Right-click the channel -> Copy Channel ID, with "
-                "Developer Mode on." % channel_error)
+        return (f"{channel_error} Right-click the channel -> Copy Channel ID, with "
+                "Developer Mode on.")
     if not DISCORD_TOKEN_RE.match(token):
         if any(ch.isspace() for ch in token):
             return ("the Bot Token contains whitespace. What arrived is "
-                    "%s. A token is one piece of three dot-separated "
-                    "parts." % describe_pieces(token))
+                    f"{describe_pieces(token)}. A token is one piece of "
+                    "three dot-separated parts.")
+        parts = len(token.split("."))
         return ("the Bot Token is not the expected shape. A token is three "
-                "parts separated by dots; what arrived is %d characters in "
-                "%d parts. Copy the token "
+                f"parts separated by dots; what arrived is {len(token)} "
+                f"characters in {parts} parts. Copy the token "
                 "from the Bot page, not the Client Secret or the "
-                "Application ID from the General Information page."
-                % (len(token), len(token.split("."))))
+                "Application ID from the General Information page.")
     return None

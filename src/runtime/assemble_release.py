@@ -55,14 +55,14 @@ def _one(names, suffix):
     matches = [name for name in names if name.endswith(suffix)]
     if len(matches) != 1:
         raise RuntimeError(
-            "expected one %s member, found %d" % (suffix, len(matches)))
+            f"expected one {suffix} member, found {len(matches)}")
     return matches[0]
 
 
 def _expected(version):
     """Return expected filenames keyed by runtime target."""
     return {
-        target: "%s-%s-py3-none-%s.whl" % (stem, version, platform)
+        target: f"{stem}-{version}-py3-none-{platform}.whl"
         for target, (stem, _dist, _module, platform) in TARGETS.items()
     }
 
@@ -78,8 +78,7 @@ def _discover(root):
             if filename in wheels:
                 if _sha256(path) != _sha256(wheels[filename]):
                     raise RuntimeError(
-                        "duplicate Wheel basename has different bytes: %s" %
-                        filename)
+                        f"duplicate Wheel basename has different bytes: {filename}")
                 continue
             wheels[filename] = path
     return wheels
@@ -88,16 +87,15 @@ def _discover(root):
 def _verify(path, target, version, revision):
     """Verify release identity, manifest, source revision, and platform tag."""
     stem, distribution, module, platform = TARGETS[target]
-    expected_name = "%s-%s-py3-none-%s.whl" % (stem, version, platform)
+    expected_name = f"{stem}-{version}-py3-none-{platform}.whl"
     if os.path.basename(path) != expected_name:
-        raise RuntimeError("unexpected Wheel filename: %s" % path)
+        raise RuntimeError(f"unexpected Wheel filename: {path}")
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
-        manifest_name = _one(names, "%s/manifest.json" % module)
+        manifest_name = _one(names, f"{module}/manifest.json")
         manifest = json.loads(archive.read(manifest_name))
         expected_source = (
-            "https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/%s" %
-            revision
+            f"https://github.com/DrAlexLiu/OctoPrint-PiNozCam/commit/{revision}"
         )
         checks = {
             "distribution": distribution,
@@ -109,12 +107,12 @@ def _verify(path, target, version, revision):
         for key, expected_value in checks.items():
             if manifest.get(key) != expected_value:
                 raise RuntimeError(
-                    "%s manifest %s is %r, expected %r" % (
-                        expected_name, key, manifest.get(key), expected_value))
+                    f"{expected_name} manifest {key} is "
+                    f"{manifest.get(key)!r}, expected {expected_value!r}")
         wheel_metadata = _one(names, ".dist-info/WHEEL")
-        tag = "Tag: py3-none-%s" % platform
+        tag = f"Tag: py3-none-{platform}"
         if tag not in archive.read(wheel_metadata).decode("utf-8"):
-            raise RuntimeError("%s is missing %s" % (expected_name, tag))
+            raise RuntimeError(f"{expected_name} is missing {tag}")
 
 
 def main():
@@ -132,9 +130,8 @@ def main():
     unexpected = sorted(set(discovered) - set(expected.values()))
     if missing or unexpected:
         raise RuntimeError(
-            "runtime Wheel set differs from the %d-file contract; "
-            "missing=%r, unexpected=%r"
-            % (len(TARGETS), missing, unexpected))
+            f"runtime Wheel set differs from the {len(TARGETS)}-file "
+            f"contract; missing={missing!r}, unexpected={unexpected!r}")
 
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)
@@ -146,10 +143,9 @@ def main():
     checksum_path = os.path.join(output, "CHECKSUMS.txt")
     with open(checksum_path, "w", encoding="ascii", newline="\n") as handle:
         for filename in sorted(expected.values()):
-            handle.write("%s  %s\n" % (
-                _sha256(os.path.join(output, filename)), filename))
-    print("PASS: assembled %d runtime Wheels for %s"
-          % (len(expected), args.version))
+            handle.write(f"{_sha256(os.path.join(output, filename))}  {filename}\n")
+    print(f"PASS: assembled {len(expected)} runtime Wheels "
+          f"for {args.version}")
 
 
 if __name__ == "__main__":

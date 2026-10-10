@@ -17,7 +17,7 @@ import octoprint.access
 from . import framesource
 
 
-class CameraMixin(object):
+class CameraMixin:
     """Mixed into PinozcamPlugin; see the module docstring."""
 
     def initialize_cameras(self):
@@ -50,7 +50,7 @@ class CameraMixin(object):
                 continue
             try:
                 return ImageFont.truetype(path, font_size)
-            except (IOError, OSError):
+            except OSError:
                 continue
         try:
             # Pillow >= 10.1 only; older versions reject the argument.
@@ -176,15 +176,14 @@ class CameraMixin(object):
         for chunk in chunks:
             total += len(chunk)
             if total > self.SNAPSHOT_MAX_BYTES:
-                raise IOError(
-                    "snapshot passed %d MB and is still going -- this "
-                    "looks like a stream, not a snapshot"
-                    % (self.SNAPSHOT_MAX_BYTES // (1024 * 1024)))
+                raise OSError(
+                    f"snapshot passed {self.SNAPSHOT_MAX_BYTES // (1024 * 1024)} "
+                    "MB and is still going -- this looks like a stream, "
+                    "not a snapshot")
             if deadline is not None and time.monotonic() > deadline:
-                raise IOError(
-                    "snapshot still arriving after %.0f s -- this looks "
-                    "like a stream, not a snapshot"
-                    % self.SNAPSHOT_DEADLINE)
+                raise OSError(
+                    f"snapshot still arriving after {self.SNAPSHOT_DEADLINE:.0f} s -- this looks "
+                    "like a stream, not a snapshot")
             parts.append(chunk)
         return b"".join(parts)
 
@@ -272,7 +271,7 @@ class CameraMixin(object):
         recognisably a fingerprint and not a URL somebody can try to open.
         """
         digest = hashlib.sha256((url or "").encode("utf-8")).hexdigest()
-        return "url#%s" % digest[:16]
+        return f"url#{digest[:16]}"
 
     def _snapshot_geometry_now(self):
         """(source, detail, flipH, flipV, rotate90) for the NEXT snapshot.
@@ -310,7 +309,7 @@ class CameraMixin(object):
             # Same order as get_snapshot() itself -- the point of this
             # method is to predict THAT choice, so they must share it.
             for camera, config in self._provider_candidates():
-                detail = "%s/%s" % (
+                detail = "{}/{}".format(
                     getattr(camera, "_identifier", "?"),
                     getattr(config, "name", "") or "?",
                 )
@@ -435,7 +434,7 @@ class CameraMixin(object):
                         "Custom snapshot URL did not answer usably: %s",
                         self.redact(str(e)))
                 return None
-            except IOError as e:
+            except OSError as e:
                 if not quiet:
                     self._logger.error(
                         "Failed to open local file from custom snapshot "
@@ -469,7 +468,7 @@ class CameraMixin(object):
                     # _snapshot_geometry_now() returns.
                     geometry = (
                         "provider",
-                        "%s/%s" % (
+                        "{}/{}".format(
                             getattr(camera, "_identifier", "?"),
                             getattr(config, "name", "") or "?"),
                         bool(must_flip_h), bool(must_flip_v),
@@ -533,7 +532,7 @@ class CameraMixin(object):
                 self._logger.error("Failed to fetch default snapshot: %s",
                                    self.redact(str(e)))
             return None
-        except IOError as e:
+        except OSError as e:
             if not quiet:
                 self._logger.error("Failed to open local snapshot file: %s",
                                    self.redact(str(e)))
@@ -574,7 +573,7 @@ class CameraMixin(object):
                 jpeg = self.encode_image_to_jpeg_bytes(
                     self.apply_mask_to_image(raw))
             # The ETag also serves as the browser cache-buster.
-            etag = "c%d" % int(now)
+            etag = f"c{int(now)}"
             with self.lock:
                 self.snapshot_cache = {
                     'time': now, 'etag': etag, 'jpeg': jpeg}
@@ -915,8 +914,8 @@ def _classify_custom_url(url):
     if media_type.startswith("image/"):
         return "snapshot"
     raise ValueError(
-        "unrecognised Content-Type %r -- neither an MJPEG stream nor "
-        "a still image" % media_type)
+        f"unrecognised Content-Type {media_type!r} -- neither an MJPEG stream nor "
+        "a still image")
 
 
 def _grab_one_mjpeg_frame(
@@ -984,9 +983,8 @@ def _grab_one_mjpeg_frame(
     finally:
         source.close()
     if frame is None:
-        raise IOError(
-            "no frame received from MJPEG stream within %.0f s"
-            % timeout)
+        raise OSError(
+            f"no frame received from MJPEG stream within {timeout:.0f} s")
     return framesource._decode_source_image(frame.jpeg_bytes)
 
 
@@ -1033,7 +1031,7 @@ def _is_fetchable_stream_url(url):
     return not _is_hls_or_webrtc_stream_url(url)
 
 
-class CameraSourceFactory(object):
+class CameraSourceFactory:
     """Build one frame source from a custom URL or OctoPrint webcam config."""
 
     def __init__(self, plugin, logger=None):
@@ -1063,13 +1061,11 @@ class CameraSourceFactory(object):
         except ValueError as exc:
             # This controlled error contains a response header, not the URL.
             raise CameraSourceUnavailable(
-                "the custom camera URL did not answer usably: %s"
-                % exc) from exc
+                f"the custom camera URL did not answer usably: {exc}") from exc
         except requests.RequestException as exc:
             # Exception text may contain URL credentials.
             raise CameraSourceUnavailable(
-                "the custom camera URL did not answer usably: %s"
-                % type(exc).__name__) from exc
+                f"the custom camera URL did not answer usably: {type(exc).__name__}") from exc
         spec = framesource.SourceSpec(kind, identity, url, geometry)
         if kind == "mjpeg":
             self._logger.info(
@@ -1089,14 +1085,14 @@ class CameraSourceFactory(object):
             self._logger.debug("get_snapshot_webcam failed: %s", exc)
             raise CameraSourceUnavailable(
                 "could not ask OctoPrint for its designated snapshot "
-                "webcam: %s" % type(exc).__name__) from exc
+                f"webcam: {type(exc).__name__}") from exc
         config = getattr(provided, "config", None)
         if config is None:
             raise CameraSourceUnavailable(
                 "no snapshot webcam is configured in OctoPrint")
         name = getattr(config, "name", "") or "?"
         camera = getattr(provided, "providerPlugin", None)
-        provider_detail = "%s/%s" % (
+        provider_detail = "{}/{}".format(
             getattr(camera, "_identifier", "?"), name)
         geometry = self._plugin._snapshot_geometry_now
         compat = getattr(config, "compat", None)
@@ -1127,5 +1123,5 @@ class CameraSourceFactory(object):
             return framesource.HttpSnapshotFrameSource(
                 spec, logger=self._logger)
         raise CameraSourceUnavailable(
-            "OctoPrint's designated snapshot webcam %s has neither a "
-            "compatible MJPEG stream nor a snapshot URL" % provider_detail)
+            f"OctoPrint's designated snapshot webcam {provider_detail} has neither a "
+            "compatible MJPEG stream nor a snapshot URL")
