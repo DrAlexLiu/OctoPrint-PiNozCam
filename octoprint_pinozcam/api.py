@@ -406,22 +406,27 @@ class ApiMixin:
                 json.dumps({"error": f"unknown channel {wanted!r}"}),
                 status=400, mimetype="application/json")
         # Read once and never log the draft credentials.
-        draft = self._draft("telegramBotToken", "telegramChatID",
-                            "discordBotToken", "discordChannelID",
-                            "customSnapshotURL")
+        posted = self._draft("telegramBotToken", "telegramChatID",
+                             "discordBotToken", "discordChannelID",
+                             "customSnapshotURL")
+        # ONE snapshot of the saved settings. Everything below works from
+        # it and from the posted values, never from self again: fetching the
+        # picture can block, and a Save arriving meanwhile must not change
+        # where this test goes.
+        saved = {"telegramBotToken": self.telegram_bot_token or "",
+                 "telegramChatID": self.telegram_chat_id or "",
+                 "discordBotToken": self.discord_bot_token or "",
+                 "discordChannelID": self.discord_channel_id or "",
+                 "customSnapshotURL": self.custom_snapshot_url or ""}
+        # What this test sends with: the posted value where the page sent
+        # one, the snapshot where it did not.
+        use = dict(saved, **posted)
         # The settings page posts every field, edited or not. Only a value
-        # that differs from the saved one is a draft (and needs ADMIN);
-        # otherwise every test of the SAVED credentials went out through the
-        # isolated draft client, without the control row an alert carries.
-        # Whether the running bot may send is decided separately, by
-        # _running_bot_serves().
-        saved = {"telegramBotToken": self.telegram_bot_token,
-                 "telegramChatID": self.telegram_chat_id,
-                 "discordBotToken": self.discord_bot_token,
-                 "discordChannelID": self.discord_channel_id,
-                 "customSnapshotURL": self.custom_snapshot_url}
-        draft = {name: value for name, value in draft.items()
-                 if value != (saved.get(name) or "")}
+        # that differs from the saved one is a draft, and a draft needs
+        # ADMIN. That is all this set decides; which client sends is
+        # decided by _running_bot_for().
+        draft = {name: value for name, value in posted.items()
+                 if value != saved[name]}
         denied = self._require_admin_for_draft(draft)
         if denied is not None:
             return denied
@@ -429,10 +434,10 @@ class ApiMixin:
         id_checks = []
         if wanted in ("", "telegram"):
             id_checks.append(self.telegram_chat_id_error(
-                draft.get("telegramChatID", self.telegram_chat_id)))
+                use["telegramChatID"]))
         if wanted in ("", "discord"):
             id_checks.append(self.discord_channel_id_error(
-                draft.get("discordChannelID", self.discord_channel_id)))
+                use["discordChannelID"]))
         for problem in id_checks:
             if problem:
                 self._logger.warning(
@@ -440,44 +445,33 @@ class ApiMixin:
                 return Response(json.dumps({"ok": False,
                                             "message": problem}),
                                 mimetype="application/json")
+        # The URL from the snapshot too; only an unsaved one leaves the
+        # camera geometry unrecorded, as before.
         image = self.notification_image(
-            "PiNozCam test", url_override=draft.get("customSnapshotURL"))
-        # The control row in test and alert is shared on the saved-credential
-        # path.
+            "PiNozCam test", url_override=use["customSnapshotURL"],
+            record_geometry="customSnapshotURL" not in draft)
         caption = ("PiNozCam test message. If you can read this, monitoring "
                    "replies and failure alerts from this printer can reach "
                    "you.")
         results = {}
         if wanted == "discord":
             pass
-        elif (draft.get("telegramBotToken", self.telegram_bot_token)
-              and draft.get("telegramChatID", self.telegram_chat_id)):
-            token = draft.get("telegramBotToken")
-            chat = draft.get("telegramChatID")
-            # The pair actually about to be used: the draft where the user
-            # has edited it, the saved value where they have not.
-            use_token = (token if token is not None
-                         else self.telegram_bot_token)
-            use_chat = chat if chat is not None else self.telegram_chat_id
+        elif use["telegramBotToken"] and use["telegramChatID"]:
+            use_token, use_chat = use["telegramBotToken"], use["telegramChatID"]
             try:
-                if (token is not None or chat is not None
-                        or not self._running_bot_serves(
-                            "telegram", use_token, use_chat)):
-                    # A credential is unsaved, or the running bot is not
-                    # (yet) the one for this pair, so send with the pair the
-                    # user is looking at through the isolated client.
+                bot = self._running_bot_for("telegram", use_token, use_chat)
+                if bot is None:
+                    # Unsaved, not enabled as saved, or the running bot is
+                    # not (yet) the one for this pair: the isolated client,
+                    # with exactly the pair under test.
                     self.telegram_send_draft(use_token, use_chat,
                                              image=image, caption=caption)
-                # notify_all, so the control row is built in ONE place --
-                # the same place an alert builds it, including deriving the
-                # Pause/Resume label from the printer state.
-                #
-                # respect_mute=False: the user pressed Test and is owed an
-                # answer whatever they muted during an earlier print.
-                # wait=True (the default) because "sent" has to mean sent.
-                elif not self.notify_all(
-                        caption, image=image, buttons=True, silent=True,
-                        respect_mute=False, only=("telegram",))[1]:
+                # Through _send_telegram, so the control row is built in ONE
+                # place -- the same place an alert builds it -- but through
+                # THIS bot, checked a moment ago, not whichever one self
+                # holds by the time the message goes out.
+                elif not self._send_telegram(caption, image, True, True,
+                                             bot=bot):
                     raise RuntimeError(
                         "Telegram refused the message; the reason is in "
                         "octoprint.log.")
@@ -494,14 +488,8 @@ class ApiMixin:
         if wanted == "telegram":
             pass
         else:
-            token = draft.get("discordBotToken")
-            channel = draft.get("discordChannelID")
-            # The pair actually about to be used: the draft where the user
-            # has edited it, the saved value where they have not.
-            use_token = (token if token is not None
-                         else self.discord_bot_token)
-            use_channel = (channel if channel is not None
-                           else self.discord_channel_id)
+            use_token = use["discordBotToken"]
+            use_channel = use["discordChannelID"]
             if not (use_token and use_channel):
                 if use_token or use_channel:
                     results["discord"] = (
@@ -511,22 +499,17 @@ class ApiMixin:
                     results["discord"] = "not configured"
             else:
                 try:
-                    if (token is not None or channel is not None
-                            or not self._running_bot_serves(
-                                "discord", use_token, use_channel)):
-                        # A credential is unsaved, or the running bot is not
-                        # (yet) the one for this pair, so send with the pair
-                        # the user is looking at through the isolated client.
+                    bot = self._running_bot_for("discord", use_token,
+                                                use_channel)
+                    if bot is None:
+                        # Same rule as Telegram above.
                         self.discord_send_draft(use_token, use_channel,
                                                 image=image, caption=caption)
-                    elif self.notify_all(
-                            caption, image=image, buttons=True, silent=True,
-                            respect_mute=False, only=("discord",))[1]:
-                        pass
-                    else:
+                    elif not self._send_discord(caption, image, True, True,
+                                                bot=bot):
                         raise RuntimeError(
-                            "the saved Discord credentials did not start a "
-                            "bot; the reason is in octoprint.log at startup.")
+                            "Discord refused the message; the reason is in "
+                            "octoprint.log.")
                     results["discord"] = "sent"
                 except Exception as exc:              # noqa: BLE001
                     # redact(): requests puts the failing URL in its
@@ -832,15 +815,17 @@ class ApiMixin:
         """Require CSRF tokens on this plugin's endpoints."""
         return True
 
-    def _running_bot_serves(self, channel, token, destination):
-        """True when the running bot is the one a test of (token,
-        destination) means: the channel is enabled as saved, no rebuild is
-        pending, and the client itself holds exactly these credentials.
+    def _running_bot_for(self, channel, token, destination):
+        """The running bot for a test of (token, destination), or None.
 
-        Only then may a test go through it with the control row. A saved
-        value equal to the posted one is not enough: a save publishes the new
-        values at once while the old bot keeps running until the rebuild
-        finishes, and a channel ticked on but not yet saved has no bot.
+        Returned only when the channel is enabled as saved, no rebuild is
+        pending, and the client itself holds exactly these credentials. A
+        saved value equal to the posted one is not enough: a save publishes
+        the new values at once while the old bot keeps running until the
+        rebuild finishes, and a channel ticked on but not yet saved has no
+        bot. The caller sends through the INSTANCE returned here, read once,
+        so a Save landing between this check and the send cannot swap in a
+        bot for another destination.
         """
         if channel == "telegram":
             enabled, bot = self.enable_telegram, self.telegram_bot
@@ -849,9 +834,11 @@ class ApiMixin:
             enabled, bot = self.enable_discord, self.discord_bot
             held = (getattr(bot, "token", None),
                     getattr(bot, "channel_id", None))
-        return bool(enabled and bot is not None
-                    and not self.channel_setup_running(channel)
-                    and held == (token, str(destination)))
+        if (enabled and bot is not None
+                and not self.channel_setup_running(channel)
+                and held == (token, str(destination))):
+            return bot
+        return None
 
     def _require_admin_for_draft(self, draft):
         """Refuse a draft-credential test unless the caller is an admin.

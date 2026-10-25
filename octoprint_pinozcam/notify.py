@@ -347,9 +347,15 @@ class NotifyMixin:
 
     def telegram_send_with_reply(self, image=None, caption='',
                                  reply_buttons=0,
-                                 disable_notification=False, confirm=None):
-        """Send Telegram content with optional controls or confirmation."""
-        bot = self.telegram_bot
+                                 disable_notification=False, confirm=None,
+                                 bot=None):
+        """Send Telegram content with optional controls or confirmation.
+
+        `bot` pins the client (a Test that has just checked it); by default
+        the current one.
+        """
+        if bot is None:
+            bot = self.telegram_bot
         if bot is None:
             return False
         keyboard = None
@@ -427,14 +433,14 @@ class NotifyMixin:
              self._send_discord),
         )
 
-    def _send_telegram(self, caption, image, buttons, silent):
+    def _send_telegram(self, caption, image, buttons, silent, bot=None):
         """Send one Telegram message and return final success."""
         return bool(self.telegram_send_with_reply(
             image=image, caption=caption,
             reply_buttons=4 if buttons else 0,
-            disable_notification=silent))
+            disable_notification=silent, bot=bot))
 
-    def _send_discord(self, caption, image, buttons, silent):
+    def _send_discord(self, caption, image, buttons, silent, bot=None):
         """One message to Discord. Returns False on failure.
 
         discord_deliver, not a notify-level helper: the mute check belongs
@@ -448,7 +454,7 @@ class NotifyMixin:
                 self.printer_id,
                 paused=self._printer.get_state_id() == "PAUSED",
                 muted=self.alerts_muted)
-        return self.discord_deliver(image=image, caption=caption,
+        return self.discord_deliver(bot=bot, image=image, caption=caption,
                                     components=components, silent=silent)
 
     # Messages one medium may have waiting. Small on purpose: this is an
@@ -634,9 +640,14 @@ class NotifyMixin:
         return attempted, delivered
 
     def discord_deliver(self, image=None, caption="", components=None,
-                        silent=False):
-        """Post one Discord message via the bot transport."""
-        bot = self.discord_bot
+                        silent=False, bot=None):
+        """Post one Discord message via the bot transport.
+
+        `bot` pins the client (a Test that has just checked it); by default
+        the current one.
+        """
+        if bot is None:
+            bot = self.discord_bot
         if bot is None:
             return False
         stream = None

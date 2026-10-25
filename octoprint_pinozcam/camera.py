@@ -615,11 +615,13 @@ class CameraMixin:
                 if self._live_snapshot_thread is current:
                     self._live_snapshot_thread = None
 
-    def notification_image(self, fallback_text, url_override=None):
+    def notification_image(self, fallback_text, url_override=None,
+                           record_geometry=None):
         """Return a masked notification frame or generated fallback image."""
         image = None
         try:
             image = self.get_snapshot(url_override=url_override,
+                                      record_geometry=record_geometry,
                                       quiet=True)
         except Exception:                                   # noqa: BLE001
             image = None
