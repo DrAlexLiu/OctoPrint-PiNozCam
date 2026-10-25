@@ -410,9 +410,11 @@ class ApiMixin:
                             "discordBotToken", "discordChannelID",
                             "customSnapshotURL")
         # The settings page posts every field, edited or not. Only a value
-        # that differs from the saved one is a draft; otherwise a test of the
-        # SAVED credentials went out through the isolated draft client,
-        # without the control row an alert carries.
+        # that differs from the saved one is a draft (and needs ADMIN);
+        # otherwise every test of the SAVED credentials went out through the
+        # isolated draft client, without the control row an alert carries.
+        # Whether the running bot may send is decided separately, by
+        # _running_bot_serves().
         saved = {"telegramBotToken": self.telegram_bot_token,
                  "telegramChatID": self.telegram_chat_id,
                  "discordBotToken": self.discord_bot_token,
@@ -458,10 +460,12 @@ class ApiMixin:
                          else self.telegram_bot_token)
             use_chat = chat if chat is not None else self.telegram_chat_id
             try:
-                if token is not None or chat is not None:
-                    # At least one credential is unsaved, so send with
-                    # the pair the user is looking at, not the one on
-                    # disk.
+                if (token is not None or chat is not None
+                        or not self._running_bot_serves(
+                            "telegram", use_token, use_chat)):
+                    # A credential is unsaved, or the running bot is not
+                    # (yet) the one for this pair, so send with the pair the
+                    # user is looking at through the isolated client.
                     self.telegram_send_draft(use_token, use_chat,
                                              image=image, caption=caption)
                 # notify_all, so the control row is built in ONE place --
@@ -507,10 +511,12 @@ class ApiMixin:
                     results["discord"] = "not configured"
             else:
                 try:
-                    if token is not None or channel is not None:
-                        # At least one credential is unsaved, so send with
-                        # the pair the user is looking at, not the one on
-                        # disk.
+                    if (token is not None or channel is not None
+                            or not self._running_bot_serves(
+                                "discord", use_token, use_channel)):
+                        # A credential is unsaved, or the running bot is not
+                        # (yet) the one for this pair, so send with the pair
+                        # the user is looking at through the isolated client.
                         self.discord_send_draft(use_token, use_channel,
                                                 image=image, caption=caption)
                     elif self.notify_all(
@@ -825,6 +831,27 @@ class ApiMixin:
     def is_blueprint_csrf_protected(self):
         """Require CSRF tokens on this plugin's endpoints."""
         return True
+
+    def _running_bot_serves(self, channel, token, destination):
+        """True when the running bot is the one a test of (token,
+        destination) means: the channel is enabled as saved, no rebuild is
+        pending, and the client itself holds exactly these credentials.
+
+        Only then may a test go through it with the control row. A saved
+        value equal to the posted one is not enough: a save publishes the new
+        values at once while the old bot keeps running until the rebuild
+        finishes, and a channel ticked on but not yet saved has no bot.
+        """
+        if channel == "telegram":
+            enabled, bot = self.enable_telegram, self.telegram_bot
+            held = (getattr(bot, "token", None), getattr(bot, "chat_id", None))
+        else:
+            enabled, bot = self.enable_discord, self.discord_bot
+            held = (getattr(bot, "token", None),
+                    getattr(bot, "channel_id", None))
+        return bool(enabled and bot is not None
+                    and not self.channel_setup_running(channel)
+                    and held == (token, str(destination)))
 
     def _require_admin_for_draft(self, draft):
         """Refuse a draft-credential test unless the caller is an admin.
