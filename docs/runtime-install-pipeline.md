@@ -59,12 +59,12 @@ pip installs the plugin and that runtime together
 OctoPrint restarts; PiNozCam starts the selected runner
 ```
 
-For the 1.1.0 release candidate, the direct installation command is:
+For release 1.1.1, the direct installation command is:
 
 ```bash
 python -m pip install \
   --no-build-isolation --no-cache-dir \
-  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0.zip
+  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.1.zip
 ```
 
 `--no-build-isolation` is required for OctoPrint installations because the
@@ -125,7 +125,7 @@ python -m pip uninstall -y \
 
 python -m pip install \
   --no-build-isolation --no-cache-dir \
-  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.0.zip
+  https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.1.zip
 ```
 
 Stop OctoPrint before a manual uninstall/reinstall and start it again after
