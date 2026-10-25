@@ -409,6 +409,17 @@ class ApiMixin:
         draft = self._draft("telegramBotToken", "telegramChatID",
                             "discordBotToken", "discordChannelID",
                             "customSnapshotURL")
+        # The settings page posts every field, edited or not. Only a value
+        # that differs from the saved one is a draft; otherwise a test of the
+        # SAVED credentials went out through the isolated draft client,
+        # without the control row an alert carries.
+        saved = {"telegramBotToken": self.telegram_bot_token,
+                 "telegramChatID": self.telegram_chat_id,
+                 "discordBotToken": self.discord_bot_token,
+                 "discordChannelID": self.discord_channel_id,
+                 "customSnapshotURL": self.custom_snapshot_url}
+        draft = {name: value for name, value in draft.items()
+                 if value != (saved.get(name) or "")}
         denied = self._require_admin_for_draft(draft)
         if denied is not None:
             return denied
