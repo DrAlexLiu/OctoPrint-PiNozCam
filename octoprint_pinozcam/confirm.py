@@ -95,3 +95,14 @@ class ConfirmMixin:
                 del self.confirm_tokens[(channel, action)]
                 return True
         return False
+
+    def _revoke_confirms(self, channel):
+        """Withdraw every offer made on channel.
+
+        For a Save that changes that channel's settings: a Yes drawn under
+        the old ones must not stop the print under the new, even from a
+        chat that is (again) the configured one.
+        """
+        with self.confirm_lock:
+            for key in [k for k in self.confirm_tokens if k[0] == channel]:
+                del self.confirm_tokens[key]

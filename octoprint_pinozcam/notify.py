@@ -17,6 +17,9 @@ from .discord_bot import (DiscordBot, buttons as discord_buttons,
                           confirm_buttons as discord_confirm_buttons)
 from .telegram_bot import (TelegramBot, buttons as telegram_buttons,
                            confirm_buttons as telegram_confirm_buttons,
+                           reply_target as telegram_reply_target,
+                           RETIRED_TEXT as TELEGRAM_RETIRED_TEXT,
+                           OTHER_CHAT_TEXT as TELEGRAM_OTHER_CHAT_TEXT,
                            send_draft as telegram_send_draft)
 
 
@@ -409,7 +412,8 @@ class NotifyMixin:
             return
         self.stop_telegram_bot()
         bot = TelegramBot(self.telegram_bot_token, self.telegram_chat_id,
-                          self._logger, self.handle_telegram_command)
+                          self._logger, self.handle_telegram_command,
+                          source_problem=self._telegram_source_problem)
         try:
             running = bot.start()
         except Exception:
@@ -420,6 +424,25 @@ class NotifyMixin:
             return
         self.telegram_bot = bot
         self.telegram_server_running = running
+
+    def _telegram_source_problem(self, token, chat_id):
+        """Why a Telegram command through `token` from `chat_id` is refused
+        under the settings committed by the last Save, or None.
+
+        Read under the lock on_settings_save publishes under, so the three
+        values are one Save's. The client asking may be one that Save has
+        already replaced on paper and not yet stopped: it still gets the
+        current answer.
+        """
+        with self.lock:
+            enabled = self.enable_telegram
+            current_token = self.telegram_bot_token
+            current_chat = self.telegram_chat_id
+        if not (enabled and token == current_token):
+            return TELEGRAM_RETIRED_TEXT
+        if str(chat_id) != str(current_chat):
+            return TELEGRAM_OTHER_CHAT_TEXT
+        return None
 
     def stop_telegram_bot(self):
         """Detach and stop the active Telegram client."""
@@ -437,9 +460,17 @@ class NotifyMixin:
                                  bot=None, chat_id=None):
         """Send Telegram content with optional controls or confirmation.
 
-        `bot` pins the client (a Test that has just checked it); by default
-        the current one.
+        `bot` and `chat_id` pin the client and destination. Unpinned, a
+        reply made while a command is being handled goes back through the
+        client that command arrived on and to its chat (see
+        telegram_bot.reply_target); anything else goes through the current
+        client to the current chat.
         """
+        if bot is None or chat_id is None:
+            source_bot, source_chat = telegram_reply_target()
+            if source_bot is not None:
+                bot = bot or source_bot
+                chat_id = chat_id or source_chat
         if bot is None:
             bot = self.telegram_bot
         if bot is None:

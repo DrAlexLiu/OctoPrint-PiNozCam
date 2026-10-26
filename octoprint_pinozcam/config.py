@@ -271,6 +271,12 @@ class ConfigMixin:
         discord_changed = (self.discord_bot_token != old_bot
                            or self.discord_channel_id != old_channel
                            or self.enable_discord != old_enable_dc)
+        # Offers made under the old settings die with them, now, on this
+        # thread: the rebuild below is asynchronous.
+        if telegram_changed:
+            self._revoke_confirms("telegram")
+        if discord_changed:
+            self._revoke_confirms("discord")
         # Network setup and welcome delivery stay off the request thread.
         self.start_channel_setup(telegram=telegram_changed,
                                  discord=discord_changed, welcome=True)

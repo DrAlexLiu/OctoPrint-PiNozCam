@@ -80,6 +80,21 @@ def _handing_over(token):
 RETIRED_TEXT = ("PiNozCam's Telegram settings changed after this message was "
                 "sent, so this button no longer works. Press one on a newer "
                 "message.")
+OTHER_CHAT_TEXT = "Not the configured chat."
+
+# The client and chat a command arrived through, for the thread running
+# its handler. Replies made while handling it go back there -- through that
+# client and to that chat -- and not to whatever a Save landing meanwhile
+# has made current: a Check from chat A that was fetching a frame while the
+# chat was changed to B used to deliver A's frame to B.
+_REPLYING = threading.local()
+
+
+def reply_target():
+    """(client, chat id) of the command being handled on this thread, or
+    (None, None) outside a handler."""
+    return (getattr(_REPLYING, "bot", None),
+            getattr(_REPLYING, "chat_id", None))
 MAX_CONSECUTIVE = 3
 
 
@@ -180,12 +195,23 @@ class TelegramBot:
     arrive. So a bot whose polling has died still delivers alerts.
     """
 
-    def __init__(self, token, chat_id, logger, on_command):
-        """Hold the credentials and the callback; connect nothing yet."""
+    def __init__(self, token, chat_id, logger, on_command,
+                 source_problem=None):
+        """Hold the credentials and the callbacks; connect nothing yet.
+
+        `source_problem(token, chat_id)` says why a command from that chat,
+        through this token, must be refused right now (text), or None.
+        It is the plugin's view of the settings as COMMITTED by the last
+        Save -- not this client's copy of them, which a Save replaces
+        asynchronously: between the two, a client still running under
+        settings the user has already switched off accepted a Stop.
+        Without it, the client falls back to its own chat id.
+        """
         self.token = token
         self.chat_id = str(chat_id)
         self._logger = logger
         self.on_command = on_command        # (name, call) -> str | None
+        self.source_problem = source_problem
 
         self.running = False
         self.last_error = None
@@ -209,15 +235,38 @@ class TelegramBot:
 
     # ---- ownership ----------------------------------------------------
 
-    def _from_owner(self, source, what):
-        """Accept commands only from the configured chat, failing closed."""
+    def _source_problem(self, source, what):
+        """Why a command from `source` is refused now, or None.
+
+        Fails closed: no readable chat id is refused too -- a bot added to
+        a second group would otherwise take Pause and Stop from anyone
+        there.
+        """
         chat_id = getattr(getattr(source, "chat", None), "id", None)
-        if str(chat_id) == str(self.chat_id):
-            return True
-        self._logger.warning(
-            "Ignoring %s from Telegram chat %r; this bot is configured for "
-            "%r.", what, chat_id, self.chat_id)
-        return False
+        if self.source_problem is not None:
+            problem = self.source_problem(self.token, chat_id)
+        elif str(chat_id) == str(self.chat_id):
+            problem = None
+        else:
+            problem = OTHER_CHAT_TEXT
+        if problem is not None:
+            self._logger.warning(
+                "Ignoring %s from Telegram chat %r: %s", what, chat_id,
+                problem)
+        return problem
+
+    def _from_owner(self, source, what):
+        """Accept commands only from the chat configured right now."""
+        return self._source_problem(source, what) is None
+
+    def _as_source(self, source):
+        """Run the handler body with replies bound to where it came from."""
+        chat_id = getattr(getattr(source, "chat", None), "id", None)
+        _REPLYING.bot, _REPLYING.chat_id = self, str(chat_id)
+
+    @staticmethod
+    def _done_as_source():
+        _REPLYING.bot = _REPLYING.chat_id = None
 
     def answer(self, call_id, text=None):
         """Acknowledge a button press. Telegram spins it forever otherwise."""
@@ -445,7 +494,11 @@ class TelegramBot:
             key = ("hi", message.chat.id, message.message_id)
             if self._retired(key) or not self._first_time(key):
                 return
-            self.on_command("/hi", None)
+            self._as_source(message)
+            try:
+                self.on_command("/hi", None)
+            finally:
+                self._done_as_source()
 
         @bot.message_handler(func=lambda message: True)
         def _anything_else(message):
@@ -455,7 +508,11 @@ class TelegramBot:
             key = ("text", message.chat.id, message.message_id)
             if self._retired(key) or not self._first_time(key):
                 return
-            text = self.on_command("", None)
+            self._as_source(message)
+            try:
+                text = self.on_command("", None)
+            finally:
+                self._done_as_source()
             if text:
                 self.reply_to(message, text)
 
@@ -468,13 +525,13 @@ class TelegramBot:
                 # them any more. Answered, so the button stops spinning.
                 self.answer(call.id, text=RETIRED_TEXT)
                 return
-            # FAILS CLOSED. An earlier version skipped the check when the
-            # chat id could not be read, which is backwards: a bot added to
-            # a second group would otherwise take pause and stop from
-            # anyone there.
-            if not self._from_owner(getattr(call, "message", None),
-                                    "a button"):
-                self.answer(call.id, text="Not the configured chat.")
+            message = getattr(call, "message", None)
+            problem = self._source_problem(message, "a button")
+            if problem is not None:
+                # Recorded as handled: a press refused under the settings
+                # committed now is not to be retried by the next client.
+                self._first_time(("press", call.id))
+                self.answer(call.id, text=problem)
                 return
             if not self._first_time(("press", call.id)):
                 # Handled already, by this client or the one it replaced,
@@ -483,9 +540,11 @@ class TelegramBot:
             # button forever if the query goes unanswered, and the old
             # handler answered on several separate paths -- one of which
             # could be missed by a new branch.
+            self._as_source(message)
             try:
                 self.on_command(call.data or "", call)
             finally:
+                self._done_as_source()
                 self.answer(call.id)
 
     def _first_time(self, key):
