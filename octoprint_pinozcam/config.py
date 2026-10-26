@@ -94,13 +94,6 @@ class ConfigMixin:
 
             before = self._detection_fingerprint()
 
-            # Compare channel values to rebuild only changed channels.
-            channel_before = (self.telegram_bot_token,
-                              self.telegram_chat_id,
-                              self.enable_telegram,
-                              self.discord_bot_token,
-                              self.discord_channel_id,
-                              self.enable_discord)
 
             old_custom_snapshot_url = self.custom_snapshot_url
 
@@ -199,6 +192,20 @@ class ConfigMixin:
 
             # Values and generation must become visible atomically.
             with self.lock:
+                # What THIS save changes about each channel, judged against
+                # what is published at this moment and decided inside the
+                # same lock: a second save overlapping this one can have
+                # published its values already, and comparing against them
+                # afterwards made a disable look like no change -- and
+                # skipped the revocation below.
+                telegram_changed = (
+                    new_telegram_bot_token != self.telegram_bot_token
+                    or new_telegram_chat_id != self.telegram_chat_id
+                    or new_enable_telegram != self.enable_telegram)
+                discord_changed = (
+                    new_discord_bot_token != self.discord_bot_token
+                    or new_discord_channel_id != self.discord_channel_id
+                    or new_enable_discord != self.enable_discord)
                 self.enable_AI = new_enable_AI
                 self.ai_backend = new_ai_backend
                 self.enable_telegram = new_enable_telegram
@@ -230,6 +237,14 @@ class ConfigMixin:
                     self._camera_source_generation += 1
                 self.settings_generation += 1
                 self.setting_change_while_printing = True
+                # Offers made under the old settings die with them, in the
+                # same transaction that publishes the new ones: the rebuild
+                # is asynchronous, and a handler reading the new settings
+                # must never still find an offer made under the old.
+                if telegram_changed:
+                    self._revoke_confirms("telegram")
+                if discord_changed:
+                    self._revoke_confirms("discord")
             changed_detection = before != self._detection_fingerprint()
             self._logger.info("Plugin settings saved.")
 
@@ -262,22 +277,9 @@ class ConfigMixin:
                 "Detection parameters changed; window and evidence reset, "
                 "warming up again.")
 
-        # Rebuild only channels whose configuration changed.
-        (old_token, old_chat, old_enable_tg,
-         old_bot, old_channel, old_enable_dc) = channel_before
-        telegram_changed = (self.telegram_bot_token != old_token
-                            or self.telegram_chat_id != old_chat
-                            or self.enable_telegram != old_enable_tg)
-        discord_changed = (self.discord_bot_token != old_bot
-                           or self.discord_channel_id != old_channel
-                           or self.enable_discord != old_enable_dc)
-        # Offers made under the old settings die with them, now, on this
-        # thread: the rebuild below is asynchronous.
-        if telegram_changed:
-            self._revoke_confirms("telegram")
-        if discord_changed:
-            self._revoke_confirms("discord")
-        # Network setup and welcome delivery stay off the request thread.
+        # Rebuild only the channels this save changed (decided above, in
+        # the publishing transaction). Network setup and welcome delivery
+        # stay off the request thread.
         self.start_channel_setup(telegram=telegram_changed,
                                  discord=discord_changed, welcome=True)
 
