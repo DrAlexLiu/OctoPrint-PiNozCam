@@ -19,8 +19,9 @@ TELEGRAM_TOKEN_RE = re.compile(r"^\d{6,}:[\w-]{30,}$")
 TELEGRAM_CHAT_RE = re.compile(r"^-?[0-9]{5,}$")
 
 DISCORD_CHANNEL_RE = re.compile(r"^[0-9]{17,19}$")
-# Discord ids are signed 64-bit snowflakes: Discord refuses anything above
-# this (NUMBER_TYPE_MAX), so no 20-digit id can be real.
+# Discord's API accepts ids up to 2**63 - 1 and answers NUMBER_TYPE_MAX
+# ("snowflake value should be less than or equal to 9223372036854775807")
+# above it, so no 20-digit id can reach a channel.
 DISCORD_ID_MAX = 2 ** 63 - 1
 DISCORD_TOKEN_RE = re.compile(r"^[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,}$")
 

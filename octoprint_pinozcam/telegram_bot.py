@@ -1,5 +1,6 @@
 """Telegram polling, delivery and button transport."""
 
+import collections
 import logging
 import threading
 import time
@@ -12,12 +13,50 @@ from . import credentials
 # A sufficiently long polling run resets the consecutive-failure counter.
 HEALTHY_RUN = 120.0
 
-# 409s within CONFLICT_WINDOW seconds that mean another process polls this
-# token. Another poller takes the stream again and again, so its 409s keep
-# coming; a single one can be our own replaced client, whose last request
-# reached Telegram after its successor's first.
+# Consecutive 409s -- none of them explained by a client of ours that was
+# just replaced, and no successful poll in between -- that mean another
+# process polls this token. Another poller takes the stream back again and
+# again, so its 409s keep coming; one stray 409 can be a request that was
+# delayed on the network.
 CONFLICT_LIMIT = 3
-CONFLICT_WINDOW = 30.0
+
+# How long a client that has stopped polling lets the handlers still
+# queued on its worker pool run before closing the pool. A press that was
+# confirmed to Telegram (the next getUpdates went out with a higher
+# offset) exists nowhere else, so dropping it would lose it.
+DRAIN_WAIT = 30.0
+
+# One getUpdates consumer per token. A client stopped for a rebuild (stop
+# with wait=False) may still have a request on its way to Telegram; until
+# its thread has exited, a 409 on the client that replaced it can be that
+# request and proves nothing about other processes.
+_RETIRING = {}                  # token -> set of TelegramBot, thread alive
+_RETIRING_LOCK = threading.Lock()
+
+# What was already acted on, per token, across clients. A press one client
+# handled but whose confirmation never went out (its next getUpdates did
+# not happen) comes to its successor again; Telegram only forgets an update
+# once a later offset confirms it. Bounded; 512 is hours of presses.
+_HANDLED = {}                   # token -> OrderedDict(key -> None)
+_HANDLED_MAX = 512
+
+
+def _first_time(token, key):
+    """Record key as handled for token; False if it already was."""
+    with _RETIRING_LOCK:
+        seen = _HANDLED.setdefault(token, collections.OrderedDict())
+        if key in seen:
+            return False
+        seen[key] = None
+        while len(seen) > _HANDLED_MAX:
+            seen.popitem(last=False)
+        return True
+
+
+def _handing_over(token):
+    """True while a replaced client for token may still have a request out."""
+    with _RETIRING_LOCK:
+        return bool(_RETIRING.get(token))
 MAX_CONSECUTIVE = 3
 
 
@@ -130,7 +169,9 @@ class TelegramBot:
         self.thread = None
         self.stop_event = threading.Event()
         self._bot = None
-        self._conflicts = []                # monotonic times of 409s
+        self._conflicts = 0                 # 409s since the last good poll
+        self._thread_done = False           # _poll has run its finally
+        self._stopped = False               # stop() was called
 
     def _timed(self, what, fn):
         """Run fn and log its elapsed time."""
@@ -168,8 +209,11 @@ class TelegramBot:
         try:
             self._bot = telebot.TeleBot(
                 self.token, exception_handler=_PollErrors(self))
+            self._track_polls(self._bot)
             self._register()
             self.stop_event.clear()
+            self._thread_done = False
+            self._stopped = False
             self.thread = threading.Thread(target=self._poll,
                                            name="pinozcam-telegram")
             self.thread.daemon = True
@@ -188,30 +232,35 @@ class TelegramBot:
     def stop(self, timeout=10.0, wait=True):
         """Stop polling. Safe to call twice.
 
-        wait=False is for a rebuild. The thread sits in a long poll of up
-        to 60 s, and waiting for it delayed every Save by the full
-        `timeout` -- needlessly: the next client's first getUpdates ends
-        that poll at once (Telegram answers the older one 409), and the
-        stop flag set here makes it exit instead of polling again, and
-        drop whatever it may still receive (see _register).
+        Only asks: the polling thread sits in a long poll of up to 60 s
+        that nothing here can interrupt, and the worker pool may be in the
+        middle of a handler. Both are wound up by the polling thread itself
+        when the poll returns (_finish), so this never blocks on either.
+        wait=True (shutdown) then joins the thread, with `timeout`;
+        wait=False (a rebuild) returns at once -- the client replacing this
+        one ends the long poll with its first getUpdates. Waiting for that
+        delayed every Save by the full join.
         """
         self.stop_event.set()
         self.running = False
-        bot, self._bot = self._bot, None
+        self._stopped = True
+        bot = self._bot
         thread, self.thread = self.thread, None
         if bot is not None:
             try:
                 bot.stop_polling()
-                # stop_bot also closes the worker pool telebot may have
-                # started; older versions do not have it.
-                if hasattr(bot, "stop_bot"):
-                    bot.stop_bot()
             except Exception as exc:                        # noqa: BLE001
                 self._logger.error(
                     "Error occurred while stopping Telegram bot polling: %s",
                     credentials.redact(str(exc)))
         if thread is not None and thread.is_alive():
             if not wait:
+                with _RETIRING_LOCK:
+                    # Under the lock _finish takes: a thread that has
+                    # already run its finally must not be registered, or
+                    # the entry would never be removed.
+                    if not self._thread_done:
+                        _RETIRING.setdefault(self.token, set()).add(self)
                 self._logger.info("Telegram bot is stopping.")
                 return True
             thread.join(timeout=timeout)
@@ -219,8 +268,63 @@ class TelegramBot:
                 self._logger.warning(
                     "Telegram polling thread has not stopped.")
                 return False
+        if thread is None and bot is not None:
+            # Never polled (start failed, or a client built for a one-off
+            # send): there is no polling thread to do this.
+            self._finish(bot)
+        self._bot = None
         self._logger.info("Telegram bot has been stopped.")
         return True
+
+    def _track_polls(self, bot):
+        """Reset the 409 count whenever a getUpdates returns normally."""
+        real = getattr(bot, "get_updates", None)
+        if real is None:
+            return
+
+        def tracked(*args, **kwargs):
+            result = real(*args, **kwargs)
+            self._poll_succeeded()
+            return result
+        bot.get_updates = tracked
+
+    def _poll_succeeded(self):
+        """A getUpdates came back: whatever 409s came before are over."""
+        self._conflicts = 0
+
+    def _finish(self, bot):
+        """Wind up a client whose polling has ended.
+
+        Lets the handlers still queued run (a press confirmed to Telegram
+        exists nowhere else), then closes the worker pool -- which joins a
+        handler mid-flight, so that runs to its end too. On the polling
+        thread, or from stop() when there never was one.
+
+        The REST client stays unless stop() was called: a client whose
+        polling gave up (409s, repeated failures) still delivers alerts,
+        it only cannot take button presses.
+        """
+        pool = getattr(bot, "worker_pool", None)
+        tasks = getattr(pool, "tasks", None)
+        if tasks is not None:
+            deadline = time.monotonic() + DRAIN_WAIT
+            while not tasks.empty() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not tasks.empty():
+                self._logger.warning(
+                    "Telegram handlers still queued after %.0f s; dropping "
+                    "them.", DRAIN_WAIT)
+        try:
+            # stop_bot closes the pool as well as polling; older telebot
+            # versions do not have it.
+            if hasattr(bot, "stop_bot"):
+                bot.stop_bot()
+        except Exception as exc:                            # noqa: BLE001
+            self._logger.error(
+                "Error occurred while stopping Telegram bot polling: %s",
+                credentials.redact(str(exc)))
+        if self._stopped and self._bot is bot:
+            self._bot = None
 
     def verify(self):
         """Return an error string if Telegram rejects the credentials."""
@@ -290,18 +394,20 @@ class TelegramBot:
         @bot.message_handler(commands=['hi'])
         def _hi(message):
             """Dispatch an authenticated ``/hi`` command."""
-            if self.stop_event.is_set():
-                return              # a retired client: see stop()
             if not self._from_owner(message, "/hi"):
+                return
+            if not self._first_time(("hi", message.chat.id,
+                                     message.message_id)):
                 return
             self.on_command("/hi", None)
 
         @bot.message_handler(func=lambda message: True)
         def _anything_else(message):
             """Explain unsupported text sent by the configured owner."""
-            if self.stop_event.is_set():
-                return
             if not self._from_owner(message, "a message"):
+                return
+            if not self._first_time(("text", message.chat.id,
+                                     message.message_id)):
                 return
             text = self.on_command("", None)
             if text:
@@ -310,10 +416,6 @@ class TelegramBot:
         @bot.callback_query_handler(func=lambda call: True)
         def _button(call):
             """Validate and dispatch one Telegram inline-button press."""
-            if self.stop_event.is_set():
-                # Unanswered on purpose: the press is not confirmed either,
-                # so Telegram hands it to the client that replaced this one.
-                return
             # FAILS CLOSED. An earlier version skipped the check when the
             # chat id could not be read, which is backwards: a bot added to
             # a second group would otherwise take pause and stop from
@@ -321,6 +423,10 @@ class TelegramBot:
             if not self._from_owner(getattr(call, "message", None),
                                     "a button"):
                 self.answer(call.id, text="Not the configured chat.")
+                return
+            if not self._first_time(("press", call.id)):
+                # Handled already, by this client or the one it replaced,
+                # and answered then; answering again would be refused.
                 return
             # button forever if the query goes unanswered, and the old
             # handler answered on several separate paths -- one of which
@@ -330,6 +436,10 @@ class TelegramBot:
             finally:
                 self.answer(call.id)
 
+    def _first_time(self, key):
+        """See _first_time at module level; per token, across clients."""
+        return _first_time(self.token, key)
+
     def _on_poll_error(self, exc):
         """True when the error is dealt with here, False for telebot's own
         log-and-retry."""
@@ -338,10 +448,12 @@ class TelegramBot:
         if self.stop_event.is_set():
             # Our own replacement took the update stream: expected.
             return True
-        now = time.monotonic()
-        self._conflicts = [t for t in self._conflicts
-                           if now - t < CONFLICT_WINDOW] + [now]
-        if len(self._conflicts) < CONFLICT_LIMIT:
+        if _handing_over(self.token):
+            # The client this one replaced may still have a request on its
+            # way; its arrival ends our poll with exactly this 409.
+            return True
+        self._conflicts += 1
+        if self._conflicts < CONFLICT_LIMIT:
             return True                     # telebot retries shortly
         # Not ours: another process polls this token. Each takes the stream
         # from the other in turn, so presses reach whichever holds it.
@@ -365,6 +477,21 @@ class TelegramBot:
 
     def _poll(self):
         """Long-poll until stopped, backing off on repeated failure."""
+        bot = self._bot
+        try:
+            self._poll_loop()
+        finally:
+            with _RETIRING_LOCK:
+                self._thread_done = True
+                retiring = _RETIRING.get(self.token)
+                if retiring:
+                    retiring.discard(self)
+                    if not retiring:
+                        del _RETIRING[self.token]
+            self._finish(bot)
+
+    def _poll_loop(self):
+        """The loop behind _poll; returns when polling is over."""
         consecutive = 0
         backoff = 5
         while not self.stop_event.is_set():

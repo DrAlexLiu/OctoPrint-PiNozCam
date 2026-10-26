@@ -184,26 +184,33 @@ class DiscordBot:
                               (time.monotonic() - started) * 1000.0)
 
     def verify(self):
-        """Check the token can see the channel before starting a thread."""
+        """True when the token can see the channel; see check()."""
+        return self.check() is None
+
+    def check(self):
+        """Why the token cannot see the channel, or None.
+
+        Returned as well as kept in last_error, because last_error is also
+        the gateway's and READY clears it: a caller that reads it after
+        a False can find it gone.
+        """
         try:
-            response = self._timed(
-                "discord verify",
-                lambda: requests.get(f"{API}/channels/{self.channel_id}",
-                                     headers=self._headers(),
-                                     timeout=(5, 15)))
+            response = requests.get(f"{API}/channels/{self.channel_id}",
+                                    headers=self._headers(),
+                                    timeout=(5, 15))
         except requests.exceptions.RequestException as exc:
             # last_error is shown in the UI and logged, and a gateway error
             # can quote the URL it was given.
             self.last_error = f"cannot reach Discord: {redact(exc)}"
-            return False
+            return self.last_error
         if response.status_code == 200:
-            return True
+            return None
         self.last_error = (
             f"Discord refused the credentials "
             f"(HTTP {response.status_code}). Check the bot token, that the "
             "bot was invited to the server, and that it can see the "
             "channel.")
-        return False
+        return self.last_error
 
     def send(self, content="", image=None, components=None, silent=False):
         """Post as the bot, so the message can carry real buttons.

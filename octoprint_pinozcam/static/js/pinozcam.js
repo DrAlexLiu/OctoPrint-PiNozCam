@@ -218,7 +218,8 @@ $(function () {
         self.currentDiscordChannelID = ko.observable();
         self.newDiscordChannelID = validatedOptionalId(
             undefined, {
-                // Discord ids are signed 64-bit: at most 19 digits, and a
+                // Discord's API accepts ids up to 9223372036854775807
+                // (NUMBER_TYPE_MAX above it): at most 19 digits, and a
                 // 19-digit one at most this (same-length strings compare
                 // as numbers).
                 test: function (v) {

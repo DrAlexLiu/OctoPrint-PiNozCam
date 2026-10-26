@@ -277,12 +277,13 @@ class NotifyMixin:
             return
         bot = self.discord_bot
         if bot is not None:
-            # Kept apart from bot.last_error, which the gateway clears on
-            # READY: READY proves the token, never the channel, so a wrong
-            # channel id showed "on" while nothing could be posted.
-            ok = bot.verify()
+            # The answer itself, not bot.last_error afterwards: the gateway
+            # clears that on READY, which can land between the two. READY
+            # proves the token, never the channel, so a wrong channel id
+            # showed "on" while nothing could be posted.
+            error, _ms = self._timed("discord verify", bot.check)
             if guard():
-                self.discord_error = None if ok else bot.last_error
+                self.discord_error = error
 
     def _welcome_image(self):
         """The picture a welcome carries. Slow: it fetches a camera frame."""
@@ -297,10 +298,17 @@ class NotifyMixin:
     # raced READY and lost (25 ms early on Orin); READY took 0.3-1.9 s.
     WELCOME_GATEWAY_WAIT = 15.0
 
-    def _welcome_send(self, media, image):
-        """Deliver the welcome to the channels that are still current."""
+    def _welcome_send(self, media, image, current=None):
+        """Deliver the welcome to the channels that are still current.
+
+        `current(media)` returns the channels whose setup this welcome
+        belongs to and that no later Save has replaced; asked again after
+        the Discord wait, which can take seconds.
+        """
         if "discord" in media:
             media = self._await_discord_gateway(media)
+        if media and current is not None:
+            media = current(media)
         if not media:
             return
         self._timed("welcome send to {}".format(",".join(media)), lambda:
@@ -353,17 +361,31 @@ class NotifyMixin:
         return self.channels.running(channel)
 
     def setup_telegram_bot(self):
-        """Restart Telegram when enabled and fully configured."""
-        self.stop_telegram_bot()
+        """(Re)start Telegram when enabled and fully configured.
+
+        A running client whose token is unchanged is kept and given the
+        new chat id. Only one getUpdates consumer per token exists, so
+        every replacement is a hand-over of the update stream; the fewer,
+        the better, and a chat change needs none.
+        """
         if self.shutting_down.is_set():
+            self.stop_telegram_bot()
             return
         if not (self.enable_telegram and self.telegram_bot_token
                 and self.telegram_chat_id):
+            self.stop_telegram_bot()
             # Not an error: no credentials means the user has not
             # configured Telegram, which is the default state.
             self._logger.info(
                 "Telegram is not configured; not starting the bot.")
             return
+        bot = self.telegram_bot
+        if (bot is not None and bot.running
+                and bot.token == self.telegram_bot_token):
+            bot.chat_id = str(self.telegram_chat_id)
+            self.telegram_server_running = True
+            return
+        self.stop_telegram_bot()
         bot = TelegramBot(self.telegram_bot_token, self.telegram_chat_id,
                           self._logger, self.handle_telegram_command)
         try:

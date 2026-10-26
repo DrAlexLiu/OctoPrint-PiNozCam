@@ -141,7 +141,9 @@ class ChannelManager:
                           if self.is_current(name, tokens.get(name)))
             if not media or self._shutting_down.is_set():
                 return
-            self._welcome_send(media, image)
+            self._welcome_send(media, image, lambda names: tuple(
+                name for name in names
+                if self.is_current(name, tokens.get(name))))
         except Exception:                                   # noqa: BLE001
             self._get_logger().exception("Channel setup failed.")
         finally:
