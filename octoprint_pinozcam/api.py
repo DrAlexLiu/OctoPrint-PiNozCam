@@ -370,6 +370,9 @@ class ApiMixin:
             # Polling gave up: another printer polls this token, or it
             # failed too often. Alerts may still go out; buttons cannot.
             return "failed"
+        if bot is not None and getattr(bot, "post_error", None):
+            # The chat exists (verify passed) but refuses our messages.
+            return "failed"
         if not self.telegram_server_running:
             if self.channel_setup_running("telegram"):
                 return "starting"

@@ -122,9 +122,16 @@ class _QuietDeliberateStop(logging.Filter):
     """
 
     QUIET = ("Infinity polling: polling exited", "Break infinity polling")
+    # telebot follows every polling error's one-line message with the full
+    # traceback, at ERROR, on every retry: a dead token or a network
+    # outage filled octoprint.log with one every three seconds. The
+    # one-line message stays; the traceback adds nothing a user can act on.
+    QUIET_PREFIX = ("Exception traceback:",)
 
     def filter(self, record):
-        return record.getMessage() not in self.QUIET
+        message = record.getMessage()
+        return (message not in self.QUIET
+                and not message.startswith(self.QUIET_PREFIX))
 
 
 telebot.logger.addFilter(_QuietDeliberateStop())
@@ -223,6 +230,9 @@ class TelegramBot:
         self._thread_done = False           # _poll has run its finally
         self._stopped = False               # stop() was called
         self._finished = False              # _finish has run
+        # Why the last send was refused for good (Telegram 400/403), or
+        # None: a chat the bot can see but not post in passes verify.
+        self.post_error = None
 
     def _timed(self, what, fn):
         """Run fn and log its elapsed time."""
@@ -463,10 +473,17 @@ class TelegramBot:
             self._logger.info(
                 "Message sent to Telegram successfully. Message ID: %s",
                 message_id)
+            self.post_error = None
             return message_id
         except Exception as exc:                            # noqa: BLE001
             self._logger.error("Failed to send message to Telegram: %s",
                                credentials.redact(str(exc)))
+            if getattr(exc, "error_code", None) in (400, 403):
+                # Not transient: "chat not found", "not enough rights",
+                # "bot was blocked by the user". The chip reads this.
+                self.post_error = "Telegram refused to post: " + \
+                    credentials.redact(getattr(exc, "description", None)
+                                       or str(exc))
             return None
 
     def reply_to(self, message, text):
@@ -568,9 +585,28 @@ class TelegramBot:
         _first_time(self.token, key)
         return True
 
+    def _give_up(self, reason, log):
+        """Stop polling for good; alerts still go out through send()."""
+        self.last_error = reason
+        self._logger.error(log)
+        self.running = False
+        self.stop_event.set()
+        bot = self._bot
+        if bot is not None:
+            bot.stop_polling()
+
     def _on_poll_error(self, exc):
         """True when the error is dealt with here, False for telebot's own
         log-and-retry."""
+        code = getattr(exc, "error_code", None)
+        if code in (401, 404) and not self.stop_event.is_set():
+            # Unauthorized / Not Found: the token itself is refused. Nothing
+            # a retry can change; telebot would retry every 3 s forever.
+            self._give_up(
+                "Telegram refused the bot token (HTTP %s)" % code,
+                "Telegram refused the bot token (HTTP %s); polling stopped. "
+                "Check the token, then save the settings to retry." % code)
+            return True
         if not _is_conflict(exc):
             return False
         if self.stop_event.is_set():

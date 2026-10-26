@@ -44,6 +44,13 @@ INTENTS_BUTTONS_ONLY = 0
 # Close code Discord sends when an app asks for a privileged intent it has
 # not been granted.
 CLOSE_DISALLOWED_INTENTS = 4014
+
+# Channel types a bot can post messages in (Discord's channel object
+# `type`). Everything else -- voice (2), category (4), stage (13),
+# directory (14), forum (15), media (16) -- answers GET but refuses posts.
+TEXT_CHANNEL_TYPES = frozenset((0, 1, 3, 5, 10, 11, 12))
+CHANNEL_TYPE_NAMES = {2: "voice", 4: "category", 13: "stage",
+                      14: "directory", 15: "forum", 16: "media"}
 # Close codes where reconnecting cannot help: fix the config instead.
 FATAL_CLOSE_CODES = (4004, 4010, 4011, 4012, 4013, 4014)
 
@@ -139,6 +146,11 @@ class DiscordBot:
         self.thread = None
         self.stop_event = threading.Event()
         self.last_error = None
+        # Why the last post was refused for good (HTTP 400/403/404), or
+        # None. Seeing a channel (check) is not being allowed to post in
+        # it: a voice channel, or one without Send Messages for the bot,
+        # passes check and refuses every message.
+        self.post_error = None
         # Keep blocking callbacks off the Gateway heartbeat thread. Printer
         # controls have a separate, higher-priority bounded queue.
         self._controls = queue.Queue(maxsize=8)
@@ -205,6 +217,19 @@ class DiscordBot:
             self.last_error = error
             return error
         if response.status_code == 200:
+            try:
+                kind = response.json().get("type")
+            except ValueError:
+                kind = None
+            if kind is not None and kind not in TEXT_CHANNEL_TYPES:
+                # Seen on a board: a voice channel's id. GET succeeds,
+                # every message then fails with 50008 "Cannot send
+                # messages in a non-text channel".
+                error = (f"Discord channel {self.channel_id} is not a text "
+                         f"channel (type {kind}: {CHANNEL_TYPE_NAMES.get(kind, 'unknown')}). "
+                         "Right-click a TEXT channel and Copy Channel ID.")
+                self.last_error = error
+                return error
             return None
         # A local, returned as such: READY on the gateway thread can clear
         # last_error between the assignment and the return.
@@ -256,9 +281,22 @@ class DiscordBot:
                     headers=headers, data=json.dumps(payload),
                     timeout=(5, 20)))
             if response.status_code in (200, 201):
+                self.post_error = None
                 return True
             self._logger.error("Discord send failed: HTTP %s %s",
                                response.status_code, response.text[:200])
+            if response.status_code in (400, 403, 404):
+                # Not transient: the channel, as configured, cannot be
+                # posted to. The chip reads this.
+                try:
+                    reason = response.json().get("message") or ""
+                except ValueError:
+                    reason = ""
+                self.post_error = (
+                    f"Discord refused to post (HTTP {response.status_code}"
+                    f"{': ' + reason if reason else ''}). Check the channel "
+                    "is a text channel and the bot may send messages and "
+                    "attach files there.")
         except requests.exceptions.RequestException as exc:
             self._logger.error("Discord send failed: %s", redact(exc))
         return False

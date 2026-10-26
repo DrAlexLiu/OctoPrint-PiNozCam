@@ -277,6 +277,13 @@ class NotifyMixin:
             error = self.telegram_verify()
             if guard():
                 self.telegram_error = error
+                if isinstance(error, str) and "HTTP 401" in error:
+                    # The TOKEN is refused (a wrong chat is a 400). Polling
+                    # with it fails every 3 s for ever -- and telebot asks
+                    # getMe before our handler can see the error -- so stop
+                    # the client here. Save with a good token starts a new
+                    # one.
+                    self.stop_telegram_bot()
             return
         bot = self.discord_bot
         if bot is not None:
@@ -933,7 +940,11 @@ class NotifyMixin:
             return "OFF"
         bot = self.discord_bot
         # Ahead of MUTED, as for Telegram: muted or not, it cannot post.
-        if bot is not None and self.discord_error:
+        # discord_error: the channel check refused. bot.post_error: the
+        # check passed but a post was refused (not a text channel, no
+        # permission) -- found when the welcome or an alert went out.
+        if bot is not None and (self.discord_error
+                                or getattr(bot, "post_error", None)):
             return "FAILED"
         if self.alerts_muted:
             return "MUTED"
