@@ -485,7 +485,7 @@ class ApiMixin:
                 # THIS bot, checked a moment ago, not whichever one self
                 # holds by the time the message goes out.
                 elif not self._send_telegram(caption, image, True, True,
-                                             bot=bot):
+                                             bot=bot, chat_id=use_chat):
                     raise RuntimeError(
                         "Telegram refused the message; the reason is in "
                         "octoprint.log.")

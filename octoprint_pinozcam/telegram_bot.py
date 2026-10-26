@@ -54,9 +54,32 @@ def _first_time(token, key):
 
 
 def _handing_over(token):
-    """True while a replaced client for token may still have a request out."""
+    """True while a replaced client for token may still have a request out.
+
+    A client is done when its polling thread has exited AND no getUpdates
+    it sent is still in flight -- a handler exception makes telebot give up
+    on its own polling thread without waiting for the request that thread
+    has out, so the outer thread can be gone while the request is not.
+    Clients that are done are dropped here.
+    """
     with _RETIRING_LOCK:
-        return bool(_RETIRING.get(token))
+        clients = _RETIRING.get(token)
+        if not clients:
+            return False
+        live = set(c for c in clients if not c._thread_done or c._in_flight)
+        if live:
+            _RETIRING[token] = live
+            return True
+        del _RETIRING[token]
+        return False
+
+
+# What a client answers to a press that reached it after the settings it
+# was built for were switched off or replaced. Under 200 characters, the
+# limit for answerCallbackQuery text.
+RETIRED_TEXT = ("PiNozCam's Telegram settings changed after this message was "
+                "sent, so this button no longer works. Press one on a newer "
+                "message.")
 MAX_CONSECUTIVE = 3
 
 
@@ -170,8 +193,10 @@ class TelegramBot:
         self.stop_event = threading.Event()
         self._bot = None
         self._conflicts = 0                 # 409s since the last good poll
+        self._in_flight = 0                 # getUpdates calls not yet back
         self._thread_done = False           # _poll has run its finally
         self._stopped = False               # stop() was called
+        self._finished = False              # _finish has run
 
     def _timed(self, what, fn):
         """Run fn and log its elapsed time."""
@@ -214,6 +239,8 @@ class TelegramBot:
             self.stop_event.clear()
             self._thread_done = False
             self._stopped = False
+            self._finished = False
+            self._in_flight = 0
             self.thread = threading.Thread(target=self._poll,
                                            name="pinozcam-telegram")
             self.thread.daemon = True
@@ -245,7 +272,9 @@ class TelegramBot:
         self.running = False
         self._stopped = True
         bot = self._bot
-        thread, self.thread = self.thread, None
+        # Kept, not cleared: a second stop() must see the thread is still
+        # alive and return at once too, not take it for never started.
+        thread = self.thread
         if bot is not None:
             try:
                 bot.stop_polling()
@@ -268,7 +297,7 @@ class TelegramBot:
                 self._logger.warning(
                     "Telegram polling thread has not stopped.")
                 return False
-        if thread is None and bot is not None:
+        if bot is not None and not self._finished:
             # Never polled (start failed, or a client built for a one-off
             # send): there is no polling thread to do this.
             self._finish(bot)
@@ -283,7 +312,13 @@ class TelegramBot:
             return
 
         def tracked(*args, **kwargs):
-            result = real(*args, **kwargs)
+            with _RETIRING_LOCK:
+                self._in_flight += 1
+            try:
+                result = real(*args, **kwargs)
+            finally:
+                with _RETIRING_LOCK:
+                    self._in_flight -= 1
             self._poll_succeeded()
             return result
         bot.get_updates = tracked
@@ -304,6 +339,9 @@ class TelegramBot:
         polling gave up (409s, repeated failures) still delivers alerts,
         it only cannot take button presses.
         """
+        if self._finished:
+            return
+        self._finished = True
         pool = getattr(bot, "worker_pool", None)
         tasks = getattr(pool, "tasks", None)
         if tasks is not None:
@@ -346,23 +384,31 @@ class TelegramBot:
 
     # ---- sending ------------------------------------------------------
 
-    def send(self, caption="", image=None, keyboard=None, silent=False):
-        """Send one message and return its ID, or None on failure."""
+    def send(self, caption="", image=None, keyboard=None, silent=False,
+             chat_id=None):
+        """Send one message and return its ID, or None on failure.
+
+        `chat_id` pins the destination. A Save that only changes the chat
+        keeps this client and rewrites self.chat_id, so a caller that
+        checked the chat a moment ago (a Test, a welcome) must say which
+        one it meant rather than read it again here.
+        """
         bot = self._bot
         if bot is None:
             return None
+        chat = chat_id or self.chat_id
         try:
             if image:
                 message = self._timed(
                     "telegram send_photo",
                     lambda: bot.send_photo(
-                        self.chat_id, image, caption=caption,
+                        chat, image, caption=caption,
                         reply_markup=keyboard, disable_notification=silent))
             else:
                 message = self._timed(
                     "telegram send_message",
                     lambda: bot.send_message(
-                        self.chat_id, text=caption, reply_markup=keyboard,
+                        chat, text=caption, reply_markup=keyboard,
                         disable_notification=silent))
             message_id = getattr(message, "message_id", None)
             self._logger.info(
@@ -396,8 +442,8 @@ class TelegramBot:
             """Dispatch an authenticated ``/hi`` command."""
             if not self._from_owner(message, "/hi"):
                 return
-            if not self._first_time(("hi", message.chat.id,
-                                     message.message_id)):
+            key = ("hi", message.chat.id, message.message_id)
+            if self._retired(key) or not self._first_time(key):
                 return
             self.on_command("/hi", None)
 
@@ -406,8 +452,8 @@ class TelegramBot:
             """Explain unsupported text sent by the configured owner."""
             if not self._from_owner(message, "a message"):
                 return
-            if not self._first_time(("text", message.chat.id,
-                                     message.message_id)):
+            key = ("text", message.chat.id, message.message_id)
+            if self._retired(key) or not self._first_time(key):
                 return
             text = self.on_command("", None)
             if text:
@@ -416,6 +462,12 @@ class TelegramBot:
         @bot.callback_query_handler(func=lambda call: True)
         def _button(call):
             """Validate and dispatch one Telegram inline-button press."""
+            if self._retired(("press", call.id)):
+                # Whatever chat it came from: the settings this client was
+                # built for are gone, and the printer is not driven from
+                # them any more. Answered, so the button stops spinning.
+                self.answer(call.id, text=RETIRED_TEXT)
+                return
             # FAILS CLOSED. An earlier version skipped the check when the
             # chat id could not be read, which is backwards: a bot added to
             # a second group would otherwise take pause and stop from
@@ -439,6 +491,23 @@ class TelegramBot:
     def _first_time(self, key):
         """See _first_time at module level; per token, across clients."""
         return _first_time(self.token, key)
+
+    def _retired(self, key):
+        """True once this client is no longer the configured one.
+
+        stop() sets the flag: the settings this client was built for were
+        switched off or replaced. Nothing received after that may act on
+        the printer or answer into whatever chat is configured now -- a
+        Stop confirmed a moment after Telegram was switched off still
+        cancelled the print. The key is recorded as handled, so the client
+        that replaced this one, which may receive the same update (this
+        client's confirming getUpdates never went out), does not act on it
+        either: the press is refused once, not deferred.
+        """
+        if not self.stop_event.is_set():
+            return False
+        _first_time(self.token, key)
+        return True
 
     def _on_poll_error(self, exc):
         """True when the error is dealt with here, False for telebot's own
@@ -483,11 +552,9 @@ class TelegramBot:
         finally:
             with _RETIRING_LOCK:
                 self._thread_done = True
-                retiring = _RETIRING.get(self.token)
-                if retiring:
-                    retiring.discard(self)
-                    if not retiring:
-                        del _RETIRING[self.token]
+            # Drops this client from the hand-over registry -- unless a
+            # getUpdates of its own is still out, see _handing_over.
+            _handing_over(self.token)
             self._finish(bot)
 
     def _poll_loop(self):

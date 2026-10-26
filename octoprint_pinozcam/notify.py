@@ -301,29 +301,51 @@ class NotifyMixin:
     def _welcome_send(self, media, image, current=None):
         """Deliver the welcome to the channels that are still current.
 
-        `current(media)` returns the channels whose setup this welcome
-        belongs to and that no later Save has replaced; asked again after
-        the Discord wait, which can take seconds.
+        `current(names)` returns the channels whose setup this welcome
+        belongs to and that no later Save has replaced. Asked per channel
+        right before its send: a send can take seconds (the Discord wait,
+        a Telegram upload) during which a Save can move the OTHER channel,
+        and that channel's welcome then went out through the new client.
+        Each send also goes through the client, and to the destination,
+        read before that check -- never through what a later Save has put
+        in place since.
         """
         if "discord" in media:
             media = self._await_discord_gateway(media)
-        if media and current is not None:
-            media = current(media)
-        if not media:
-            return
-        self._timed("welcome send to {}".format(",".join(media)), lambda:
-                    self.notify_all(
-                        "PiNozCam is connected to this printer. From now "
-                        "on, press Check below at any time to see the "
-                        "camera and the printer status; Pause, Stop and "
-                        "Mute work from here too. You can also send /hi "
-                        "(Telegram) or !check (Discord). Send !help in "
-                        "Discord for the full command list.",
-                        # Sent once the bot is up, so it can carry the
-                        # buttons: this is the message a user who just
-                        # saved keeps for Check.
-                        image=image, buttons=True, silent=True,
-                        respect_mute=False, only=media))
+        # Sent once the bot is up, so it can carry the buttons: this is the
+        # message a user who just saved keeps for Check.
+        text = ("PiNozCam is connected to this printer. From now on, press "
+                "Check below at any time to see the camera and the printer "
+                "status; Pause, Stop and Mute work from here too. You can "
+                "also send /hi (Telegram) or !check (Discord). Send !help "
+                "in Discord for the full command list.")
+        # The same gate an alert passes: a channel cleared or switched off
+        # by the time this runs has nowhere to send to.
+        configured = dict((n, c) for n, c, _muted, _send in self._media())
+        for name in media:
+            if not configured.get(name):
+                continue
+            if name == "telegram":
+                bot = self.telegram_bot
+                # The chat as well: a Save that only changes the chat keeps
+                # this client and rewrites its chat id.
+                pinned = {"bot": bot, "chat_id": getattr(bot, "chat_id", None)}
+                send = self._send_telegram
+            else:
+                bot = self.discord_bot
+                pinned = {"bot": bot}
+                send = self._send_discord
+            # No bot (None) is passed on as such: the senders answer False
+            # for it, the same as they do for an alert.
+            if current is not None and name not in current((name,)):
+                continue
+            try:
+                self._timed("welcome send to " + name,
+                            lambda send=send, pinned=pinned:
+                            send(text, image, True, True, **pinned))
+            except Exception as exc:                        # noqa: BLE001
+                self._logger.error("%s message failed: %s", name,
+                                   self.redact(str(exc)))
 
     def _await_discord_gateway(self, media):
         """Hold the welcome until Discord can carry its buttons.
@@ -412,7 +434,7 @@ class NotifyMixin:
     def telegram_send_with_reply(self, image=None, caption='',
                                  reply_buttons=0,
                                  disable_notification=False, confirm=None,
-                                 bot=None):
+                                 bot=None, chat_id=None):
         """Send Telegram content with optional controls or confirmation.
 
         `bot` pins the client (a Test that has just checked it); by default
@@ -440,7 +462,7 @@ class NotifyMixin:
                 muted=self.alerts_muted)
         message_id = bot.send(caption=caption, image=image,
                               keyboard=keyboard,
-                              silent=disable_notification)
+                              silent=disable_notification, chat_id=chat_id)
         if message_id is None:
             return False
         if self.ai_running:
@@ -499,12 +521,17 @@ class NotifyMixin:
              self._send_discord),
         )
 
-    def _send_telegram(self, caption, image, buttons, silent, bot=None):
-        """Send one Telegram message and return final success."""
+    def _send_telegram(self, caption, image, buttons, silent, bot=None,
+                       chat_id=None):
+        """Send one Telegram message and return final success.
+
+        `bot` and `chat_id` pin the client and destination a caller has
+        just checked; see TelegramBot.send.
+        """
         return bool(self.telegram_send_with_reply(
             image=image, caption=caption,
             reply_buttons=4 if buttons else 0,
-            disable_notification=silent, bot=bot))
+            disable_notification=silent, bot=bot, chat_id=chat_id))
 
     def _send_discord(self, caption, image, buttons, silent, bot=None):
         """One message to Discord. Returns False on failure.

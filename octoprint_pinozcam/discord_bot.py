@@ -201,16 +201,19 @@ class DiscordBot:
         except requests.exceptions.RequestException as exc:
             # last_error is shown in the UI and logged, and a gateway error
             # can quote the URL it was given.
-            self.last_error = f"cannot reach Discord: {redact(exc)}"
-            return self.last_error
+            error = f"cannot reach Discord: {redact(exc)}"
+            self.last_error = error
+            return error
         if response.status_code == 200:
             return None
-        self.last_error = (
-            f"Discord refused the credentials "
-            f"(HTTP {response.status_code}). Check the bot token, that the "
-            "bot was invited to the server, and that it can see the "
-            "channel.")
-        return self.last_error
+        # A local, returned as such: READY on the gateway thread can clear
+        # last_error between the assignment and the return.
+        error = (f"Discord refused the credentials "
+                 f"(HTTP {response.status_code}). Check the bot token, that "
+                 "the bot was invited to the server, and that it can see "
+                 "the channel.")
+        self.last_error = error
+        return error
 
     def send(self, content="", image=None, components=None, silent=False):
         """Post as the bot, so the message can carry real buttons.
