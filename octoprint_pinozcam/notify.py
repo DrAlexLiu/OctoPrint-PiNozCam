@@ -274,16 +274,20 @@ class NotifyMixin:
         if name == "telegram":
             if not (self.enable_telegram and self.telegram_server_running):
                 return
+            bot = self.telegram_bot            # the client being verified
             error = self.telegram_verify()
             if guard():
                 self.telegram_error = error
-                if isinstance(error, str) and "HTTP 401" in error:
-                    # The TOKEN is refused (a wrong chat is a 400). Polling
-                    # with it fails every 3 s for ever -- and telebot asks
-                    # getMe before our handler can see the error -- so stop
-                    # the client here. Save with a good token starts a new
-                    # one.
-                    self.stop_telegram_bot()
+                if getattr(bot, "token_refused", False):
+                    # The TOKEN is refused (a wrong chat is a 400); stop
+                    # THIS client, and detach it only if it is still the
+                    # one in place -- a later Save may have put a good one
+                    # there, and a global stop took that one down.
+                    with self.lock:
+                        if self.telegram_bot is bot:
+                            self.telegram_bot = None
+                            self.telegram_server_running = False
+                    bot.stop(wait=False)
             return
         bot = self.discord_bot
         if bot is not None:
@@ -429,8 +433,15 @@ class NotifyMixin:
         if self.shutting_down.is_set():
             bot.stop(wait=False)
             return
-        self.telegram_bot = bot
-        self.telegram_server_running = running
+        with self.lock:
+            # Under the lock the verifier detaches under: its "still the
+            # one in place" check and this replacement must not interleave.
+            self.telegram_bot = bot
+            self.telegram_server_running = running
+            if not running:
+                # Refused at getMe, so no verification will run to say
+                # why: the chip's text comes from here.
+                self.telegram_error = bot.last_error
 
     def _telegram_source_problem(self, token, chat_id):
         """Why a Telegram command through `token` from `chat_id` is refused
@@ -453,8 +464,9 @@ class NotifyMixin:
 
     def stop_telegram_bot(self):
         """Detach and stop the active Telegram client."""
-        bot, self.telegram_bot = self.telegram_bot, None
-        self.telegram_server_running = False
+        with self.lock:
+            bot, self.telegram_bot = self.telegram_bot, None
+            self.telegram_server_running = False
         if bot is not None:
             # Without waiting for its long poll: the client replacing it
             # ends that poll, and waiting added 10 s to every Save.

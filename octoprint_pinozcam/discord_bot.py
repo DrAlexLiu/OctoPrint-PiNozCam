@@ -45,12 +45,16 @@ INTENTS_BUTTONS_ONLY = 0
 # not been granted.
 CLOSE_DISALLOWED_INTENTS = 4014
 
-# Channel types a bot can post messages in (Discord's channel object
-# `type`). Everything else -- voice (2), category (4), stage (13),
-# directory (14), forum (15), media (16) -- answers GET but refuses posts.
-TEXT_CHANNEL_TYPES = frozenset((0, 1, 3, 5, 10, 11, 12))
-CHANNEL_TYPE_NAMES = {2: "voice", 4: "category", 13: "stage",
-                      14: "directory", 15: "forum", 16: "media"}
+# Channel types (Discord's channel object `type`) that cannot take a
+# message at all: a category (4) and a directory (14) hold channels, a
+# forum (15) and a media channel (16) hold threads -- posting needs a
+# thread. They answer GET and refuse every post. Voice (2) and stage (13)
+# channels are NOT in this set: Discord gives them a text chat, so with
+# Send Messages the bot can post there; one without it fails on the post,
+# which send() records.
+UNPOSTABLE_CHANNEL_TYPES = frozenset((4, 14, 15, 16))
+CHANNEL_TYPE_NAMES = {4: "category", 14: "directory", 15: "forum",
+                      16: "media"}
 # Close codes where reconnecting cannot help: fix the config instead.
 FATAL_CLOSE_CODES = (4004, 4010, 4011, 4012, 4013, 4014)
 
@@ -221,13 +225,12 @@ class DiscordBot:
                 kind = response.json().get("type")
             except ValueError:
                 kind = None
-            if kind is not None and kind not in TEXT_CHANNEL_TYPES:
-                # Seen on a board: a voice channel's id. GET succeeds,
-                # every message then fails with 50008 "Cannot send
-                # messages in a non-text channel".
-                error = (f"Discord channel {self.channel_id} is not a text "
-                         f"channel (type {kind}: {CHANNEL_TYPE_NAMES.get(kind, 'unknown')}). "
-                         "Right-click a TEXT channel and Copy Channel ID.")
+            if kind in UNPOSTABLE_CHANNEL_TYPES:
+                # GET succeeds for any channel the bot can see; a post to
+                # one of these fails every time (50008).
+                error = (f"Discord channel {self.channel_id} cannot take "
+                         f"messages (type {kind}: {CHANNEL_TYPE_NAMES[kind]}). "
+                         "Right-click a text channel and Copy Channel ID.")
                 self.last_error = error
                 return error
             return None

@@ -123,15 +123,24 @@ class _QuietDeliberateStop(logging.Filter):
 
     QUIET = ("Infinity polling: polling exited", "Break infinity polling")
     # telebot follows every polling error's one-line message with the full
-    # traceback, at ERROR, on every retry: a dead token or a network
-    # outage filled octoprint.log with one every three seconds. The
-    # one-line message stays; the traceback adds nothing a user can act on.
-    QUIET_PREFIX = ("Exception traceback:",)
+    # traceback, at ERROR, on every retry: a dead token or a network outage
+    # filled octoprint.log with one every three seconds. Those tracebacks
+    # -- Telegram's refusals and requests' transport errors -- add nothing
+    # a user can act on; the one-line message stays. A traceback of any
+    # other kind is a bug somewhere and is kept.
+    TRACEBACK_PREFIX = "Exception traceback:"
+    EXPECTED = ("ApiTelegramException", "ApiHTTPException",
+                "ApiInvalidJSONException", "requests.exceptions.",
+                "urllib3.exceptions.", "RemoteDisconnected", "ConnectionError",
+                "ReadTimeout", "ConnectTimeout")
 
     def filter(self, record):
         message = record.getMessage()
-        return (message not in self.QUIET
-                and not message.startswith(self.QUIET_PREFIX))
+        if message in self.QUIET:
+            return False
+        if message.startswith(self.TRACEBACK_PREFIX):
+            return not any(name in message for name in self.EXPECTED)
+        return True
 
 
 telebot.logger.addFilter(_QuietDeliberateStop())
@@ -230,9 +239,14 @@ class TelegramBot:
         self._thread_done = False           # _poll has run its finally
         self._stopped = False               # stop() was called
         self._finished = False              # _finish has run
-        # Why the last send was refused for good (Telegram 400/403), or
-        # None: a chat the bot can see but not post in passes verify.
-        self.post_error = None
+        # Per chat, why the last send there was refused for good (Telegram
+        # 400/403), or absent: a chat the bot can see but not post in
+        # passes verify. Per chat because a Save that only changes the chat
+        # keeps this client, and a reply pinned to the OLD chat must not
+        # speak for the new one -- see post_error.
+        self.post_errors = {}
+        # verify() or getMe answered 401/404: the TOKEN is refused.
+        self.token_refused = False
 
     def _timed(self, what, fn):
         """Run fn and log its elapsed time."""
@@ -294,8 +308,25 @@ class TelegramBot:
             self._bot = telebot.TeleBot(
                 self.token, exception_handler=_PollErrors(self))
             self._track_polls(self._bot)
+            self._track_token(self._bot)
             self._register()
             self.stop_event.clear()
+            self.token_refused = False
+            # The same getMe telebot's polling() opens with. Asked here
+            # first because there a 401/404 is caught inside
+            # infinity_polling, retried every 3 s for ever, and never
+            # reaches the exception handler. Refused here means no thread
+            # at all. A transport error is not a refusal: polling retries.
+            try:
+                self._timed("telegram getMe", self._bot.get_me)
+            except Exception as exc:                        # noqa: BLE001
+                if getattr(exc, "error_code", None) in (401, 404):
+                    self.running = False
+                    self._bot = None
+                    return False
+                self._logger.warning(
+                    "Telegram getMe failed (%s); polling will retry.",
+                    credentials.redact(str(exc)))
             self._thread_done = False
             self._stopped = False
             self._finished = False
@@ -382,6 +413,29 @@ class TelegramBot:
             return result
         bot.get_updates = tracked
 
+    def _track_token(self, bot):
+        """Make getMe's refusals end polling: telebot calls it at every
+        (re)start of polling and swallows what it raises."""
+        real = getattr(bot, "get_me", None)
+        if real is None:
+            return
+
+        def tracked(*args, **kwargs):
+            try:
+                return real(*args, **kwargs)
+            except Exception as exc:
+                code = getattr(exc, "error_code", None)
+                if code in (401, 404):
+                    self.token_refused = True
+                    if not self.stop_event.is_set():
+                        self._give_up(
+                            "Telegram refused the bot token (HTTP %s)" % code,
+                            "Telegram refused the bot token (HTTP %s); polling "
+                            "stopped. Check the token, then save the settings "
+                            "to retry." % code)
+                raise
+        bot.get_me = tracked
+
     def _poll_succeeded(self):
         """A getUpdates came back: whatever 409s came before are over."""
         self._conflicts = 0
@@ -434,12 +488,19 @@ class TelegramBot:
             if response.status_code == 200:
                 self.last_error = None
                 return None
+            if response.status_code in (401, 404):
+                self.token_refused = True   # a wrong chat is a 400
             error = (f"Telegram refused the credentials (HTTP {response.status_code}).")
         except Exception as exc:                            # noqa: BLE001
             error = credentials.redact(str(exc))
         self._logger.error("Telegram check failed: %s", error)
         self.last_error = error
         return error
+
+    @property
+    def post_error(self):
+        """Why the CURRENT chat refused the last post, or None."""
+        return self.post_errors.get(str(self.chat_id))
 
     # ---- sending ------------------------------------------------------
 
@@ -473,15 +534,16 @@ class TelegramBot:
             self._logger.info(
                 "Message sent to Telegram successfully. Message ID: %s",
                 message_id)
-            self.post_error = None
+            self.post_errors.pop(str(chat), None)
             return message_id
         except Exception as exc:                            # noqa: BLE001
             self._logger.error("Failed to send message to Telegram: %s",
                                credentials.redact(str(exc)))
             if getattr(exc, "error_code", None) in (400, 403):
                 # Not transient: "chat not found", "not enough rights",
-                # "bot was blocked by the user". The chip reads this.
-                self.post_error = "Telegram refused to post: " + \
+                # "bot was blocked by the user". The chip reads this -- for
+                # the chat it happened in.
+                self.post_errors[str(chat)] = "Telegram refused to post: " + \
                     credentials.redact(getattr(exc, "description", None)
                                        or str(exc))
             return None
@@ -514,6 +576,8 @@ class TelegramBot:
             self._as_source(message)
             try:
                 self.on_command("/hi", None)
+            except Exception:                               # noqa: BLE001
+                self._logger.exception("Telegram /hi handler failed")
             finally:
                 self._done_as_source()
 
@@ -528,6 +592,9 @@ class TelegramBot:
             self._as_source(message)
             try:
                 text = self.on_command("", None)
+            except Exception:                               # noqa: BLE001
+                self._logger.exception("Telegram message handler failed")
+                text = None
             finally:
                 self._done_as_source()
             if text:
@@ -560,6 +627,13 @@ class TelegramBot:
             self._as_source(message)
             try:
                 self.on_command(call.data or "", call)
+            except Exception:                               # noqa: BLE001
+                # Logged by the plugin, with the traceback, and NOT
+                # re-raised: in telebot's worker it would end the current
+                # polling run, and a bug in one command must not take
+                # polling down with it.
+                self._logger.exception("Telegram button handler failed "
+                                       "(%s)", call.data)
             finally:
                 self._done_as_source()
                 self.answer(call.id)
