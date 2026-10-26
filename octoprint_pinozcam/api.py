@@ -421,6 +421,8 @@ class ApiMixin:
                      "discordBotToken": self.discord_bot_token or "",
                      "discordChannelID": self.discord_channel_id or "",
                      "customSnapshotURL": self.custom_snapshot_url or ""}
+            enabled = {"telegram": bool(self.enable_telegram),
+                       "discord": bool(self.enable_discord)}
         # What this test sends with: the posted value where the page sent
         # one, the snapshot where it did not.
         use = dict(saved, **posted)
@@ -457,6 +459,9 @@ class ApiMixin:
                    "replies and failure alerts from this printer can reach "
                    "you.")
         results = {}
+        # Per channel, which client sent: "bot" (the running one, so the
+        # message carries the buttons) or "draft" (no buttons).
+        via = {}
         if wanted == "discord":
             pass
         elif use["telegramBotToken"] and use["telegramChatID"]:
@@ -479,6 +484,7 @@ class ApiMixin:
                         "Telegram refused the message; the reason is in "
                         "octoprint.log.")
                 results["telegram"] = "sent"
+                via["telegram"] = "draft" if bot is None else "bot"
             except Exception as exc:
                 detail = self.redact(str(exc))
                 hint = self.describe_telegram_problem(use_token, use_chat)
@@ -514,6 +520,7 @@ class ApiMixin:
                             "Discord refused the message; the reason is in "
                             "octoprint.log.")
                     results["discord"] = "sent"
+                    via["discord"] = "draft" if bot is None else "bot"
                 except Exception as exc:              # noqa: BLE001
                     # redact(): requests puts the failing URL in its
                     # exception message and for Discord that URL carries the
@@ -547,14 +554,50 @@ class ApiMixin:
                             "message": "Nothing configured for this "
                                        "channel."}),
                 mimetype="application/json")
-        message = ", ".join(f"{k}: {v}"
-                            for k, v in sorted(results.items()))
+        # What the user reads. A sent message says what to do next to get
+        # the buttons; "discordButtons" is diagnostic and stays in the log.
+        parts = []
+        for channel in ("telegram", "discord"):
+            if channel not in results:
+                continue
+            if results[channel] == "sent":
+                parts.append(self._test_sent_message(
+                    channel, via[channel], enabled[channel],
+                    any(name.lower().startswith(channel) for name in draft)))
+            else:
+                parts.append(f"{channel}: {results[channel]}")
+        message = " ".join(parts)
         # Button connectivity is diagnostic. A REST message that arrived is
         # still a successful connection test while the gateway reconnects.
         failed = [key for key in failed if key != "discordButtons"]
         return Response(
             json.dumps({"ok": not failed, "message": message}),
             mimetype="application/json")
+
+    @staticmethod
+    def _test_sent_message(channel, via, enabled, edited):
+        """The result line for a test message that arrived.
+
+        Only a running bot can answer a button press, so only its messages
+        carry buttons. A channel that is ticked on or edited but not saved
+        has none yet: Save starts it, and the next Test brings the buttons.
+        """
+        name = channel.capitalize()
+        if via == "bot":
+            return (f"Working: the test message reached {name} with its "
+                    f"buttons. You can press Check there any time to see "
+                    f"the printer.")
+        if enabled and not edited:
+            # Saved and enabled, yet no matching bot: it is still starting,
+            # or it could not start. One line covers both.
+            return (f"Working: the test message reached {name}. Its bot is "
+                    f"not connected yet, so this message has no buttons; "
+                    f"press Test again in a few seconds (if they still do "
+                    f"not come, octoprint.log says why).")
+        return (f"Working: the test message reached {name}. Click Save, "
+                f"then open Settings and press Test again: that message "
+                f"comes with the buttons, and from then on you can press "
+                f"Check any time.")
 
     @octoprint.plugin.BlueprintPlugin.route("/test_snapshot", methods=["POST"])
     def test_snapshot(self):

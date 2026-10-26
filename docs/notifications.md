@@ -3,7 +3,11 @@
 [← Back to README](../README.md)
 
 Both integrations are optional. A Connection Test uses the values currently
-in the fields, so credentials can be checked before saving.
+in the fields, so credentials can be checked before saving. That first test
+arrives without buttons, because only a running bot can answer them and the
+bot starts when you save. Click **Save**, open Settings again and press
+**Connection Test** once more: that message carries the buttons, and from then
+on **Check** works at any time.
 
 With either one connected, your phone gets failure alerts with the analysed
 picture, and these buttons work from the chat:
