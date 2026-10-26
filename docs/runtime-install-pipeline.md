@@ -50,7 +50,8 @@ pip invokes setup.py in the OctoPrint virtual environment
 setup.py detects ABI and available accelerator runtime
         |
         v
-one exact runtime Wheel is selected from the matching GitHub Release
+one exact runtime version is selected: CPU and Vulkan from PyPI,
+NPU builds from the matching GitHub Release asset
         |
         v
 pip installs the plugin and that runtime together
@@ -62,21 +63,16 @@ OctoPrint restarts; PiNozCam starts the selected runner
 For release 1.1.1, the direct installation command is:
 
 ```bash
-python -m pip install \
-  --no-build-isolation --no-cache-dir \
+python -m pip install --no-cache-dir \
   https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.1.zip
 ```
 
-`--no-build-isolation` is required for OctoPrint installations because the
-plugin setup imports OctoPrint's packaging helpers. A newly created temporary
-PEP 517 build environment does not contain those helpers, which produces:
-
-```text
-Could not import OctoPrint's setuptools.
-```
-
-This is an installation-environment requirement, not a detector or runner
-failure. The plugin setup itself remains responsible for selecting the runtime.
+Since 1.1.1 the plugin is a `pyproject.toml` project whose build needs only
+setuptools, so pip's default isolated build works and `--no-build-isolation`
+is no longer needed. Releases up to 1.1.0 imported OctoPrint's packaging
+helpers and failed without it (`Could not import OctoPrint's setuptools.`);
+OctoPrint adds the flag itself for such archives. The plugin setup itself
+remains responsible for selecting the runtime.
 
 ## Runtime selection
 
@@ -97,22 +93,32 @@ not a CPU `.pte`, and a Vulkan runner is not an RKNN runner.
 
 ## GitHub Release and PyPI boundaries
 
-GitHub Releases are the authoritative source for all nine runtime Wheels,
-including hardware-specific RKNN and A733 distributions. The plugin's
-`setup.py` uses fixed release asset URLs, never a mutable `latest` URL.
+Every GitHub Release carries all twelve runtime Wheels. Where the
+installer fetches one from depends on the distribution, and the version is
+always pinned exactly, never `latest`:
 
-The portable CPU distribution (`pinozcam-runtime`) and the generic Vulkan
-distribution (`pinozcam-runtime-gpu`) may additionally be mirrored on PyPI.
-The bytes must match the corresponding GitHub Release assets. Hardware-specific
-packages remain GitHub Release assets unless their platform tags and vendor
-redistribution terms are explicitly suitable for PyPI.
+- the portable CPU distribution (`pinozcam-runtime`, four Wheels) and the
+  generic Vulkan distribution (`pinozcam-runtime-gpu`, two Wheels) come from
+  PyPI as `==<version>`. Those bytes must match the GitHub Release assets, and
+  they must be on PyPI before a release that pins them is published;
+- the six hardware-specific distributions (RK3566, RK3576, RK3588, A733,
+  T527, RDK X5) come from fixed GitHub Release asset URLs. They stay off PyPI
+  unless their platform tags and vendor redistribution terms are explicitly
+  suitable for it.
 
 ## Uninstall and upgrade
 
-Uninstalling the plugin removes the installed Python plugin and runtime
-distribution through pip. It does not delete OctoPrint settings, print history,
-evidence, or credentials stored under the OctoPrint data directory. An upgrade
-should use the new tag and lets pip replace the old plugin/runtime package.
+Uninstalling the plugin in the Plugin Manager removes only the plugin
+package: pip does not remove dependencies, so the runtime distribution
+(tens of MB of runner and model) stays installed until removed by hand, as
+below. Uninstalling also does not delete OctoPrint settings, print history,
+evidence, or credentials stored under the OctoPrint data directory.
+
+An upgrade replaces both: the new plugin pins the runtime to its own exact
+version, so pip removes the old runtime of the same distribution and installs
+the new one. A runtime of a different distribution -- for example the CPU one
+left behind after an NPU runtime became available -- is not touched and can
+be removed with the command below.
 
 For a clean runtime replacement without touching settings:
 
@@ -121,10 +127,10 @@ python -m pip uninstall -y \
   OctoPrint-PiNozCam \
   pinozcam-runtime pinozcam-runtime-gpu \
   pinozcam-runtime-rknn3566 pinozcam-runtime-rknn3576 \
-  pinozcam-runtime-rknn3588 pinozcam-runtime-a733
+  pinozcam-runtime-rknn3588 pinozcam-runtime-a733 \
+  pinozcam-runtime-t527 pinozcam-runtime-rdkx5
 
-python -m pip install \
-  --no-build-isolation --no-cache-dir \
+python -m pip install --no-cache-dir \
   https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.1.zip
 ```
 
@@ -140,13 +146,15 @@ For each release candidate:
 2. Build the native runtime distributions in GitHub Actions.
 3. Verify runner ELF architecture, model manifest, Wheel contents, and
    `CHECKSUMS.txt`.
-4. Create one immutable GitHub Pre-release containing the nine runtime Wheels.
-5. Install the exact tag on each available target board with
-   `--no-build-isolation`.
-6. Confirm the selected runtime distribution, OctoPrint service status, and a
+4. Create one immutable GitHub Pre-release containing the twelve runtime
+   Wheels.
+5. Publish the portable CPU and generic Vulkan distributions to PyPI, only
+   after their GitHub asset hashes match. This comes before any board test:
+   the plugin pins those two from PyPI, so a CPU or Vulkan board cannot
+   install the candidate until they are there.
+6. Install the exact tag on each available target board.
+7. Confirm the selected runtime distribution, OctoPrint service status, and a
    PING/INFO/INFER/SHUTDOWN protocol smoke test.
-7. Publish the portable CPU and generic Vulkan distributions to PyPI only after
-   their GitHub asset hashes match.
 
 Never upload runner binaries or model files into the plugin source archive, and
 never change an already published release asset. Fixes require a new release

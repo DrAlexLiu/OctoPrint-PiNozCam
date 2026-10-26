@@ -173,8 +173,9 @@ https://github.com/DrAlexLiu/OctoPrint-PiNozCam/archive/refs/tags/1.1.1.zip
 ```
 
 The installer picks the right build for your machine automatically and asks
-pip for its exact runtime version from PyPI. Restart OctoPrint, then follow the
-first-run wizard.
+pip for its exact runtime version -- from PyPI for the CPU and Vulkan builds,
+from the matching GitHub Release for NPU boards. Restart OctoPrint, then follow
+the first-run wizard.
 
 ## 🚀 First run — three decisions
 
@@ -210,7 +211,8 @@ also include printer/status information:
   printer/status information;
 - the **connection test**, so you can confirm messages reach you without
   waiting for a real failure — a masked camera frame and a fixed test
-  message, no live printer status;
+  message, no printer status summary (when the running bot sends it, its
+  buttons show the current Pause/Resume and Mute/Unmute state);
 - the one-time **welcome message** after setup — a masked camera frame
   and fixed setup instructions, likewise no live status.
 

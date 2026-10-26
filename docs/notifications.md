@@ -64,7 +64,7 @@ carry live printer/status information:
 |---|---|---|
 | **Failure alert** | the analysed frame, detection boxes drawn on it | printer state, progress, temperatures |
 | **Check** (either bot) / **`/hi`** (Telegram) | the CURRENT camera view, unmasked -- not the analysed frame an alert carries | printer state, progress, temperatures |
-| **Connection test** | a masked camera frame (or a placeholder if none is configured) | a fixed test message, no live status |
+| **Connection test** | a masked camera frame (or a placeholder if none is configured) | a fixed test message, no status summary; when the running bot sends it, its buttons show the current Pause/Resume and Mute/Unmute state |
 | **Welcome message** (once, after setup) | a masked camera frame (or a placeholder) | fixed setup instructions, no live status |
 
 Discord additionally reads typed commands (`!check`, `!help`, ...) from
