@@ -412,12 +412,15 @@ class ApiMixin:
         # ONE snapshot of the saved settings. Everything below works from
         # it and from the posted values, never from self again: fetching the
         # picture can block, and a Save arriving meanwhile must not change
-        # where this test goes.
-        saved = {"telegramBotToken": self.telegram_bot_token or "",
-                 "telegramChatID": self.telegram_chat_id or "",
-                 "discordBotToken": self.discord_bot_token or "",
-                 "discordChannelID": self.discord_channel_id or "",
-                 "customSnapshotURL": self.custom_snapshot_url or ""}
+        # where this test goes. Under self.lock, which on_settings_save holds
+        # while it publishes, so the five reads see one saved state (never
+        # an old token with a new destination); released before any I/O.
+        with self.lock:
+            saved = {"telegramBotToken": self.telegram_bot_token or "",
+                     "telegramChatID": self.telegram_chat_id or "",
+                     "discordBotToken": self.discord_bot_token or "",
+                     "discordChannelID": self.discord_channel_id or "",
+                     "customSnapshotURL": self.custom_snapshot_url or ""}
         # What this test sends with: the posted value where the page sent
         # one, the snapshot where it did not.
         use = dict(saved, **posted)
