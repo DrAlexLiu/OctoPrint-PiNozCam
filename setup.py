@@ -7,8 +7,8 @@ import sysconfig
 from setuptools import setup
 
 
-plugin_version = "1.1.1rc2"
-runtime_version = "1.1.1rc2"
+plugin_version = "1.1.1rc3"
+runtime_version = "1.1.1rc3"
 plugin_license = "AGPL-3.0-only"
 plugin_url = "https://github.com/DrAlexLiu/OctoPrint-PiNozCam"
 

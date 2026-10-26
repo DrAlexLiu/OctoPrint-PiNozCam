@@ -121,7 +121,7 @@ class PinozcamPlugin(ConfirmMixin,
         # echoing back its stale grid can be told apart from a redraw.
         self._mask_before_retarget = None
         self.count = 0
-        self.welcome_text = "Welcome to PiNozCam!"
+        self.welcome_text = "PiNozCam connected"
         self.proc_img_width = 640
         self.proc_img_height = 384
         self.font = None

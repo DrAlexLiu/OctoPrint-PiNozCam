@@ -293,12 +293,16 @@ class NotifyMixin:
         """Deliver the welcome to the channels that are still current."""
         self._timed("welcome send to {}".format(",".join(media)), lambda:
                     self.notify_all(
-                        "Welcome to PiNozCam! Press the buttons on an "
-                        "alert, or send /hi (Telegram) or !check "
-                        "(Discord) to see the camera and the printer "
-                        "status. Send !help in Discord for the full "
-                        "command list.",
-                        image=image, buttons=False, silent=True,
+                        "PiNozCam is connected to this printer. From now "
+                        "on, press Check below at any time to see the "
+                        "camera and the printer status; Pause, Stop and "
+                        "Mute work from here too. You can also send /hi "
+                        "(Telegram) or !check (Discord). Send !help in "
+                        "Discord for the full command list.",
+                        # Sent once the bot is up, so it can carry the
+                        # buttons: this is the message a user who just
+                        # saved keeps for Check.
+                        image=image, buttons=True, silent=True,
                         respect_mute=False, only=media))
 
     # ---- what the rest of the plugin still calls -----------------------

@@ -580,7 +580,8 @@ class ApiMixin:
 
         Only a running bot can answer a button press, so only its messages
         carry buttons. A channel that is ticked on or edited but not saved
-        has none yet: Save starts it, and the next Test brings the buttons.
+        has none yet: Save starts it, and the message it sends then (the
+        "welcome") brings the buttons.
         """
         name = channel.capitalize()
         if via == "bot":
@@ -594,10 +595,10 @@ class ApiMixin:
                     f"not connected yet, so this message has no buttons; "
                     f"press Test again in a few seconds (if they still do "
                     f"not come, octoprint.log says why).")
-        return (f"Working: the test message reached {name}. Click Save, "
-                f"then open Settings and press Test again: that message "
-                f"comes with the buttons, and from then on you can press "
-                f"Check any time.")
+        return (f"Working: the test message reached {name}. Click Save: "
+                f"the bot starts and sends a message with the buttons, and "
+                f"from then on you can press Check any time to watch the "
+                f"printer.")
 
     @octoprint.plugin.BlueprintPlugin.route("/test_snapshot", methods=["POST"])
     def test_snapshot(self):

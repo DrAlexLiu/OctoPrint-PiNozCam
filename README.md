@@ -53,7 +53,7 @@ Setup guide: [docs/notifications.md](docs/notifications.md)
 - **The AI runs on your machine** — no account, no telemetry, no fee, and
   no frame is uploaded for the model to look at. ⚠️ Telegram and Discord
   are the exception, and it is more than just alerts: Check, `/hi`,
-  connection tests and the welcome message all send a camera image
+  connection tests and the connected message all send a camera image
   through those services too, once you turn either one on. See
   [Private by default](#-private-by-default).
 - **Cheap hardware is enough** — a ~US$45 Raspberry Pi 5 with 1 GB RAM
@@ -213,8 +213,9 @@ also include printer/status information:
   waiting for a real failure — a masked camera frame and a fixed test
   message, no printer status summary (when the running bot sends it, its
   buttons show the current Pause/Resume and Mute/Unmute state);
-- the one-time **welcome message** after setup — a masked camera frame
-  and fixed setup instructions, likewise no live status.
+- the **connected message** after you save a new or changed channel — a
+  masked camera frame and fixed setup instructions, likewise no status
+  summary, with the buttons so Check is ready to use.
 
 Keep bot tokens secret like passwords.
 

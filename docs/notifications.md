@@ -3,11 +3,10 @@
 [← Back to README](../README.md)
 
 Both integrations are optional. A Connection Test uses the values currently
-in the fields, so credentials can be checked before saving. That first test
-arrives without buttons, because only a running bot can answer them and the
-bot starts when you save. Click **Save**, open Settings again and press
-**Connection Test** once more: that message carries the buttons, and from then
-on **Check** works at any time.
+in the fields, so credentials can be checked before saving. That test arrives
+without buttons, because only a running bot can answer them and the bot starts
+when you save. Click **Save**: the bot sends a message with the buttons, and
+from then on you can press **Check** at any time to watch the printer.
 
 With either one connected, your phone gets failure alerts with the analysed
 picture, and these buttons work from the chat:
@@ -69,7 +68,7 @@ carry live printer/status information:
 | **Failure alert** | the analysed frame, detection boxes drawn on it | printer state, progress, temperatures |
 | **Check** (either bot) / **`/hi`** (Telegram) | the CURRENT camera view, unmasked -- not the analysed frame an alert carries | printer state, progress, temperatures |
 | **Connection test** | a masked camera frame (or a placeholder if none is configured) | a fixed test message, no status summary; when the running bot sends it, its buttons show the current Pause/Resume and Mute/Unmute state |
-| **Welcome message** (once, after setup) | a masked camera frame (or a placeholder) | fixed setup instructions, no live status |
+| **Connected message** (after a save that changes the channel) | a masked camera frame (or a placeholder) | fixed setup instructions, no status summary; carries the buttons |
 
 Discord additionally reads typed commands (`!check`, `!help`, ...) from
 the configured channel to answer them.
