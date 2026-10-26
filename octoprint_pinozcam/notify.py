@@ -277,10 +277,12 @@ class NotifyMixin:
             return
         bot = self.discord_bot
         if bot is not None:
-            # bot.verify writes to the BOT object, and a superseded
-            # generation's bot is orphaned -- _discord_status reads
-            # self.discord_bot, so a stale write cannot reach the chip.
-            self._timed("discord verify", bot.verify)
+            # Kept apart from bot.last_error, which the gateway clears on
+            # READY: READY proves the token, never the channel, so a wrong
+            # channel id showed "on" while nothing could be posted.
+            ok = bot.verify()
+            if guard():
+                self.discord_error = None if ok else bot.last_error
 
     def _welcome_image(self):
         """The picture a welcome carries. Slow: it fetches a camera frame."""
@@ -289,8 +291,18 @@ class NotifyMixin:
             lambda: self.notification_image(self.welcome_text))
         return image
 
+    # How long a welcome waits for the Discord gateway. discord_deliver drops
+    # the buttons from a message sent before READY, and setup returns as
+    # soon as the gateway thread starts, so without the wait the welcome
+    # raced READY and lost (25 ms early on Orin); READY took 0.3-1.9 s.
+    WELCOME_GATEWAY_WAIT = 15.0
+
     def _welcome_send(self, media, image):
         """Deliver the welcome to the channels that are still current."""
+        if "discord" in media:
+            media = self._await_discord_gateway(media)
+        if not media:
+            return
         self._timed("welcome send to {}".format(",".join(media)), lambda:
                     self.notify_all(
                         "PiNozCam is connected to this printer. From now "
@@ -304,6 +316,29 @@ class NotifyMixin:
                         # saved keeps for Check.
                         image=image, buttons=True, silent=True,
                         respect_mute=False, only=media))
+
+    def _await_discord_gateway(self, media):
+        """Hold the welcome until Discord can carry its buttons.
+
+        Returns the media still to send. A bot replaced while waiting is
+        dropped: the setup that replaced it sends its own welcome. A bot
+        that gave up (a bad token closes the gateway for good) ends the
+        wait at once; its send then fails as it always did.
+        """
+        bot = self.discord_bot
+        deadline = time.monotonic() + self.WELCOME_GATEWAY_WAIT
+        while bot is not None and not bot.connected and bot.running:
+            if time.monotonic() >= deadline:
+                self._logger.warning(
+                    "Discord gateway not connected after %.0f s; the "
+                    "welcome goes without buttons.",
+                    self.WELCOME_GATEWAY_WAIT)
+                break
+            if self.shutting_down.wait(0.1):
+                return ()
+        if bot is None or self.discord_bot is not bot:
+            return tuple(name for name in media if name != "discord")
+        return media
 
     # ---- what the rest of the plugin still calls -----------------------
 
@@ -334,10 +369,10 @@ class NotifyMixin:
         try:
             running = bot.start()
         except Exception:
-            bot.stop(timeout=0)
+            bot.stop(wait=False)
             raise
         if self.shutting_down.is_set():
-            bot.stop(timeout=0)
+            bot.stop(wait=False)
             return
         self.telegram_bot = bot
         self.telegram_server_running = running
@@ -347,7 +382,10 @@ class NotifyMixin:
         bot, self.telegram_bot = self.telegram_bot, None
         self.telegram_server_running = False
         if bot is not None:
-            bot.stop()
+            # Without waiting for its long poll: the client replacing it
+            # ends that poll, and waiting added 10 s to every Save.
+            # Shutdown, which must wait, stops the bot itself.
+            bot.stop(wait=False)
 
     def telegram_send_with_reply(self, image=None, caption='',
                                  reply_buttons=0,
@@ -394,6 +432,8 @@ class NotifyMixin:
     def setup_discord_bot(self):
         """Restart Discord when enabled and fully configured."""
         self.stop_discord_bot()
+        # A new pair is unchecked until _verify_channel answers for it.
+        self.discord_error = None
         if self.shutting_down.is_set():
             return
         # See setup_telegram_bot: unticked means no gateway at all.
@@ -811,9 +851,12 @@ class NotifyMixin:
         """Return the Discord status-chip state."""
         if not self.enable_discord:
             return "OFF"
+        bot = self.discord_bot
+        # Ahead of MUTED, as for Telegram: muted or not, it cannot post.
+        if bot is not None and self.discord_error:
+            return "FAILED"
         if self.alerts_muted:
             return "MUTED"
-        bot = self.discord_bot
         if bot is None:
             # Configured but not set up YET is not the same as not
             # configured -- see channel_setup_running().

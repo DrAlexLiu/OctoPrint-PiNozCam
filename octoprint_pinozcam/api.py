@@ -365,6 +365,11 @@ class ApiMixin:
             return "unconfigured"
         if self.telegram_error:
             return "failed"
+        bot = self.telegram_bot
+        if bot is not None and not bot.running:
+            # Polling gave up: another printer polls this token, or it
+            # failed too often. Alerts may still go out; buttons cannot.
+            return "failed"
         if not self.telegram_server_running:
             if self.channel_setup_running("telegram"):
                 return "starting"
@@ -460,7 +465,8 @@ class ApiMixin:
                    "you.")
         results = {}
         # Per channel, which client sent: "bot" (the running one, so the
-        # message carries the buttons) or "draft" (no buttons).
+        # message carries the buttons), "connecting" (the running Discord
+        # bot before its gateway is READY: no buttons) or "draft" (none).
         via = {}
         if wanted == "discord":
             pass
@@ -510,6 +516,9 @@ class ApiMixin:
                 try:
                     bot = self._running_bot_for("discord", use_token,
                                                 use_channel)
+                    # discord_deliver drops the buttons before READY; read
+                    # it now so the result says what the message carries.
+                    ready = bot is not None and bot.connected
                     if bot is None:
                         # Same rule as Telegram above.
                         self.discord_send_draft(use_token, use_channel,
@@ -520,7 +529,8 @@ class ApiMixin:
                             "Discord refused the message; the reason is in "
                             "octoprint.log.")
                     results["discord"] = "sent"
-                    via["discord"] = "draft" if bot is None else "bot"
+                    via["discord"] = ("draft" if bot is None
+                                      else "bot" if ready else "connecting")
                 except Exception as exc:              # noqa: BLE001
                     # redact(): requests puts the failing URL in its
                     # exception message and for Discord that URL carries the
@@ -588,9 +598,10 @@ class ApiMixin:
             return (f"Working: the test message reached {name} with its "
                     f"buttons. You can press Check there any time to see "
                     f"the printer.")
-        if enabled and not edited:
-            # Saved and enabled, yet no matching bot: it is still starting,
-            # or it could not start. One line covers both.
+        if via == "connecting" or (enabled and not edited):
+            # The Discord bot sent but its gateway is not READY yet, or the
+            # channel is saved and enabled with no matching bot (still
+            # starting, or could not start). One line covers all three.
             return (f"Working: the test message reached {name}. Its bot is "
                     f"not connected yet, so this message has no buttons; "
                     f"press Test again in a few seconds (if they still do "

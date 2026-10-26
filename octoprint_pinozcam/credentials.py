@@ -18,7 +18,10 @@ SECRET_RE = re.compile(
 TELEGRAM_TOKEN_RE = re.compile(r"^\d{6,}:[\w-]{30,}$")
 TELEGRAM_CHAT_RE = re.compile(r"^-?[0-9]{5,}$")
 
-DISCORD_CHANNEL_RE = re.compile(r"^[0-9]{17,20}$")
+DISCORD_CHANNEL_RE = re.compile(r"^[0-9]{17,19}$")
+# Discord ids are signed 64-bit snowflakes: Discord refuses anything above
+# this (NUMBER_TYPE_MAX), so no 20-digit id can be real.
+DISCORD_ID_MAX = 2 ** 63 - 1
 DISCORD_TOKEN_RE = re.compile(r"^[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,}$")
 
 
@@ -40,8 +43,10 @@ def discord_channel_id_error(value):
     Empty values are valid and treated as "not configured".
     """
     value = "" if value is None else str(value).strip()
-    if value and not DISCORD_CHANNEL_RE.match(value):
-        return "Discord Channel ID must be 17-20 digits."
+    if value and not (DISCORD_CHANNEL_RE.match(value)
+                      and int(value) <= DISCORD_ID_MAX):
+        return ("Discord Channel ID must be 17-19 digits, at most "
+                "9223372036854775807.")
     return None
 
 

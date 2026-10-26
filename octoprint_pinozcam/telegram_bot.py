@@ -1,5 +1,6 @@
 """Telegram polling, delivery and button transport."""
 
+import logging
 import threading
 import time
 
@@ -10,6 +11,13 @@ from . import credentials
 
 # A sufficiently long polling run resets the consecutive-failure counter.
 HEALTHY_RUN = 120.0
+
+# 409s within CONFLICT_WINDOW seconds that mean another process polls this
+# token. Another poller takes the stream again and again, so its 409s keep
+# coming; a single one can be our own replaced client, whose last request
+# reached Telegram after its successor's first.
+CONFLICT_LIMIT = 3
+CONFLICT_WINDOW = 30.0
 MAX_CONSECUTIVE = 3
 
 
@@ -25,6 +33,40 @@ def _is_conflict(exc):
     return ("terminated by other getupdates" in text
             or "only one bot instance" in text
             or "409" in text and "conflict" in text)
+
+
+class _QuietDeliberateStop(logging.Filter):
+    """Drop telebot's two ERROR lines for a stop that was asked for.
+
+    infinity_polling logs "polling exited" and "Break infinity polling" at
+    ERROR whenever polling ends, and it ends normally only when
+    stop_polling() was called -- every Save that touches Telegram, and
+    every shutdown. They read as failures and are not.
+    """
+
+    QUIET = ("Infinity polling: polling exited", "Break infinity polling")
+
+    def filter(self, record):
+        return record.getMessage() not in self.QUIET
+
+
+telebot.logger.addFilter(_QuietDeliberateStop())
+
+
+class _PollErrors(telebot.ExceptionHandler):
+    """telebot's hook for polling errors, the only place a 409 is visible.
+
+    infinity_polling catches every polling error itself, logs it and
+    retries, so nothing reaches TelegramBot._poll: its 409 branch never
+    ran, and a token shared by two printers only produced an endless
+    stream of tracebacks.
+    """
+
+    def __init__(self, owner):
+        self.owner = owner
+
+    def handle(self, exception):
+        return self.owner._on_poll_error(exception)
 
 
 def buttons(paused=False, muted=False):
@@ -88,6 +130,7 @@ class TelegramBot:
         self.thread = None
         self.stop_event = threading.Event()
         self._bot = None
+        self._conflicts = []                # monotonic times of 409s
 
     def _timed(self, what, fn):
         """Run fn and log its elapsed time."""
@@ -123,7 +166,8 @@ class TelegramBot:
     def start(self):
         """Register handlers once and start the polling worker."""
         try:
-            self._bot = telebot.TeleBot(self.token)
+            self._bot = telebot.TeleBot(
+                self.token, exception_handler=_PollErrors(self))
             self._register()
             self.stop_event.clear()
             self.thread = threading.Thread(target=self._poll,
@@ -141,8 +185,16 @@ class TelegramBot:
             self._bot = None
             return False
 
-    def stop(self, timeout=10.0):
-        """Stop polling and wait for the thread. Safe to call twice."""
+    def stop(self, timeout=10.0, wait=True):
+        """Stop polling. Safe to call twice.
+
+        wait=False is for a rebuild. The thread sits in a long poll of up
+        to 60 s, and waiting for it delayed every Save by the full
+        `timeout` -- needlessly: the next client's first getUpdates ends
+        that poll at once (Telegram answers the older one 409), and the
+        stop flag set here makes it exit instead of polling again, and
+        drop whatever it may still receive (see _register).
+        """
         self.stop_event.set()
         self.running = False
         bot, self._bot = self._bot, None
@@ -159,6 +211,9 @@ class TelegramBot:
                     "Error occurred while stopping Telegram bot polling: %s",
                     credentials.redact(str(exc)))
         if thread is not None and thread.is_alive():
+            if not wait:
+                self._logger.info("Telegram bot is stopping.")
+                return True
             thread.join(timeout=timeout)
             if thread.is_alive():
                 self._logger.warning(
@@ -235,6 +290,8 @@ class TelegramBot:
         @bot.message_handler(commands=['hi'])
         def _hi(message):
             """Dispatch an authenticated ``/hi`` command."""
+            if self.stop_event.is_set():
+                return              # a retired client: see stop()
             if not self._from_owner(message, "/hi"):
                 return
             self.on_command("/hi", None)
@@ -242,6 +299,8 @@ class TelegramBot:
         @bot.message_handler(func=lambda message: True)
         def _anything_else(message):
             """Explain unsupported text sent by the configured owner."""
+            if self.stop_event.is_set():
+                return
             if not self._from_owner(message, "a message"):
                 return
             text = self.on_command("", None)
@@ -251,6 +310,10 @@ class TelegramBot:
         @bot.callback_query_handler(func=lambda call: True)
         def _button(call):
             """Validate and dispatch one Telegram inline-button press."""
+            if self.stop_event.is_set():
+                # Unanswered on purpose: the press is not confirmed either,
+                # so Telegram hands it to the client that replaced this one.
+                return
             # FAILS CLOSED. An earlier version skipped the check when the
             # chat id could not be read, which is backwards: a bot added to
             # a second group would otherwise take pause and stop from
@@ -266,6 +329,39 @@ class TelegramBot:
                 self.on_command(call.data or "", call)
             finally:
                 self.answer(call.id)
+
+    def _on_poll_error(self, exc):
+        """True when the error is dealt with here, False for telebot's own
+        log-and-retry."""
+        if not _is_conflict(exc):
+            return False
+        if self.stop_event.is_set():
+            # Our own replacement took the update stream: expected.
+            return True
+        now = time.monotonic()
+        self._conflicts = [t for t in self._conflicts
+                           if now - t < CONFLICT_WINDOW] + [now]
+        if len(self._conflicts) < CONFLICT_LIMIT:
+            return True                     # telebot retries shortly
+        # Not ours: another process polls this token. Each takes the stream
+        # from the other in turn, so presses reach whichever holds it.
+        # Nothing here can resolve it -- the fix is one token per printer --
+        # so say that once and stop, rather than fight.
+        self.last_error = (
+            "this bot token is already being polled by another PiNozCam "
+            "instance -- use one Telegram bot token per printer (a shared "
+            "chat is fine)")
+        self._logger.error(
+            "Telegram refused polling with 409 Conflict: another client is "
+            "polling this bot token. Alerts will still be delivered, but "
+            "BUTTONS AND TYPED COMMANDS WILL NOT WORK on this printer. Give "
+            "each printer its own bot token; they may share one chat.")
+        self.running = False
+        self.stop_event.set()
+        bot = self._bot
+        if bot is not None:
+            bot.stop_polling()
+        return True
 
     def _poll(self):
         """Long-poll until stopped, backing off on repeated failure."""

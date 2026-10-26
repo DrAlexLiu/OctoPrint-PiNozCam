@@ -122,6 +122,12 @@ class ChannelManager:
                     self._verify(name, lambda n=name, t=token:
                                  self.is_current(n, t))
 
+            # Connected and verified: that is the end of "connecting". The
+            # welcome below can take many seconds (a camera fetch, then an
+            # upload -- 16 s once on Orin), and a Test pressed meanwhile
+            # must use the new bot, with its buttons, not the draft client.
+            self._release(tokens)
+
             if not welcome:
                 return
             media = tuple(name for name in CHANNELS
@@ -139,9 +145,13 @@ class ChannelManager:
         except Exception:                                   # noqa: BLE001
             self._get_logger().exception("Channel setup failed.")
         finally:
-            # Never clear a newer worker's pending token.
+            self._release(tokens)
             with self.gen_lock:
-                for name, token in tokens.items():
-                    if self.pending.get(name) == token:
-                        self.pending[name] = None
                 self._threads.discard(threading.current_thread())
+
+    def _release(self, tokens):
+        """Clear this worker's pending tokens, never a newer worker's."""
+        with self.gen_lock:
+            for name, token in tokens.items():
+                if self.pending.get(name) == token:
+                    self.pending[name] = None

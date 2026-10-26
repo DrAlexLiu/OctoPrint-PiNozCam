@@ -222,6 +222,8 @@ class PinozcamPlugin(ConfirmMixin,
         # Why the Telegram chip is red, or None when it is not. Set by
         # telegram_verify, which runs after setup rather than gating it.
         self.telegram_error = None
+        # The last check of the saved Discord pair; see _verify_channel.
+        self.discord_error = None
         # generations, the pending markers, the two locks and the worker --
         # lives in ChannelManager. This object supplies only what a channel
         # IS: how to rebuild one, how to verify one, and the two halves of

@@ -217,8 +217,16 @@ $(function () {
 
         self.currentDiscordChannelID = ko.observable();
         self.newDiscordChannelID = validatedOptionalId(
-            undefined, /^[0-9]{17,20}$/,
-            "Discord Channel ID must be 17-20 digits.");
+            undefined, {
+                // Discord ids are signed 64-bit: at most 19 digits, and a
+                // 19-digit one at most this (same-length strings compare
+                // as numbers).
+                test: function (v) {
+                    return /^[0-9]{17,19}$/.test(v)
+                        && (v.length < 19 || v <= "9223372036854775807");
+                }
+            },
+            "Discord Channel ID must be 17-19 digits, at most 9223372036854775807.");
 
         self.aiImage = ko.observable("");
         self.streamInfo = ko.observable(null);
