@@ -22,7 +22,6 @@ from .mask import MASK_GRID
 from .nozcam_backend import NozcamBackend
 
 
-
 def _sample_undervoltage(logger):
     """Return whether the board reports under-voltage right now, or None.
 
@@ -367,12 +366,11 @@ class ApiMixin:
             return "failed"
         bot = self.telegram_bot
         if bot is not None and not bot.running:
-            # Polling gave up: another printer polls this token, or it
-            # failed too often. Alerts may still go out; buttons cannot.
+            # Polling gave up (409 conflict, or refused token): alerts
+            # may still go out; buttons cannot.
             return "failed"
         if bot is not None and getattr(bot, "post_error", None):
-            # The chat exists (verify passed) but refuses our messages.
-            return "failed"
+            return "failed"          # the chat exists but refuses posts
         if not self.telegram_server_running:
             if self.channel_setup_running("telegram"):
                 return "starting"
@@ -467,9 +465,8 @@ class ApiMixin:
                    "replies and failure alerts from this printer can reach "
                    "you.")
         results = {}
-        # Per channel, which client sent: "bot" (the running one, so the
-        # message carries the buttons), "connecting" (the running Discord
-        # bot before its gateway is READY: no buttons) or "draft" (none).
+        # Per channel, which client sent: "bot" (buttons), "connecting"
+        # (the Discord bot before READY: no buttons) or "draft" (none).
         via = {}
         if wanted == "discord":
             pass
@@ -519,8 +516,7 @@ class ApiMixin:
                 try:
                     bot = self._running_bot_for("discord", use_token,
                                                 use_channel)
-                    # discord_deliver drops the buttons before READY; read
-                    # it now so the result says what the message carries.
+                    # discord_deliver drops the buttons before READY.
                     ready = bot is not None and bot.connected
                     if bot is None:
                         # Same rule as Telegram above.
@@ -602,9 +598,7 @@ class ApiMixin:
                     f"buttons. You can press Check there any time to see "
                     f"the printer.")
         if via == "connecting" or (enabled and not edited):
-            # The Discord bot sent but its gateway is not READY yet, or the
-            # channel is saved and enabled with no matching bot (still
-            # starting, or could not start). One line covers all three.
+            # Sent, but without buttons: the bot is not (yet) connected.
             return (f"Working: the test message reached {name}. Its bot is "
                     f"not connected yet, so this message has no buttons; "
                     f"press Test again in a few seconds (if they still do "

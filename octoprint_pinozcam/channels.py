@@ -122,10 +122,8 @@ class ChannelManager:
                     self._verify(name, lambda n=name, t=token:
                                  self.is_current(n, t))
 
-            # Connected and verified: that is the end of "connecting". The
-            # welcome below can take many seconds (a camera fetch, then an
-            # upload -- 16 s once on Orin), and a Test pressed meanwhile
-            # must use the new bot, with its buttons, not the draft client.
+            # Set up and verified is the end of "connecting": the welcome
+            # below can take seconds, and a Test meanwhile must see the bot.
             self._release(tokens)
 
             if not welcome:

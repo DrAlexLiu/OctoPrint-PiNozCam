@@ -13,30 +13,22 @@ from . import credentials
 # A sufficiently long polling run resets the consecutive-failure counter.
 HEALTHY_RUN = 120.0
 
-# Consecutive 409s -- none of them explained by a client of ours that was
-# just replaced, and no successful poll in between -- that mean another
-# process polls this token. Another poller takes the stream back again and
-# again, so its 409s keep coming; one stray 409 can be a request that was
-# delayed on the network.
+# Consecutive 409s, none explained by a client of ours just replaced and no
+# good poll in between, that mean another process polls this token.
 CONFLICT_LIMIT = 3
 
-# How long a client that has stopped polling lets the handlers still
-# queued on its worker pool run before closing the pool. A press that was
-# confirmed to Telegram (the next getUpdates went out with a higher
-# offset) exists nowhere else, so dropping it would lose it.
+# How long a client that has stopped polling lets queued handlers run
+# before closing its pool: a press already confirmed to Telegram exists
+# nowhere else.
 DRAIN_WAIT = 30.0
 
-# One getUpdates consumer per token. A client stopped for a rebuild (stop
-# with wait=False) may still have a request on its way to Telegram; until
-# its thread has exited, a 409 on the client that replaced it can be that
-# request and proves nothing about other processes.
+# Clients stopped for a rebuild whose last getUpdates may still be out: a
+# 409 on their replacement can be that request, not another process.
 _RETIRING = {}                  # token -> set of TelegramBot, thread alive
 _RETIRING_LOCK = threading.Lock()
 
-# What was already acted on, per token, across clients. A press one client
-# handled but whose confirmation never went out (its next getUpdates did
-# not happen) comes to its successor again; Telegram only forgets an update
-# once a later offset confirms it. Bounded; 512 is hours of presses.
+# What was already acted on, per token, across clients: a press handled
+# but not yet confirmed by a later offset comes to the successor again.
 _HANDLED = {}                   # token -> OrderedDict(key -> None)
 _HANDLED_MAX = 512
 
@@ -74,19 +66,15 @@ def _handing_over(token):
         return False
 
 
-# What a client answers to a press that reached it after the settings it
-# was built for were switched off or replaced. Under 200 characters, the
-# limit for answerCallbackQuery text.
+# Answered to a press that reached a client whose settings were switched
+# off or replaced (answerCallbackQuery text, under 200 characters).
 RETIRED_TEXT = ("PiNozCam's Telegram settings changed after this message was "
                 "sent, so this button no longer works. Press one on a newer "
                 "message.")
 OTHER_CHAT_TEXT = "Not the configured chat."
 
-# The client and chat a command arrived through, for the thread running
-# its handler. Replies made while handling it go back there -- through that
-# client and to that chat -- and not to whatever a Save landing meanwhile
-# has made current: a Check from chat A that was fetching a frame while the
-# chat was changed to B used to deliver A's frame to B.
+# The client and chat a command arrived through, for the thread handling
+# it: its replies go back there, not to what a Save meanwhile made current.
 _REPLYING = threading.local()
 
 
@@ -95,6 +83,8 @@ def reply_target():
     (None, None) outside a handler."""
     return (getattr(_REPLYING, "bot", None),
             getattr(_REPLYING, "chat_id", None))
+
+
 MAX_CONSECUTIVE = 3
 
 
@@ -122,12 +112,9 @@ class _QuietDeliberateStop(logging.Filter):
     """
 
     QUIET = ("Infinity polling: polling exited", "Break infinity polling")
-    # telebot follows every polling error's one-line message with the full
-    # traceback, at ERROR, on every retry: a dead token or a network outage
-    # filled octoprint.log with one every three seconds. Those tracebacks
-    # -- Telegram's refusals and requests' transport errors -- add nothing
-    # a user can act on; the one-line message stays. A traceback of any
-    # other kind is a bug somewhere and is kept.
+    # telebot dumps a traceback after every polling error, on every retry.
+    # For its own refusals and transport errors the one-line message is
+    # enough; any other traceback is a bug and is kept.
     TRACEBACK_PREFIX = "Exception traceback:"
     EXPECTED = ("ApiTelegramException", "ApiHTTPException",
                 "ApiInvalidJSONException", "requests.exceptions.",
@@ -239,11 +226,9 @@ class TelegramBot:
         self._thread_done = False           # _poll has run its finally
         self._stopped = False               # stop() was called
         self._finished = False              # _finish has run
-        # Per chat, why the last send there was refused for good (Telegram
-        # 400/403), or absent: a chat the bot can see but not post in
-        # passes verify. Per chat because a Save that only changes the chat
-        # keeps this client, and a reply pinned to the OLD chat must not
-        # speak for the new one -- see post_error.
+        # Per chat, why the last send there was refused for good (400/403).
+        # Per chat because a chat-only Save keeps this client, and a reply
+        # pinned to the old chat must not speak for the new one.
         self.post_errors = {}
         # verify() or getMe answered 401/404: the TOKEN is refused.
         self.token_refused = False
@@ -312,25 +297,29 @@ class TelegramBot:
             self._register()
             self.stop_event.clear()
             self.token_refused = False
-            # The same getMe telebot's polling() opens with. Asked here
-            # first because there a 401/404 is caught inside
-            # infinity_polling, retried every 3 s for ever, and never
-            # reaches the exception handler. Refused here means no thread
-            # at all. A transport error is not a refusal: polling retries.
-            try:
-                self._timed("telegram getMe", self._bot.get_me)
-            except Exception as exc:                        # noqa: BLE001
-                if getattr(exc, "error_code", None) in (401, 404):
-                    self.running = False
-                    self._bot = None
-                    return False
-                self._logger.warning(
-                    "Telegram getMe failed (%s); polling will retry.",
-                    credentials.redact(str(exc)))
+            # Asked before polling: inside infinity_polling a 401/404 from
+            # getMe is retried every 3 s for ever and never reaches the
+            # exception handler. A transport error is not a refusal.
             self._thread_done = False
             self._stopped = False
             self._finished = False
             self._in_flight = 0
+            try:
+                # Via the cached `user` property, so polling() does not ask
+                # again.
+                self._timed("telegram getMe",
+                            lambda: self._bot.user
+                            if hasattr(type(self._bot), "user")
+                            else self._bot.get_me())
+            except Exception as exc:                        # noqa: BLE001
+                if getattr(exc, "error_code", None) in (401, 404):
+                    # The constructor already started the worker pool.
+                    self.running = False
+                    self._discard(self._bot)
+                    return False
+                self._logger.warning(
+                    "Telegram getMe failed (%s); polling will retry.",
+                    credentials.redact(str(exc)))
             self.thread = threading.Thread(target=self._poll,
                                            name="pinozcam-telegram")
             self.thread.daemon = True
@@ -343,8 +332,15 @@ class TelegramBot:
                 "An error occurred while setting up the Telegram bot: %s",
                 self.last_error)
             self.running = False
-            self._bot = None
+            self._discard(self._bot)
             return False
+
+    def _discard(self, bot):
+        """Drop a client that will never poll, closing its worker pool."""
+        self._stopped = True
+        if bot is not None:
+            self._finish(bot)
+        self._bot = None
 
     def stop(self, timeout=10.0, wait=True):
         """Stop polling. Safe to call twice.
@@ -362,8 +358,8 @@ class TelegramBot:
         self.running = False
         self._stopped = True
         bot = self._bot
-        # Kept, not cleared: a second stop() must see the thread is still
-        # alive and return at once too, not take it for never started.
+        # Kept: a second stop() must see the thread alive, not "never
+        # started".
         thread = self.thread
         if bot is not None:
             try:
@@ -375,9 +371,7 @@ class TelegramBot:
         if thread is not None and thread.is_alive():
             if not wait:
                 with _RETIRING_LOCK:
-                    # Under the lock _finish takes: a thread that has
-                    # already run its finally must not be registered, or
-                    # the entry would never be removed.
+                    # A thread past its finally must not be registered.
                     if not self._thread_done:
                         _RETIRING.setdefault(self.token, set()).add(self)
                 self._logger.info("Telegram bot is stopping.")
@@ -388,8 +382,7 @@ class TelegramBot:
                     "Telegram polling thread has not stopped.")
                 return False
         if bot is not None and not self._finished:
-            # Never polled (start failed, or a client built for a one-off
-            # send): there is no polling thread to do this.
+            # Never polled: no polling thread will do this.
             self._finish(bot)
         self._bot = None
         self._logger.info("Telegram bot has been stopped.")
@@ -430,9 +423,9 @@ class TelegramBot:
                     if not self.stop_event.is_set():
                         self._give_up(
                             "Telegram refused the bot token (HTTP %s)" % code,
-                            "Telegram refused the bot token (HTTP %s); polling "
-                            "stopped. Check the token, then save the settings "
-                            "to retry." % code)
+                            "Telegram refused the bot token (HTTP %s); "
+                            "polling stopped. Check the token, then save the "
+                            "settings to retry." % code)
                 raise
         bot.get_me = tracked
 
@@ -540,9 +533,8 @@ class TelegramBot:
             self._logger.error("Failed to send message to Telegram: %s",
                                credentials.redact(str(exc)))
             if getattr(exc, "error_code", None) in (400, 403):
-                # Not transient: "chat not found", "not enough rights",
-                # "bot was blocked by the user". The chip reads this -- for
-                # the chat it happened in.
+                # Not transient ("chat not found", "not enough rights");
+                # the chip reads this for the chat it happened in.
                 self.post_errors[str(chat)] = "Telegram refused to post: " + \
                     credentials.redact(getattr(exc, "description", None)
                                        or str(exc))
@@ -604,34 +596,28 @@ class TelegramBot:
         def _button(call):
             """Validate and dispatch one Telegram inline-button press."""
             if self._retired(("press", call.id)):
-                # Whatever chat it came from: the settings this client was
-                # built for are gone, and the printer is not driven from
-                # them any more. Answered, so the button stops spinning.
+                # The settings this client was built for are gone.
+                # Answered, so the button stops spinning.
                 self.answer(call.id, text=RETIRED_TEXT)
                 return
             message = getattr(call, "message", None)
             problem = self._source_problem(message, "a button")
             if problem is not None:
-                # Recorded as handled: a press refused under the settings
-                # committed now is not to be retried by the next client.
+                # Recorded, so the next client does not retry it.
                 self._first_time(("press", call.id))
                 self.answer(call.id, text=problem)
                 return
             if not self._first_time(("press", call.id)):
-                # Handled already, by this client or the one it replaced,
-                # and answered then; answering again would be refused.
+                # Handled and answered already, here or by the client
+                # this one replaced.
                 return
-            # button forever if the query goes unanswered, and the old
-            # handler answered on several separate paths -- one of which
-            # could be missed by a new branch.
+            # Answered in finally: Telegram spins the button until then.
             self._as_source(message)
             try:
                 self.on_command(call.data or "", call)
             except Exception:                               # noqa: BLE001
-                # Logged by the plugin, with the traceback, and NOT
-                # re-raised: in telebot's worker it would end the current
-                # polling run, and a bug in one command must not take
-                # polling down with it.
+                # Logged with the traceback and not re-raised: in telebot's
+                # worker it would end the polling run.
                 self._logger.exception("Telegram button handler failed "
                                        "(%s)", call.data)
             finally:
@@ -674,8 +660,7 @@ class TelegramBot:
         log-and-retry."""
         code = getattr(exc, "error_code", None)
         if code in (401, 404) and not self.stop_event.is_set():
-            # Unauthorized / Not Found: the token itself is refused. Nothing
-            # a retry can change; telebot would retry every 3 s forever.
+            # The token itself is refused; a retry cannot change that.
             self._give_up(
                 "Telegram refused the bot token (HTTP %s)" % code,
                 "Telegram refused the bot token (HTTP %s); polling stopped. "
@@ -687,16 +672,13 @@ class TelegramBot:
             # Our own replacement took the update stream: expected.
             return True
         if _handing_over(self.token):
-            # The client this one replaced may still have a request on its
-            # way; its arrival ends our poll with exactly this 409.
+            # A client this one replaced may still have a request out.
             return True
         self._conflicts += 1
         if self._conflicts < CONFLICT_LIMIT:
             return True                     # telebot retries shortly
-        # Not ours: another process polls this token. Each takes the stream
-        # from the other in turn, so presses reach whichever holds it.
-        # Nothing here can resolve it -- the fix is one token per printer --
-        # so say that once and stop, rather than fight.
+        # Another process polls this token. Nothing here can resolve it
+        # -- one token per printer -- so say so once and stop.
         self.last_error = (
             "this bot token is already being polled by another PiNozCam "
             "instance -- use one Telegram bot token per printer (a shared "
@@ -721,8 +703,7 @@ class TelegramBot:
         finally:
             with _RETIRING_LOCK:
                 self._thread_done = True
-            # Drops this client from the hand-over registry -- unless a
-            # getUpdates of its own is still out, see _handing_over.
+            # Drops this client from _RETIRING once no request is out.
             _handing_over(self.token)
             self._finish(bot)
 
@@ -738,29 +719,10 @@ class TelegramBot:
                 self._logger.info("Telegram bot polling stopped.")
                 return
             except Exception as exc:                        # noqa: BLE001
+                # Only what escapes infinity_polling, which handles API
+                # errors itself (409s and refused tokens go through
+                # _on_poll_error): a transport failure in its own setup.
                 ran_for = time.monotonic() - started
-                # getUpdates is exclusive: Telegram gives the update stream to
-                # one consumer per token and answers everyone else with
-                # "Conflict: terminated by other getUpdates request". Two
-                # PiNozCam instances on one token therefore fight, each press
-                # reaches whichever won, and the loser's retries only take the
-                # stream away from the other one for a moment before losing it
-                # again. Nothing here can resolve it -- the fix is a bot token
-                # per printer -- so say that and stop.
-                #
-                if _is_conflict(exc):
-                    self.last_error = (
-                        "this bot token is already being polled by another "
-                        "PiNozCam instance -- use one Telegram bot token per "
-                        "printer (a shared chat is fine)")
-                    self._logger.error(
-                        "Telegram refused polling with 409 Conflict: another "
-                        "client is polling this bot token. Alerts will still "
-                        "be delivered, but BUTTONS AND TYPED COMMANDS WILL "
-                        "NOT WORK on this printer. Give each printer its own "
-                        "bot token; they may share one chat.")
-                    self.running = False
-                    return
                 if ran_for >= HEALTHY_RUN:
                     consecutive, backoff = 0, 5
                 consecutive += 1

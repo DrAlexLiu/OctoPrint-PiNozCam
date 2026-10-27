@@ -279,10 +279,9 @@ class NotifyMixin:
             if guard():
                 self.telegram_error = error
                 if getattr(bot, "token_refused", False):
-                    # The TOKEN is refused (a wrong chat is a 400); stop
-                    # THIS client, and detach it only if it is still the
-                    # one in place -- a later Save may have put a good one
-                    # there, and a global stop took that one down.
+                    # The TOKEN is refused (a wrong chat is a 400): stop
+                    # THIS client, and detach it only while it is still the
+                    # one in place -- a later Save may have replaced it.
                     with self.lock:
                         if self.telegram_bot is bot:
                             self.telegram_bot = None
@@ -291,10 +290,8 @@ class NotifyMixin:
             return
         bot = self.discord_bot
         if bot is not None:
-            # The answer itself, not bot.last_error afterwards: the gateway
-            # clears that on READY, which can land between the two. READY
-            # proves the token, never the channel, so a wrong channel id
-            # showed "on" while nothing could be posted.
+            # The answer itself, not bot.last_error afterwards: READY
+            # clears that, and READY proves the token, not the channel.
             error, _ms = self._timed("discord verify", bot.check)
             if guard():
                 self.discord_error = error
@@ -306,10 +303,8 @@ class NotifyMixin:
             lambda: self.notification_image(self.welcome_text))
         return image
 
-    # How long a welcome waits for the Discord gateway. discord_deliver drops
-    # the buttons from a message sent before READY, and setup returns as
-    # soon as the gateway thread starts, so without the wait the welcome
-    # raced READY and lost (25 ms early on Orin); READY took 0.3-1.9 s.
+    # How long a welcome waits for the Discord gateway: discord_deliver
+    # drops the buttons before READY, and setup returns before it.
     WELCOME_GATEWAY_WAIT = 15.0
 
     def _welcome_send(self, media, image, current=None):
@@ -326,31 +321,26 @@ class NotifyMixin:
         """
         if "discord" in media:
             media = self._await_discord_gateway(media)
-        # Sent once the bot is up, so it can carry the buttons: this is the
-        # message a user who just saved keeps for Check.
+        # Sent once the bot is up, so it carries the buttons.
         text = ("PiNozCam is connected to this printer. From now on, press "
                 "Check below at any time to see the camera and the printer "
                 "status; Pause, Stop and Mute work from here too. You can "
                 "also send /hi (Telegram) or !check (Discord). Send !help "
                 "in Discord for the full command list.")
-        # The same gate an alert passes: a channel cleared or switched off
-        # by the time this runs has nowhere to send to.
+        # The same gate an alert passes.
         configured = dict((n, c) for n, c, _muted, _send in self._media())
         for name in media:
             if not configured.get(name):
                 continue
             if name == "telegram":
                 bot = self.telegram_bot
-                # The chat as well: a Save that only changes the chat keeps
-                # this client and rewrites its chat id.
+                # The chat too: a chat-only Save rewrites it on this client.
                 pinned = {"bot": bot, "chat_id": getattr(bot, "chat_id", None)}
                 send = self._send_telegram
             else:
                 bot = self.discord_bot
                 pinned = {"bot": bot}
                 send = self._send_discord
-            # No bot (None) is passed on as such: the senders answer False
-            # for it, the same as they do for an alert.
             if current is not None and name not in current((name,)):
                 continue
             try:
@@ -434,13 +424,11 @@ class NotifyMixin:
             bot.stop(wait=False)
             return
         with self.lock:
-            # Under the lock the verifier detaches under: its "still the
-            # one in place" check and this replacement must not interleave.
+            # The lock the verifier detaches under.
             self.telegram_bot = bot
             self.telegram_server_running = running
             if not running:
-                # Refused at getMe, so no verification will run to say
-                # why: the chip's text comes from here.
+                # Refused at getMe: no verification will run to say why.
                 self.telegram_error = bot.last_error
 
     def _telegram_source_problem(self, token, chat_id):
@@ -468,8 +456,7 @@ class NotifyMixin:
             bot, self.telegram_bot = self.telegram_bot, None
             self.telegram_server_running = False
         if bot is not None:
-            # Without waiting for its long poll: the client replacing it
-            # ends that poll, and waiting added 10 s to every Save.
+            # Not waiting for its long poll: the replacing client ends it.
             # Shutdown, which must wait, stops the bot itself.
             bot.stop(wait=False)
 
@@ -951,10 +938,8 @@ class NotifyMixin:
         if not self.enable_discord:
             return "OFF"
         bot = self.discord_bot
-        # Ahead of MUTED, as for Telegram: muted or not, it cannot post.
-        # discord_error: the channel check refused. bot.post_error: the
-        # check passed but a post was refused (not a text channel, no
-        # permission) -- found when the welcome or an alert went out.
+        # Ahead of MUTED: muted or not, it cannot post. discord_error is
+        # the channel check's refusal, post_error a refused post.
         if bot is not None and (self.discord_error
                                 or getattr(bot, "post_error", None)):
             return "FAILED"
